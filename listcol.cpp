@@ -45,7 +45,7 @@ using namespace std;
 
 //#define PUREBYB
 #define NOMEMEMPHASIS
-//#define ONLYRELAXATION
+#define ONLYRELAXATION
 
 /* GLOBAL VARIABLES */
 
@@ -76,10 +76,9 @@ IloObjective Xobj; /* CPLEX objective function */
 IloNumVarArray Xvars(Xenv); /* CPLEX variables */
 IloRangeArray Xrestr(Xenv); /* CPLEX constraints */
 
-MWSSgraph Mgraph; /* graph for the MWSS algorithm */
-MWSSdata Mdata; /* data for the MWSS algorithm */
-wstable_info Minfo; /* info for the MWSS algorithm */
+MWSSgraph *Mgraph; /* subgraphs of G (one per color) for the MWSS algorithm */
 wstable_parameters Mparms;  /* parameters for the MWSS algorithm */
+int **V_to_Vk; /* V_to_Vk[k] : V --> V' given the vertex in G, it returns the one in the subgraph k (i.e. C_set[k][V_to_Vk[k][v]] = v) */
 
 /* FUNCTIONS */
 
@@ -363,52 +362,6 @@ bool connected()
 	cout << "Diameter of G: " << diameter << endl;
 
 	return true;
-}
-
-/*
- * initialize_MWSS - perform some initializations for the MWSS algorithm, including the generation of G
- */
-void initialize_MWSS()
-{
-	reset_pointers(&Mgraph, &Mdata, &Minfo);
-	default_parameters(&Mparms);
-	Mparms.cpu_limit = MAXTIME_MWIS;
-	Mparms.reorder = 1; /* reorder vertices of subgraph by degree */
-	// if (density < 0.2) Mparms.clique_cover = 2;
-	// else Mparms.clique_cover = 1;
-
-	/* generate the graph: recall that the first entry (i.e. array[0]) is not used!!! */
-	allocate_graph(&Mgraph, vertices);
-	for (int i = 0; i <= vertices; i++) {
-		Mgraph.node_list[i].name = i;
-		Mgraph.node_list[i].degree = 0;
-	}
-	for (int row = 1; row <= vertices; row++) {
-		Mgraph.adj[row][row] = 0;
-		for (int col = row + 1; col <= vertices; col++) {
-			int val = adjacency[row - 1][col - 1] > 0 ? 1 : 0;
-			Mgraph.adj[row][col] = val;
-			Mgraph.adj[col][row] = val;
-		}
-	}
-	build_graph(&Mgraph);
-}
-
-/*
- * solve_MWSS - solves the Maximum Weighted Stable Set Problem of a subgraph of G with vector cost pi
- *              and returns TRUE and a stable set with at least lower_bound; or FALSE otherwise
- */
-bool solve_MWSS(bool setV, float *pi, float lower_bound) {
-	/* convert costs and LB in integer values */
-	for (int i = 1; i <= vertices; i++) Mgraph.weight[i] = (int)(pi[i - 1] * 1000000) / 1000000.0;
-	int LB = (int)(lower_bound * 1000000) / 1000000.0;
-
-	if (initialize_max_wstable(&Mgraph, &Minfo) > 0) bye("Failed in initialize_max_wstable");
-	if (call_max_wstable(&Mgraph, &Mdata, &Mparms, &Minfo, MWISNW_MAX, lower_bound) > 0) bye("Failed in call_max_wstable");
-//	if (Mparms.cpu_limit >= 0 && Minfo.cpu > Mparms.cpu_limit) printf("cpu_limit of %f seconds exceeded: %f seconds. Solution may not optimum.\n", Mparms.cpu_limit, Minfo.cpu);
-
-	printf("Found best stable set of weight %d.\n", Mdata.best_z);
-	retrn true;
 }
 
 /*
@@ -726,15 +679,115 @@ bool optimize1()
 }
 
 /*
-* optimize2 - solve the set-cover formulation via column generation
-*/
+ * initialize_MWSS - perform some initializations for the MWSS algorithm, including the generation of the subgraphs
+ */
+void initialize_MWSS()
+{
+	MWSSdata Mdata;
+	wstable_info Minfo;
+
+	default_parameters(&Mparms);
+	Mparms.cpu_limit = MAXTIME_MWIS;
+	Mparms.reorder = 1; /* reorder vertices of subgraph by degree */
+	// if (density < 0.2) Mparms.clique_cover = 2;
+	// else Mparms.clique_cover = 1;
+
+	Mgraph = new MWSSgraph[colors];
+	V_to_Vk = new int*[colors];
+	for (int k = 0; k < colors; k++) {
+		reset_pointers(&Mgraph[k], &Mdata, &Minfo);
+
+		/* set the lookup function V -> Vk */
+		int vertices_Gk = C_size[k];
+		V_to_Vk[k] = new int[vertices];
+		for (int v = 0; v < vertices; v++) V_to_Vk[k][v] = -1;
+		for (int s = 0; s < vertices_Gk; s++) {
+			int v = C_set[k][s];
+			V_to_Vk[k][v] = s;
+		}
+
+		/* generate the graph Gk: recall that the first entry (i.e. array[0]) is not used!!! */
+		allocate_graph(&Mgraph[k], vertices_Gk);
+		for (int v = 1; v <= vertices_Gk; v++) {
+			Mgraph[k].node_list[v].name = v;
+			Mgraph[k].node_list[v].degree = 0;
+		}
+		for (int row = 1; row <= vertices_Gk; row++) {
+			int u = C_set[k][row - 1]; /* recall the "0" is not used! */
+			Mgraph[k].adj[row][row] = 0;
+			for (int col = row + 1; col <= vertices_Gk; col++) {
+				int v = C_set[k][col - 1]; /* recall the "0" is not used! */
+				int val = adjacency[u][v] > 0 ? 1 : 0;
+				Mgraph[k].adj[row][col] = val;
+				Mgraph[k].adj[col][row] = val;
+			}
+		}
+		build_graph(&Mgraph[k]);
+	}
+}
+
+/*
+ * solve_MWSS - solves the Maximum Weighted Stable Set Problem of a subgraph of G with vector cost pi >= 0
+ *              and returns the size of the stable set such that: 1) has maximum weight or 2) is greater than lower_bound in its cost
+ */
+int solve_MWSS(int k, float *pi, float lower_bound, int *stable_set)
+{
+	MWSSdata Mdata;
+	wstable_info Minfo;
+
+	/* convert costs and LB in integer values */
+	for (int i = 1; i <= C_size[k]; i++) Mgraph[k].weight[i] = (int)(pi[i - 1] * 10000.0); /* recall that "0" is not used! */
+	int LB = (int)(lower_bound * 10000.0);
+
+	/* perform optimization */
+	if (initialize_max_wstable(&Mgraph[k], &Minfo) > 0) bye("Failed in initialize_max_wstable");
+	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, MWISNW_MAX, LB) > 0) bye("Failed in call_max_wstable");
+	//	if (Mparms.cpu_limit >= 0 && Minfo.cpu > Mparms.cpu_limit) printf("cpu_limit of %f seconds exceeded: %f seconds. Solution may not optimum.\n", Mparms.cpu_limit, Minfo.cpu);
+	// printf("Found best stable set of weight %d.\n", Mdata.best_z);
+
+	/* save best stable set (in terms of the vertices in G) */
+	int stable_set_size = Mdata.n_best;
+	for (int i = 1; i <= stable_set_size; i++) stable_set[i - 1] = Mdata.best_sol[i]->name - 1; /* recall that "0" is not used! */
+
+	free_data(&Mdata);
+	free_wstable_info(&Minfo);
+	return stable_set_size;
+}
+
+/*
+ * optimize2 - solve the set-cover formulation via column generation
+ */
 bool optimize2()
 {
+#ifndef ONLYRELAXATION
+	bye("Branch-and-price not implemented yet!");
+#endif
+	/* generate the subgraphs Gk */
 	initialize_MWSS();
 
-	solve_MWSS();
+	int *stable_set = new int[vertices];
+	float *pi = new float[vertices];
+	for (int k = 0; k < colors; k++) {
+		for (int s = 0; s < C_size[k]; s++) pi[s] = 1.0;
+		int stable_set_size = solve_MWSS(k, pi, 0.0, stable_set);
+		cout << "Stable set is: {";
+		float stable_cost = 0.0;
+		for (int i = 0; i < stable_set_size; i++) {
+			cout << " " << C_set[k][stable_set[i]];
+			stable_cost += pi[stable_set[i]];
+		}
+		cout << " }, cost = " << stable_cost << endl;
+	}
 
-	free_max_wstable(&Mgraph, &Mdata, &Minfo);
+	/* free memory */
+	delete[] pi;
+	delete[] stable_set;
+	for (int k = 0; k < colors; k++) {
+		free_graph(&Mgraph[k]);
+		delete[] V_to_Vk[k];
+	}
+	delete[] V_to_Vk;
+	delete[] Mgraph;
 	return true;
 }
 
