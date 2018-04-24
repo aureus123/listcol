@@ -13,6 +13,9 @@
 
     You should have received a copy of the GNU General Public License
     along with exactcolors.  If not, see <http://www.gnu.org/licenses/>.
+
+	Daniel: added changes in order to compile over Visual C++ (see VISUALC definition and MWSSzeit function)
+	        also commented some "printf" directives; now, prn_info is useless
 */
 
 /*
@@ -35,7 +38,12 @@ Previous History
 
 #include <limits.h>
 #include <float.h>
+/* for linux users: do not define VISUALC */
+#ifndef VISUALC
 #include <sys/resource.h>
+#else
+#include <windows.h>
+#endif
 
 #include "mwss_ext.h"
 
@@ -64,12 +72,14 @@ void reset_pointers(MWSSgraphpnt graph,
 static
 double MWSSzeit (void)
 {
-   struct rusage ru;
-
-   getrusage (RUSAGE_SELF, &ru);
-
-   return ((double) ru.ru_utime.tv_sec) +
-      ((double) ru.ru_utime.tv_usec) / 1000000.0;
+#ifndef VISUALC
+	struct rusage ru;
+	getrusage (RUSAGE_SELF, &ru);
+	return ((double) ru.ru_utime.tv_sec) + ((double) ru.ru_utime.tv_usec) / 1000000.0;
+#else
+	/* measure standard wall-clock: use it on Windows */
+	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+#endif	
 }
 
 //_________________________________________________________________________________________________
@@ -246,13 +256,12 @@ int max_wstable(MWSSgraphpnt graph, MWSSdatapnt data, nodepnt *best_stable, int 
    rval = greedy_wstable(graph, list, n_list, data->best_sol, &data->n_best,&greedy_weight);
    MWIScheck_rval(rval,"Failed in greedy_stable");
    if(greedy_weight > data->best_z) {
-      printf("Greedy algorithm found  best_z %d.\n",
-	     greedy_weight);
+      // printf("Greedy algorithm found  best_z %d.\n", greedy_weight);
       data->best_z = greedy_weight;
-      if(parameters->prn_info) {
-	printf("Greedy best_z = %d\n", data->best_z);
-        fflush(stdout);
-      }
+      //if(parameters->prn_info) {
+	    // printf("Greedy best_z = %d\n", data->best_z);
+        //fflush(stdout);
+      //}
    }
 
 
@@ -279,11 +288,11 @@ int max_wstable(MWSSgraphpnt graph, MWSSdatapnt data, nodepnt *best_stable, int 
       *status = 1;
       //printf("best_z = %8.3f  greedy = %8.3f\n", best_z, greedy_weight);
       cpu = (double) (MWSSzeit() - info->start_time);
-      if(parameters->prn_info) {
-         printf("%3d %5d %10d %12lld %10.0f %10.0f\n",
-                graph->n_nodes, graph->n_edges, data->best_z,
-                info->n_subproblems, info->clique_cover_cpu, cpu);
-      }
+      //if(parameters->prn_info) {
+      //   printf("%3d %5d %10d %12lld %10.0f %10.0f\n",
+      //          graph->n_nodes, graph->n_edges, data->best_z,
+      //          info->n_subproblems, info->clique_cover_cpu, cpu);
+      //}
    }
 
    info->cpu = (double) (MWSSzeit() - info->start_time);
@@ -295,13 +304,13 @@ int max_wstable(MWSSgraphpnt graph, MWSSdatapnt data, nodepnt *best_stable, int 
    //printf("-a = %d -k = %d -r = %d lb = %d ub = %d\n",
    //        adj_matrix,cover,reorder,lower_bound,upper_bound);
 
-   if(parameters->prn_info) {
-      printf("best_z = %d\n", data->best_z);
-      //prn_nodes(best_stable,n_best_stable);
-      printf("n_subproblems = %lld\n", info->n_subproblems);
-      printf("depth n_sub_depth\n");
-      for (i = 1; i <= data->n_best; i++)  printf("%5d %8d\n", i, info->n_sub_depth[i]);
-   }
+   //if(parameters->prn_info) {
+   //   printf("best_z = %d\n", data->best_z);
+   //   //prn_nodes(best_stable,n_best_stable);
+   //   printf("n_subproblems = %lld\n", info->n_subproblems);
+   //   printf("depth n_sub_depth\n");
+   //   for (i = 1; i <= data->n_best; i++)  printf("%5d %8d\n", i, info->n_sub_depth[i]);
+   //}
 
  CLEANUP:
    free(out);
@@ -405,10 +414,10 @@ int wstable(MWSSgraphpnt graph, MWSSdatapnt data, osterdatapnt oster_data, int a
          assert((1 <= v) && (v <= graph->n_nodes));
          data->best_sol[j] = data->cur_sol[j];
       }
-      if(parameters->prn_info >= 1) {
-         printf("\n Better stable set found.  depth = %3d best_z = %10d\n", depth, data->best_z);
-         prn_nodes(data->best_sol, data->n_best);
-      }
+      //if(parameters->prn_info >= 1) {
+      //   printf("\n Better stable set found.  depth = %3d best_z = %10d\n", depth, data->best_z);
+      //   prn_nodes(data->best_sol, data->n_best);
+      //}
    }
 
    if (n_active == 0) {
@@ -429,10 +438,10 @@ int wstable(MWSSgraphpnt graph, MWSSdatapnt data, osterdatapnt oster_data, int a
    rval = determine_branch_nodes(graph, data, oster_data, active, adj_last_offset, cur_z, n_active, &n_branch_nodes, out, n_out, info, parameters);
    MWIScheck_rval(rval,"Failed in determine_branch_nodes");
    //if((parameters->prn_info >= 2) || ((depth == 4) && (n_branch_nodes > 0))) {
-   if(parameters->prn_info >= 2) {
-      prn_stable(active, data->best_z, cur_z, active + n_active - n_branch_nodes, depth, n_active, n_branch_nodes, info, 1);
-      //for(j = 1; j <= n_active; j++) printf("%3d ",active[j]->name); printf("\n");
-   }
+   //if(parameters->prn_info >= 2) {
+   //   prn_stable(active, data->best_z, cur_z, active + n_active - n_branch_nodes, depth, n_active, n_branch_nodes, info, 1);
+   //   //for(j = 1; j <= n_active; j++) printf("%3d ",active[j]->name); printf("\n");
+   //}
 
 
    for(j=n_active; (j>n_active-n_branch_nodes) && (data->best_z < goal); j--) {

@@ -12,9 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="listcol.cpp" />
-    <ClCompile Include="mwis_sewell\wstable_windows.c">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VISUALC;WIN64;IL_STD;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
+    <ClCompile Include="mwis_sewell\wstable.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mwis_sewell\mwss.h" />

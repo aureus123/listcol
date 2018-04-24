@@ -15,6 +15,8 @@
 
     You should have received a copy of the GNU General Public License
     along with exactcolors.  If not, see <http://www.gnu.org/licenses/>.
+
+	Daniel: added FLOAT_WEIGHTS
 */
 
 #include  <stdio.h>
@@ -56,11 +58,18 @@
 #define  MAX(i,j) ((i < j) ? (j) : (i) )
 #define  MIN(i,j) ((i < j) ? (i) : (j) )
 
+#define FLOAT_WEIGHTS
 
-typedef int MWISNW;
-
-#define MWISNW_EPSILON 0
-#define MWISNW_MAX     INT_MAX
+#ifdef FLOAT_WEIGHTS
+	typedef float MWISNW;
+	#define MWISNW_EPSILON 0.00001
+	#define MWISNW_MAX     99999999.0
+#else
+	// Originally weights were integers:
+	typedef int MWISNW;
+	#define MWISNW_EPSILON 0
+	#define MWISNW_MAX     INT_MAX
+#endif
 
 typedef struct node {
    int      name;

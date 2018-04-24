@@ -688,7 +688,7 @@ void initialize_MWSS()
 
 	default_parameters(&Mparms);
 	Mparms.cpu_limit = MAXTIME_MWIS;
-	Mparms.reorder = 1; /* reorder vertices of subgraph by degree */
+	// Mparms.reorder = 1; /* reorder vertices of subgraph by degree */
 	// if (density < 0.2) Mparms.clique_cover = 2;
 	// else Mparms.clique_cover = 1;
 
@@ -728,20 +728,17 @@ void initialize_MWSS()
 
 /*
  * solve_MWSS - solves the Maximum Weighted Stable Set Problem of a subgraph of G with vector cost pi >= 0
- *              and returns the size of the stable set such that: 1) has maximum weight or 2) is greater than lower_bound in its cost
+ *              and returns the size of the stable set such that: 1) has maximum weight or 2) is greater than "goal" in its cost
  */
-int solve_MWSS(int k, float *pi, float lower_bound, int *stable_set)
+int solve_MWSS(int k, float *pi, float goal, int *stable_set)
 {
 	MWSSdata Mdata;
 	wstable_info Minfo;
 
-	/* convert costs and LB in integer values */
-	for (int i = 1; i <= C_size[k]; i++) Mgraph[k].weight[i] = (int)(pi[i - 1] * 10000.0); /* recall that "0" is not used! */
-	int LB = (int)(lower_bound * 10000.0);
-
 	/* perform optimization */
+	for (int i = 1; i <= C_size[k]; i++) Mgraph[k].weight[i] = pi[i - 1]; /* recall that "0" is not used! */
 	if (initialize_max_wstable(&Mgraph[k], &Minfo) > 0) bye("Failed in initialize_max_wstable");
-	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, MWISNW_MAX, LB) > 0) bye("Failed in call_max_wstable");
+	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, goal, 0.0) > 0) bye("Failed in call_max_wstable");
 	//	if (Mparms.cpu_limit >= 0 && Minfo.cpu > Mparms.cpu_limit) printf("cpu_limit of %f seconds exceeded: %f seconds. Solution may not optimum.\n", Mparms.cpu_limit, Minfo.cpu);
 	// printf("Found best stable set of weight %d.\n", Mdata.best_z);
 
