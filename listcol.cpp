@@ -765,8 +765,10 @@ bool optimize2()
 	int *stable_set = new int[vertices];
 	float *pi = new float[vertices];
 	for (int k = 0; k < colors; k++) {
-		for (int s = 0; s < C_size[k]; s++) pi[s] = 1.0;
-		int stable_set_size = solve_MWSS(k, pi, 0.0, stable_set);
+		/* pi[v] = cost del vertice v donde v se mueve en {0..C_size[k]-1} */
+		for (int s = 0; s, < C_size[k]; s++) pi[s] = 1.0;
+		float goal = 10.0; /* pi^c_k + cost_k */
+		int stable_set_size = solve_MWSS(k, pi, goal, stable_set);
 		cout << "Stable set is: {";
 		float stable_cost = 0.0;
 		for (int i = 0; i < stable_set_size; i++) {
