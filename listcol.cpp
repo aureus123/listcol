@@ -36,6 +36,7 @@ using namespace std;
 /* CONSTANTS */
 
 #define EPSILON 0.00001
+#define INTFACTOR 1000000.0
 #define INFDIST 9999999
 #define MAXTIME 7200.0
 #define MAXTIME_MWIS 300.0
@@ -735,22 +736,22 @@ void initialize_MWSS()
  * solve_MWSS - solves the Maximum Weighted Stable Set Problem of a subgraph of G with vector cost pi >= 0
  *              and returns the size of the stable set such that: 1) has maximum weight or 2) is greater than "goal" in its cost
  */
-int solve_MWSS(int k, float *pi, float goal, int *stable_set, float *weight)
+int solve_MWSS(int k, double *pi, double goal, int *stable_set, double *weight)
 {
 	MWSSdata Mdata;
 	wstable_info Minfo;
 
 	/* perform optimization */
-	for (int i = 1; i <= C_size[k]; i++) Mgraph[k].weight[i] = pi[i - 1]; /* recall that "0" is not used! */
+	for (int i = 1; i <= C_size[k]; i++) Mgraph[k].weight[i] = (int)(INTFACTOR*pi[i - 1]); /* recall that "0" is not used! */
 	if (initialize_max_wstable(&Mgraph[k], &Minfo) > 0) bye("Failed in initialize_max_wstable");
-	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, goal, 0.0) > 0) bye("Failed in call_max_wstable");
+	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, (int)(INTFACTOR*goal), 0) > 0) bye("Failed in call_max_wstable");
 	//	if (Mparms.cpu_limit >= 0 && Minfo.cpu > Mparms.cpu_limit) printf("cpu_limit of %f seconds exceeded: %f seconds. Solution may not optimum.\n", Mparms.cpu_limit, Minfo.cpu);
 	// printf("Found best stable set of weight %d.\n", Mdata.best_z);
 
 	/* save best stable set (in terms of the vertices in G) */
 	int stable_set_size = Mdata.n_best;
 	for (int i = 1; i <= stable_set_size; i++) stable_set[i - 1] = Mdata.best_sol[i]->name - 1; /* recall that "0" is not used! */
-        *weight = Mdata.best_z;
+	*weight = ((double)Mdata.best_z) / INTFACTOR;
 
 	free_data(&Mdata);
 	free_wstable_info(&Minfo);
@@ -929,8 +930,8 @@ bool optimize2()
 
 	// Column generation approach
   	int *stable_set = new int[vertices];
-        float stable_weight = 0.0; 
-        float *pi = new float[vertices];
+        double stable_weight = 0.0; 
+        double *pi = new double[vertices];
 	while (true) {
 
                 cplex.solve();
@@ -943,23 +944,29 @@ bool optimize2()
                 int counter = 0;
 
                 for (int k = 0; k < colors; k++) {
-                        for (int i = 0; i < C_size[k]; i++)
-                                pi[i] = duals[C_set[k][i]];
-                        float goal = cost[k] + duals[vertices+k];
+					for (int i = 0; i < C_size[k]; i++) {
+						double d = duals[C_set[k][i]];
+						if (d > -EPSILON && d < 0.0) d = 0.0;
+						pi[i] = d;
+					}
+					//	for (int i = 0; i < C_size[k]; i++) cout << "pi[" << C_set[k][i] << "] = " << pi[i] << endl;
+						double goal = cost[k] + duals[vertices + k];
+					//	cout << "goal = " << goal << endl;
                         int stable_set_size = solve_MWSS(k, pi, goal, stable_set, &stable_weight);
-                        if (stable_weight - goal > EPSILON) {
-                                // Add column
-                                exists = true;
+						if (stable_weight - goal > EPSILON) {
+							// Add column
+							exists = true;
+							//cout << "Stable set = {";
+							//for (int i = 0; i < stable_set_size; i++) cout << " " << C_set[k][stable_set[i]];
+							//cout << " }" << endl;
 		                IloNumColumn column = Xobj(cost[k]);
 		                // fill the column corresponding to ">= 1" constraints
-		                for (int i = 0; i < stable_set_size; i++)
-			                column += Xrestr[C_set[k][stable_set[i]]](1.0);
+		                for (int i = 0; i < stable_set_size; i++) column += Xrestr[C_set[k][stable_set[i]]](1.0);
 		                // and the ">= -1 constraint
 	                        column += Xrestr[vertices + k](-1.0);
 
 		                /* add the column as a non-negative continuos variable */
 		                Xvars.add(IloNumVar(column));
-
                                 counter++;
                                 //break; // comment this line for multiple column addition per iteration
                         }
