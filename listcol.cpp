@@ -41,7 +41,7 @@ using namespace std;
 #define MAXTIME_MWIS 300.0
 #define VERBOSE
 #define RANDOMCOSTS
-#define SHOWINSTANCE
+//#define SHOWINSTANCE
 //#define SHOWALLSTABLES
 #define SHOWCPLEX
 //#define SAVELP "form.lp"
@@ -735,7 +735,7 @@ void initialize_MWSS()
  * solve_MWSS - solves the Maximum Weighted Stable Set Problem of a subgraph of G with vector cost pi >= 0
  *              and returns the size of the stable set such that: 1) has maximum weight or 2) is greater than "goal" in its cost
  */
-int solve_MWSS(int k, float *pi, float goal, int *stable_set)
+int solve_MWSS(int k, float *pi, float goal, int *stable_set, float *weight)
 {
 	MWSSdata Mdata;
 	wstable_info Minfo;
@@ -750,6 +750,7 @@ int solve_MWSS(int k, float *pi, float goal, int *stable_set)
 	/* save best stable set (in terms of the vertices in G) */
 	int stable_set_size = Mdata.n_best;
 	for (int i = 1; i <= stable_set_size; i++) stable_set[i - 1] = Mdata.best_sol[i]->name - 1; /* recall that "0" is not used! */
+        *weight = Mdata.best_z;
 
 	free_data(&Mdata);
 	free_wstable_info(&Minfo);
@@ -778,6 +779,7 @@ void stable_covering_heuristic() {
 	vector<bool> covered_array(vertices, false); // at first every vertex is uncovered
 
 	// Foreach color k try to find a maximal stable set in G[C(k)] prioritizing non-covered verteces
+        int counter = 0;
 	for (int k : ordered_colors) {
 
 		// Termination criteria checking
@@ -821,22 +823,24 @@ void stable_covering_heuristic() {
 		}
 
 		// Add column
-		IloNumColumn stable_set = Xobj(cost[k]);
+		IloNumColumn column = Xobj(cost[k]);
 		// fill the column corresponding to ">= 1" constraints (insert "1" in constraint indexed by v)
 		for (int v : stable)
-			stable_set += Xrestr[v](1.0);
+			column += Xrestr[v](1.0);
 		// and the ">= -1 constraint (insert "-1" in constraint indexed by color)
-		stable_set += Xrestr[vertices + k](-1.0);
+		column += Xrestr[vertices + k](-1.0);
 
 		/* add the column as a non-negative continuos variable */
-		Xvars.add(IloNumVar(stable_set));
-
+		Xvars.add(IloNumVar(column));
+                counter++;
 
 	}
 
 	// Check if there is a remaning non-covered vertex
 	if (covered != vertices)
 		bye("Heuristic failed to find an initial maximal stable covering");
+        else
+                cout << counter << " columns were added"<< endl;
 
 }
 
@@ -924,89 +928,67 @@ bool optimize2()
 #endif
 
 	// Column generation approach
-
-	while () {
+  	int *stable_set = new int[vertices];
+        float stable_weight = 0.0; 
+        float *pi = new float[vertices];
+	while (true) {
 
                 cplex.solve();
 
-                // Find a new column
+                // Find an entering column
+                bool exists = false;
+                IloNumArray duals (Xenv,vertices+colors);
+                cplex.getDuals(duals, Xrestr); // Save dual values
 
-          	int *stable_set = new int[vertices];
-	        float *pi = new float[vertices];
-	        for (int k = 0; k < colors; k++) {
-		        /* pi[v] = cost del vertice v donde v se mueve en {0..C_size[k]-1} */
-		        for (int s = 0; s < C_size[k]; s++) pi[s] = 1.0;
-		        float goal = 10.0; /* pi^c_k + cost_k */
-		        int stable_set_size = solve_MWSS(k, pi, goal, stable_set);
-        /*
-		        cout << "Stable set is: {";
-		        float stable_cost = 0.0;
-		        for (int i = 0; i < stable_set_size; i++) {
-			        cout << " " << C_set[k][stable_set[i]];
-			        stable_cost += pi[stable_set[i]];
-		        }
-		        cout << " }, cost = " << stable_cost << endl;
-        */
-	        }              
+                int counter = 0;
 
+                for (int k = 0; k < colors; k++) {
+                        for (int i = 0; i < C_size[k]; i++)
+                                pi[i] = duals[C_set[k][i]];
+                        float goal = cost[k] + duals[vertices+k];
+                        int stable_set_size = solve_MWSS(k, pi, goal, stable_set, &stable_weight);
+                        if (stable_weight - goal > EPSILON) {
+                                // Add column
+                                exists = true;
+		                IloNumColumn column = Xobj(cost[k]);
+		                // fill the column corresponding to ">= 1" constraints
+		                for (int i = 0; i < stable_set_size; i++)
+			                column += Xrestr[C_set[k][stable_set[i]]](1.0);
+		                // and the ">= -1 constraint
+	                        column += Xrestr[vertices + k](-1.0);
 
+		                /* add the column as a non-negative continuos variable */
+		                Xvars.add(IloNumVar(column));
 
+                                counter++;
+                                //break; // comment this line for multiple column addition per iteration
+                        }
+                }
 
+                cout << counter << " columns were added"<< endl;
 
+                if (!exists)
+                        break; // optimality reached
+        }
 
-
-
-
-
-
-/* ESTO ES DEL CUTSTOCK.CPP
-
-
- /// OPTIMIZE OVER CURRENT PATTERNS ///
-
- cutSolver.solve();
- report1 (cutSolver, Cut, Fill);
-
- /// FIND AND ADD A NEW PATTERN ///
-
- for (i = 0; i < nWdth; i++) {
-   price[i] = -cutSolver.getDual(Fill[i]);
- }
- ReducedCost.setLinearCoefs(Use, price);
-
- patSolver.solve();
- report2 (patSolver, Use, ReducedCost);
-
- if (patSolver.getValue(ReducedCost) > -RC_EPS) break;
-
- patSolver.getValues(newPatt, Use);
- Cut.add( IloNumVar(RollsUsed(1) + Fill(newPatt)) );
-      	}
-
-
-*/
-
-
-
-
-
-
-	/* solve it! */
-	cplex.solve();
-	IloCplex::CplexStatus status = cplex.getCplexStatus();
-
+        IloCplex::CplexStatus status = cplex.getCplexStatus();
 #ifdef ONLYRELAXATION
-	/* LP treatment */
-	if (status != IloCplex::Optimal) {
-		switch (status) {
-		case IloCplex::InfOrUnbd:
-		case IloCplex::Infeasible: bye("Infeasible :(");
-		case IloCplex::AbortTimeLim: cout << "Time limit reached!" << endl; break;
-		default: bye("Unexpected error :(");
-		}
-		return false;
-	}
+        /* LP treatment */
+        if (status != IloCplex::Optimal) {
+	        switch (status) {
+	        case IloCplex::InfOrUnbd:
+	        case IloCplex::Infeasible: bye("Infeasible :(");
+	        case IloCplex::AbortTimeLim: cout << "Time limit reached!" << endl; break;
+	        default: bye("Unexpected error :(");
+	        }
+	        return false;
+        }
+        else {
+                cout << "Optimality reached" << endl;
+                cout << "Best solution = " << cplex.getObjValue() << endl;
+        }
 #endif
+
 
 	/* free memory */
 	delete[] pi;
