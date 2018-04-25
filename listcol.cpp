@@ -828,13 +828,9 @@ void stable_covering_heuristic() {
 		// and the ">= -1 constraint (insert "-1" in constraint indexed by color)
 		stable_set += Xrestr[vertices + k](-1.0);
 
-#ifdef ONLYRELAXATION
 		/* add the column as a non-negative continuos variable */
 		Xvars.add(IloNumVar(stable_set));
-#else
-		/* add the column as a non-negative integer variable */
-		Xvars.add(IloIntVar(stable_set));
-#endif
+
 
 	}
 
@@ -866,6 +862,8 @@ bool optimize2()
 
 	Xmodel.add(Xobj);
 	Xmodel.add(Xrestr);
+
+	// Settings
 
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
@@ -925,6 +923,74 @@ bool optimize2()
 	cout << "Integer formulation saved" << endl;
 #endif
 
+	// Column generation approach
+
+	while () {
+
+                cplex.solve();
+
+                // Find a new column
+
+          	int *stable_set = new int[vertices];
+	        float *pi = new float[vertices];
+	        for (int k = 0; k < colors; k++) {
+		        /* pi[v] = cost del vertice v donde v se mueve en {0..C_size[k]-1} */
+		        for (int s = 0; s < C_size[k]; s++) pi[s] = 1.0;
+		        float goal = 10.0; /* pi^c_k + cost_k */
+		        int stable_set_size = solve_MWSS(k, pi, goal, stable_set);
+        /*
+		        cout << "Stable set is: {";
+		        float stable_cost = 0.0;
+		        for (int i = 0; i < stable_set_size; i++) {
+			        cout << " " << C_set[k][stable_set[i]];
+			        stable_cost += pi[stable_set[i]];
+		        }
+		        cout << " }, cost = " << stable_cost << endl;
+        */
+	        }              
+
+
+
+
+
+
+
+
+
+
+
+/* ESTO ES DEL CUTSTOCK.CPP
+
+
+ /// OPTIMIZE OVER CURRENT PATTERNS ///
+
+ cutSolver.solve();
+ report1 (cutSolver, Cut, Fill);
+
+ /// FIND AND ADD A NEW PATTERN ///
+
+ for (i = 0; i < nWdth; i++) {
+   price[i] = -cutSolver.getDual(Fill[i]);
+ }
+ ReducedCost.setLinearCoefs(Use, price);
+
+ patSolver.solve();
+ report2 (patSolver, Use, ReducedCost);
+
+ if (patSolver.getValue(ReducedCost) > -RC_EPS) break;
+
+ patSolver.getValues(newPatt, Use);
+ Cut.add( IloNumVar(RollsUsed(1) + Fill(newPatt)) );
+      	}
+
+
+*/
+
+
+
+
+
+
 	/* solve it! */
 	cplex.solve();
 	IloCplex::CplexStatus status = cplex.getCplexStatus();
@@ -940,89 +1006,7 @@ bool optimize2()
 		}
 		return false;
 	}
-#else
-	/* MIP treatment */
-	IloInt nodes = cplex.getNnodes();
-	cout << "Number of nodes evaluated: " << nodes << endl;
-	if (status != IloCplex::Optimal) {
-		switch (status) {
-		case IloCplex::InfOrUnbd:
-		case IloCplex::Infeasible: bye("Infeasible :(");
-		case IloCplex::AbortTimeLim: cout << "Time limit reached!" << endl; break;
-		default: bye("Unexpected error :(");
-		}
-		/* read floating point bounds and convert them to integer values */
-		double lower = cplex.getObjValue();
-		double upper = cplex.getBestObjValue();
-		cout << "Best bounds are " << (int)(lower + (1.0 - EPSILON)) << " <= objective <= " << (int)(upper + EPSILON) << "." << endl;
-		cout << "Relative gap = " << 100.0 * (upper - lower) / lower << "." << endl; /* Rel Gap = |bestbound - bestinteger|/|bestinteger| */
-		return false;
-	}
-
-	/* save optimal solution */
-	for (int v = 0; v < vertices; v++) {
-		int color_chosen = -1;
-		IloRange expr1 = Xrestr[v];
-		for (IloExpr::LinearIterator it1 = expr1.getLinearIterator(); it1.ok(); ++it1) {
-			IloNumVar var1 = it1.getVar();
-			IloNum coef1 = it1.getCoef();
-			if (cplex.getValue(var1) > 0.5 && coef1 > 0.5) {
-				for (int k = 0; k < colors; k++) {
-					IloRange expr2 = Xrestr[vertices + k];
-					for (IloExpr::LinearIterator it2 = expr2.getLinearIterator(); it2.ok(); ++it2) {
-						IloNumVar var2 = it2.getVar();
-						IloNum coef2 = it2.getCoef();
-						if (var2.getId() == var1.getId() && coef2 < -0.5) {
-							color_chosen = k;
-							break;
-						}
-					}
-				}
-				break;
-			}
-		}
-		if (color_chosen == -1) bye("No color chosen!");
-		optimal_coloring[v] = color_chosen;
-	}
 #endif
-
-	/* optimality reached, show stables */
-	set_color(10);
-	cout << "Optimality reached! :)" << endl;
-	set_color(3);
-	cout << "Solution (non-zero variables): ";
-	for (int x = 0; x < Xvars.getSize(); x++) {
-		double xval = cplex.getValue(Xvars[x]);
-		if (xval > EPSILON) cout << "x*(" <<  x << ") = " << xval << ", ";
-	}
-	cout << "objective = " << cplex.getObjValue() << endl;
-	set_color(7);
-
-
-
-
-
-
-
-	
-	
-	int *stable_set = new int[vertices];
-	float *pi = new float[vertices];
-	for (int k = 0; k < colors; k++) {
-		/* pi[v] = cost del vertice v donde v se mueve en {0..C_size[k]-1} */
-		for (int s = 0; s < C_size[k]; s++) pi[s] = 1.0;
-		float goal = 10.0; /* pi^c_k + cost_k */
-		int stable_set_size = solve_MWSS(k, pi, goal, stable_set);
-/*
-		cout << "Stable set is: {";
-		float stable_cost = 0.0;
-		for (int i = 0; i < stable_set_size; i++) {
-			cout << " " << C_set[k][stable_set[i]];
-			stable_cost += pi[stable_set[i]];
-		}
-		cout << " }, cost = " << stable_cost << endl;
-*/
-	}
 
 	/* free memory */
 	delete[] pi;

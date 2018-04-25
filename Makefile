@@ -30,4 +30,4 @@ listcol.o: listcol.cpp mwis_sewell/mwss.h
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-
+	rm -f main
