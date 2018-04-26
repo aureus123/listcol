@@ -552,7 +552,7 @@ bool optimize1()
 	cplex.setOut(cplexenv.getNullStream());
 	cplex.setWarning(cplexenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -877,7 +877,7 @@ bool optimize2()
 	cplex.setOut(cplexenv.getNullStream());
 	cplex.setWarning(cplexenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
