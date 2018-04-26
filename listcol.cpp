@@ -36,7 +36,7 @@ using namespace std;
 /* CONSTANTS */
 
 #define EPSILON 0.00001
-#define INTFACTOR 1000000.0
+#define INTFACTOR 10000.0
 #define INFDIST 9999999
 #define MAXTIME 7200.0
 #define MAXTIME_MWIS 300.0
@@ -675,6 +675,7 @@ bool optimize1()
 		if (xval > EPSILON) cout << "x*(" <<  x << ") = " << xval << ", ";
 	}
 	cout << "objective = " << cplex.getObjValue() << endl;
+	cout << "variables = " << cplex.getNcols() << endl;
 	set_color(7);
 
 	delete[] setV;
@@ -944,30 +945,80 @@ bool optimize2()
                 int counter = 0;
 
                 for (int k = 0; k < colors; k++) {
-					for (int i = 0; i < C_size[k]; i++) {
-						double d = duals[C_set[k][i]];
-						if (d > -EPSILON && d < 0.0) d = 0.0;
-						pi[i] = d;
-					}
-					//	for (int i = 0; i < C_size[k]; i++) cout << "pi[" << C_set[k][i] << "] = " << pi[i] << endl;
-						double goal = cost[k] + duals[vertices + k];
-					//	cout << "goal = " << goal << endl;
-                        int stable_set_size = solve_MWSS(k, pi, goal, stable_set, &stable_weight);
-						if (stable_weight - goal > EPSILON) {
-							// Add column
-							exists = true;
-							//cout << "Stable set = {";
-							//for (int i = 0; i < stable_set_size; i++) cout << " " << C_set[k][stable_set[i]];
-							//cout << " }" << endl;
-		                IloNumColumn column = Xobj(cost[k]);
-		                // fill the column corresponding to ">= 1" constraints
-		                for (int i = 0; i < stable_set_size; i++) column += Xrestr[C_set[k][stable_set[i]]](1.0);
-		                // and the ">= -1 constraint
-	                        column += Xrestr[vertices + k](-1.0);
+                        for (int i = 0; i < C_size[k]; i++) {
+                                double d = duals[C_set[k][i]];
+                                if (d > -EPSILON && d < 0.0) d = 0.0;
+                                pi[i] = d;
+                        }
+                        //for (int i = 0; i < C_size[k]; i++) cout << "pi[" << C_set[k][i] << "] = " << pi[i] << endl;
+                        double goal = cost[k] + duals[vertices + k];
+                        //cout << "goal = " << goal << endl;
 
-		                /* add the column as a non-negative continuos variable */
-		                Xvars.add(IloNumVar(column));
+                        int stable_set_size = solve_MWSS(k, pi, goal, stable_set, &stable_weight);
+
+/*****************************************************************************************/
+/*         
+                        IloEnv XXenv; // CPLEX environment structure
+                        IloModel XXmodel(XXenv); // CPLEX model
+                        IloNumVarArray XXvars(XXenv); // CPLEX variables
+
+                        for (int i = 0; i < C_size[k]; i++)
+	                        XXvars.add(IloNumVar(XXenv, 0.0, 1.0, ILOBOOL));
+
+                        IloExpr fobj(XXenv, 0);
+                        for (int i = 0; i < C_size[k]; i++)
+                                fobj += XXvars[i]*duals[C_set[k][i]];
+                        XXmodel.add(IloMaximize(XXenv,fobj));
+                        fobj.end();
+
+                        for (int i = 0; i < C_size[k] - 1; i++)
+                                for (int j = i + 1; j < C_size[k]; j++)  {
+                                        if (adjacency[C_set[k][i]][C_set[k][j]] > 0) {
+		                                IloExpr restr(XXenv);
+                                                restr += XXvars[i] + XXvars[j];
+		                                XXmodel.add(restr <= 1);
+                                                restr.end();
+                                        }
+                                }
+
+                        IloCplex XXcplex(XXmodel);
+	                XXcplex.setDefaults();
+	                XXcplex.setOut(XXenv.getNullStream());
+	                XXcplex.setWarning(XXenv.getNullStream());
+                        XXcplex.extract(XXmodel);
+                        XXcplex.solve();
+
+                        int counter2 = 0;
+                        for (int i = 0; i < C_size[k]; i++)
+                                if (XXcplex.isExtracted(XXvars[i]))
+                                        if (XXcplex.getValue(XXvars[i]) > 0.5)
+                                                stable_set[counter2++] = i;
+                        int stable_set_size = counter2;
+                        stable_weight = XXcplex.getObjValue();
+                   
+                        XXcplex.end();
+                        XXvars.end();
+                        XXmodel.end();
+                        XXenv.end();                     
+*/
+/*****************************************************************************************/
+
+                        if (stable_weight - goal > EPSILON) {
+                                // Add column
+                                exists = true;
+                                //cout << "Stable set = {";
+                                //for (int i = 0; i < stable_set_size; i++) cout << " " << C_set[k][stable_set[i]];
+                                //cout << " }" << endl;
+                                IloNumColumn column = Xobj(cost[k]);
+                                // fill the column corresponding to ">= 1" constraints
+                                for (int i = 0; i < stable_set_size; i++) column += Xrestr[C_set[k][stable_set[i]]](1.0);
+                                // and the ">= -1 constraint
+                                column += Xrestr[vertices + k](-1.0);
+
+                                /* add the column as a non-negative continuos variable */
+                                Xvars.add(IloNumVar(column));
                                 counter++;
+
                                 //break; // comment this line for multiple column addition per iteration
                         }
                 }
@@ -993,6 +1044,7 @@ bool optimize2()
         else {
                 cout << "Optimality reached" << endl;
                 cout << "Best solution = " << cplex.getObjValue() << endl;
+                cout << "Variables = " << cplex.getNcols() << endl;
         }
 #endif
 
