@@ -552,7 +552,7 @@ bool optimize1()
 	cplex.setOut(cplexenv.getNullStream());
 	cplex.setWarning(cplexenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -763,7 +763,8 @@ int solve_MWSS(int k, double *pi, double goal, int *stable_set, double *weight)
  * cost_comparison_function - compare a pair of colors by their cost
 */
 bool cost_comparison_function(int i, int j) {
-	return (cost[i] < cost[j]);
+	//return (cost[i] < cost[j]);
+        return (C_size[i] > C_size[j]);
 }
 
 /*
@@ -877,7 +878,7 @@ bool optimize2()
 	cplex.setOut(cplexenv.getNullStream());
 	cplex.setWarning(cplexenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -944,16 +945,13 @@ bool optimize2()
 
                 int counter = 0;
 
-                for (int k = 0; k < colors; k++) {
+                for (int k = 0; k < colors;k++) {
                         for (int i = 0; i < C_size[k]; i++) {
                                 double d = duals[C_set[k][i]];
                                 if (d > -EPSILON && d < 0.0) d = 0.0;
                                 pi[i] = d;
                         }
-                        //for (int i = 0; i < C_size[k]; i++) cout << "pi[" << C_set[k][i] << "] = " << pi[i] << endl;
                         double goal = cost[k] + duals[vertices + k];
-                        //cout << "goal = " << goal << endl;
-
                         int stable_set_size = solve_MWSS(k, pi, goal, stable_set, &stable_weight);
 
 /*****************************************************************************************/
@@ -1006,9 +1004,7 @@ bool optimize2()
                         if (stable_weight - goal > EPSILON) {
                                 // Add column
                                 exists = true;
-                                //cout << "Stable set = {";
-                                //for (int i = 0; i < stable_set_size; i++) cout << " " << C_set[k][stable_set[i]];
-                                //cout << " }" << endl;
+
                                 IloNumColumn column = Xobj(cost[k]);
                                 // fill the column corresponding to ">= 1" constraints
                                 for (int i = 0; i < stable_set_size; i++) column += Xrestr[C_set[k][stable_set[i]]](1.0);
