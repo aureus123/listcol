@@ -140,12 +140,21 @@ int main(int argc, char **argv)
 		float C_size = grnd(prom, sigma);
 		if (C_size < 3.0) C_size = 3.0;
 		float prob = C_size / (float)vertices;
+		int count = 0;
 		for (int v = 0; v < vertices; v++) {
 			if (urnd(0, 1, false) <= prob) {
 				if (L_size[v] >= max_colors_available) bye("Out of available colors!");
 				L_set[v][L_size[v]] = k;
 				L_size[v]++;
+				count++;
 			}
+		}
+		if (count == 0) {
+			/* force an addition of at least 1 vertex to the color */
+			int v = (int)urnd(0, vertices, true);
+			if (L_size[v] >= max_colors_available) bye("Out of available colors!");
+			L_set[v][L_size[v]] = k;
+			L_size[v]++;
 		}
 	}
 
