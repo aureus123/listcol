@@ -1179,11 +1179,34 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	/* Show some basic statistics */
 	set_color(6);
 	cout << "Statistics:" << endl;
 	int clique_size = vertices * (vertices - 1) / 2;
 	float density = 100.0 * (float)edges / (float)clique_size;
-	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%)." << endl;
+	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
+	/* Average and standard deviation of size of lists */
+	float prom = 0.0;
+	for (int k = 0; k < vertices; k++) prom += (float)L_size[k];
+	prom /= (float)vertices;
+	float sigma = 0.0;
+	for (int k = 0; k < vertices; k++) {
+		float substr = (float)L_size[k] - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(vertices - 1);
+	cout << "  Behaviour of |L(v)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
+	/* Average and standard deviation of vertices of Gk */
+	prom = 0.0;
+	for (int k = 0; k < colors; k++) prom += (float)C_size[k];
+	prom /= (float)colors;
+	sigma = 0.0;
+	for (int k = 0; k < colors; k++) {
+		float substr = (float)C_size[k] - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(colors - 1);
+	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
 	set_color(5);
 	if (connected() == false) cout << "Note: G is not connected!" << endl;
 	set_color(7);
