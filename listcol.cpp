@@ -44,6 +44,7 @@ using namespace std;
 #define RANDOMCOSTS
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
+//#define SHOWSOLUTION
 #define SHOWCPLEX
 //#define SAVELP "form.lp"
 
@@ -507,6 +508,54 @@ void enumerate_stable_sets()
 }
 
 /*
+ * print_solution - show the obtained solution on screen
+ */
+void print_solution(IloCplex cplex)
+{
+#ifdef SHOWSOLUTION
+	cout << "Solution (non-zero variables): " << endl;
+	int count = 0;
+	for (int x = 0; x < Xvars.getSize(); x++) {
+		IloNumVar var1 = Xvars[x];
+		double xval = cplex.getValue(var1);
+		if (xval > EPSILON) {
+			cout << "  Stable {";
+			for (int v = 0; v < vertices; v++) {
+				IloRange expr = Xrestr[v];
+				for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
+					IloNumVar var2 = it.getVar();
+					IloNum coef2 = it.getCoef();
+					if (var2.getId() == var1.getId() && coef2 > 0.5) {
+						cout << " " << v;
+						break;
+					}
+				}
+			}
+			cout << " }, ";
+			/* find the color associated to that stable */
+			int color_chosen = -1;
+			for (int k = 0; k < colors; k++) {
+				IloRange expr = Xrestr[vertices + k];
+				for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
+					IloNumVar var2 = it.getVar();
+					IloNum coef2 = it.getCoef();
+					if (var2.getId() == var1.getId() && coef2 < -0.5) {
+						color_chosen = k;
+						goto colors_was_chosen;
+					}
+				}
+			}
+			if (color_chosen == -1) bye("No color chosen for that stable!");
+colors_was_chosen:;
+			cout << "k = " << color_chosen << ", x*(" << x << ") = " << xval << endl;
+			count++;
+		}
+	}
+	cout << "  count = " << count << endl;
+#endif
+}
+
+/*
  * optimize1 - make an exhaustive enmeration of stable sets and solve the set-cover formulation
  */
 bool optimize1()
@@ -669,14 +718,10 @@ bool optimize1()
 	set_color(10);
 	cout << "Optimality reached! :)" << endl;
 	set_color(3);
-	cout << "Solution (non-zero variables): ";
-	for (int x = 0; x < Xvars.getSize(); x++) {
-		double xval = cplex.getValue(Xvars[x]);
-		if (xval > EPSILON) cout << "x*(" <<  x << ") = " << xval << ", ";
-	}
+	print_solution(cplex);
+	set_color(7);
 	cout << "objective = " << cplex.getObjValue() << endl;
 	cout << "variables = " << cplex.getNcols() << endl;
-	set_color(7);
 
 	delete[] setV;
 	delete[] setX;
@@ -845,7 +890,6 @@ void stable_covering_heuristic() {
                 cout << counter << " columns were added"<< endl;
 
 }
-
 
 /*
  * optimize2 - solve the set-cover formulation via column generation
@@ -1042,12 +1086,16 @@ bool optimize2()
 	        return false;
         }
         else {
-                cout << "Optimality reached" << endl;
-                cout << "Best solution = " << cplex.getObjValue() << endl;
-                cout << "Variables = " << cplex.getNcols() << endl;
-        }
+			/* optimality reached, show stables */
+			set_color(10);
+			cout << "Optimality reached! :)" << endl;
+			set_color(3);
+			print_solution(cplex);
+			set_color(7);
+			cout << "objective = " << cplex.getObjValue() << endl;
+			cout << "variables = " << cplex.getNcols() << endl;
+		}
 #endif
-
 
 	/* free memory */
 	delete[] pi;
@@ -1083,7 +1131,7 @@ bool check_coloring(int *f) {
 		}
 	}
 
-	/* there are conflicting edges ??? */
+	/* are there conflicting edges ??? */
 	for (int e = 0; e < edges; e++) {
 		int u = edge_u[e];
 		int v = edge_v[e];
