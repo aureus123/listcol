@@ -45,7 +45,7 @@ using namespace std;
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
 //#define SHOWSOLUTION
-#define SHOWCPLEX
+//#define SHOWCPLEX
 //#define SAVELP "form.lp"
 
 /* FLAGS OF THE OPTIMIZATION */
@@ -598,8 +598,8 @@ bool optimize1()
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
 #ifndef SHOWCPLEX
-	cplex.setOut(cplexenv.getNullStream());
-	cplex.setWarning(cplexenv.getNullStream());
+	cplex.setOut(Xenv.getNullStream());
+	cplex.setWarning(Xenv.getNullStream());
 #endif
 	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
@@ -918,8 +918,8 @@ bool optimize2()
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
 #ifndef SHOWCPLEX
-	cplex.setOut(cplexenv.getNullStream());
-	cplex.setWarning(cplexenv.getNullStream());
+	cplex.setOut(Xenv.getNullStream());
+	cplex.setWarning(Xenv.getNullStream());
 #endif
 	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
@@ -1261,7 +1261,9 @@ int main(int argc, char **argv)
 
 	/* optimize using an exhaustive enmeration of stable sets */
 	optimal_coloring = new int[vertices];
+	double start_t = ECOclock();
 	bool status = optimize2();
+	double stop_t = ECOclock();
 	if (status) {
 #ifndef ONLYRELAXATION
 		/* show the answer on screen */
@@ -1270,6 +1272,7 @@ int main(int argc, char **argv)
 		check_coloring(optimal_coloring);
 #endif
 	}
+	cout << "Time of optimization = " << stop_t - start_t << " sec." << endl;
 
 	/* free memory */
 	delete[] optimal_coloring;
