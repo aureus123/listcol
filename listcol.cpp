@@ -45,7 +45,7 @@ using namespace std;
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
 //#define SHOWSOLUTION
-//#define SHOWCPLEX
+#define SHOWCPLEX
 //#define SAVELP "form.lp"
 
 /* FLAGS OF THE OPTIMIZATION */
@@ -808,8 +808,8 @@ int solve_MWSS(int k, double *pi, double goal, int *stable_set, double *weight)
  * cost_comparison_function - compare a pair of colors by their cost
 */
 bool cost_comparison_function(int i, int j) {
-	//return (cost[i] < cost[j]);
-        return (C_size[i] > C_size[j]);
+	return (cost[i] < cost[j]);
+        //return (C_size[i] > C_size[j]);
 }
 
 /*
@@ -906,7 +906,7 @@ void stable_covering_heuristic2() {
 	vector<bool> covered_array(vertices, false); // at first every vertex is uncovered
 
         int counter = 0;
-	while() {
+	while(true) {
 
 		// Termination criteria checking
 		if (covered == vertices)
@@ -915,16 +915,14 @@ void stable_covering_heuristic2() {
 		// Sort C[k] in such a way that non-covered vertices appear first
 		list<int> ordered_vertices;
 		
-		if (non_covered[max_index] == 0)
+		if (non_covered[max_index] <= 0)
 			bye("Heuristic failed to find an initial maximal stable covering");
 		
 		for (int i = 0; i < C_size[max_index]; i++) {
 			if (covered_array[C_set[max_index][i]])
 				ordered_vertices.push_back(C_set[max_index][i]); // Push it at back
-			else {
+			else
 				ordered_vertices.push_front(C_set[max_index][i]); // Push it at front
-				flag = true;
-			}
 		}
 
 		// Maximal stable construction
@@ -939,8 +937,8 @@ void stable_covering_heuristic2() {
                                 covered_array[v] = true;
                                 covered++;
 				
-				for (int k = 0; k < L_size[C_set[max_index][v]]; k++)
-					non_covered[k]--;
+				for (int k = 0; k < L_size[v]; k++)
+					non_covered[L_set[v][k]]--;
 				
 			}
 
@@ -953,12 +951,12 @@ void stable_covering_heuristic2() {
 		}
 
 		// Add column
-		IloNumColumn column = Xobj(cost[k]);
+		IloNumColumn column = Xobj(cost[max_index]);
 		// fill the column corresponding to ">= 1" constraints (insert "1" in constraint indexed by v)
 		for (int v : stable)
 			column += Xrestr[v](1.0);
 		// and the ">= -1 constraint (insert "-1" in constraint indexed by color)
-		column += Xrestr[vertices + k](-1.0);
+		column += Xrestr[vertices + max_index](-1.0);
 
 		/* add the column as a non-negative continuos variable */
 		Xvars.add(IloNumVar(column));
@@ -1071,6 +1069,7 @@ bool optimize2()
 	while (true) {
 
                 cplex.solve();
+                cout << "Current obj value: " << cplex.getObjValue() << endl;
 
                 // Find an entering column
                 bool exists = false;
