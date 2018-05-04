@@ -51,7 +51,6 @@ using namespace std;
 /* FLAGS OF THE OPTIMIZATION */
 
 //#define PUREBYB
-#define USEBARRIER
 #define NOMEMEMPHASIS
 #define ONLYRELAXATION
 
@@ -74,7 +73,7 @@ int **C_set; /* elements of C(k), per color */
 
 int *optimal_coloring; /* optimal solution given by CPLEX */
 
-int sizeP, sizeR, sizeX, sizeV; /* size of the sets for the enumeration algorithm (Bron–Kerbosch) */
+int sizeP, sizeR, sizeX, sizeV; /* size of the sets for the enumeration algorithm (Bronâ€“Kerbosch) */
 bool *setP, *setR, *setX, *setV; /* elements of the sets for the enumeration algorithm */
 int current_color; /* color representing stable sets being generated */
 
@@ -572,7 +571,7 @@ bool optimize1()
 	for (int v = 0; v < vertices; v++) Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
 	for (int k = 0; k < colors; k++) Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 
-	/* enumerate all the stable sets of the graph G[C(k)] with Bron–Kerbosch algorithm */
+	/* enumerate all the stable sets of the graph G[C(k)] with Bronâ€“Kerbosch algorithm */
 	for (int k = 0; k < colors; k++) {
 		sizeP = 0;
 		sizeR = 0;
@@ -602,6 +601,7 @@ bool optimize1()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -612,11 +612,6 @@ bool optimize1()
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
-#ifdef USEBARRIER
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
-#else
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
-#endif
 #ifdef NOMEMEMPHASIS
 	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_OFF);
 #else
@@ -896,6 +891,96 @@ void stable_covering_heuristic() {
 
 }
 
+void stable_covering_heuristic2() {
+
+	vector<int> non_covered (colors);
+	int max_index = 0;
+	for(int i=0; i < colors; i++) {
+		non_covered[i] = C_size[i];
+		if ( (non_covered[i] > non_covered[max_index]) || ((non_covered[i] == non_covered[max_index]) && (cost[i] < cost[max_index])))
+			max_index = i;
+	}	
+	
+	int covered = 0; // number of covered vertices
+	vector<bool> covered_array(vertices, false); // at first every vertex is uncovered
+
+        int counter = 0;
+	while() {
+
+		// Termination criteria checking
+		if (covered == vertices)
+			break;
+
+		// Sort C[k] in such a way that non-covered vertices appear first
+		list<int> ordered_vertices;
+		
+		if (non_covered[max_index] == 0)
+			bye("Heuristic failed to find an initial maximal stable covering");
+		
+		for (int i = 0; i < C_size[max_index]; i++) {
+			if (covered_array[C_set[max_index][i]])
+				ordered_vertices.push_back(C_set[max_index][i]); // Push it at back
+			else {
+				ordered_vertices.push_front(C_set[max_index][i]); // Push it at front
+				flag = true;
+			}
+		}
+
+		// Maximal stable construction
+		vector<int> stable;
+		stable.reserve(C_size[max_index]);
+		while (ordered_vertices.size() != 0) {
+
+			int v = ordered_vertices.front();
+			ordered_vertices.pop_front(); // Add v to the stable set
+			stable.push_back(v);
+			if (!covered_array[v]) {
+                                covered_array[v] = true;
+                                covered++;
+				
+				for (int k = 0; k < L_size[C_set[max_index][v]]; k++)
+					non_covered[k]--;
+				
+			}
+
+			// Delete neighbors of v
+			// TODO: rewrite in case G[C(k)] is stored
+			for (int i = 0; i < degrees[v]; i++) {
+				ordered_vertices.remove(neigh_vertices[v][i]); // Time consuming implementation
+			}
+
+		}
+
+		// Add column
+		IloNumColumn column = Xobj(cost[k]);
+		// fill the column corresponding to ">= 1" constraints (insert "1" in constraint indexed by v)
+		for (int v : stable)
+			column += Xrestr[v](1.0);
+		// and the ">= -1 constraint (insert "-1" in constraint indexed by color)
+		column += Xrestr[vertices + k](-1.0);
+
+		/* add the column as a non-negative continuos variable */
+		Xvars.add(IloNumVar(column));
+                counter++;
+		
+		non_covered[max_index] = -1;
+		
+		for(int i=0; i < colors; i++) {
+			if ( (non_covered[i] > non_covered[max_index]) || ((non_covered[i] == non_covered[max_index]) && (cost[i] < cost[max_index])))
+				max_index = i;
+		}		
+		
+	}
+
+	// Check if there is a remaning non-covered vertex
+	if (covered != vertices)
+		bye("Heuristic failed to find an initial maximal stable covering");
+        else
+                cout << counter << " columns were added"<< endl;
+
+}
+
+
 /*
  * optimize2 - solve the set-cover formulation via column generation
  */
@@ -926,6 +1011,7 @@ bool optimize2()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -936,11 +1022,6 @@ bool optimize2()
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
-#ifdef USEBARRIER
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
-#else
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
-#endif
 #ifdef NOMEMEMPHASIS
 	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_OFF);
 #else
