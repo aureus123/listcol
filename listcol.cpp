@@ -44,7 +44,8 @@ using namespace std;
 #define RANDOMCOSTS
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
-#define SHOWCPLEX
+//#define SHOWSOLUTION
+//#define SHOWCPLEX
 //#define SAVELP "form.lp"
 
 /* FLAGS OF THE OPTIMIZATION */
@@ -72,7 +73,7 @@ int **C_set; /* elements of C(k), per color */
 
 int *optimal_coloring; /* optimal solution given by CPLEX */
 
-int sizeP, sizeR, sizeX, sizeV; /* size of the sets for the enumeration algorithm (Bron–Kerbosch) */
+int sizeP, sizeR, sizeX, sizeV; /* size of the sets for the enumeration algorithm (Bronâ€“Kerbosch) */
 bool *setP, *setR, *setX, *setV; /* elements of the sets for the enumeration algorithm */
 int current_color; /* color representing stable sets being generated */
 
@@ -507,6 +508,54 @@ void enumerate_stable_sets()
 }
 
 /*
+ * print_solution - show the obtained solution on screen
+ */
+void print_solution(IloCplex cplex)
+{
+#ifdef SHOWSOLUTION
+	cout << "Solution (non-zero variables): " << endl;
+	int count = 0;
+	for (int x = 0; x < Xvars.getSize(); x++) {
+		IloNumVar var1 = Xvars[x];
+		double xval = cplex.getValue(var1);
+		if (xval > EPSILON) {
+			cout << "  Stable {";
+			for (int v = 0; v < vertices; v++) {
+				IloRange expr = Xrestr[v];
+				for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
+					IloNumVar var2 = it.getVar();
+					IloNum coef2 = it.getCoef();
+					if (var2.getId() == var1.getId() && coef2 > 0.5) {
+						cout << " " << v;
+						break;
+					}
+				}
+			}
+			cout << " }, ";
+			/* find the color associated to that stable */
+			int color_chosen = -1;
+			for (int k = 0; k < colors; k++) {
+				IloRange expr = Xrestr[vertices + k];
+				for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
+					IloNumVar var2 = it.getVar();
+					IloNum coef2 = it.getCoef();
+					if (var2.getId() == var1.getId() && coef2 < -0.5) {
+						color_chosen = k;
+						goto colors_was_chosen;
+					}
+				}
+			}
+			if (color_chosen == -1) bye("No color chosen for that stable!");
+colors_was_chosen:;
+			cout << "k = " << color_chosen << ", x*(" << x << ") = " << xval << endl;
+			count++;
+		}
+	}
+	cout << "  count = " << count << endl;
+#endif
+}
+
+/*
  * optimize1 - make an exhaustive enmeration of stable sets and solve the set-cover formulation
  */
 bool optimize1()
@@ -522,7 +571,7 @@ bool optimize1()
 	for (int v = 0; v < vertices; v++) Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
 	for (int k = 0; k < colors; k++) Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 
-	/* enumerate all the stable sets of the graph G[C(k)] with Bron–Kerbosch algorithm */
+	/* enumerate all the stable sets of the graph G[C(k)] with Bronâ€“Kerbosch algorithm */
 	for (int k = 0; k < colors; k++) {
 		sizeP = 0;
 		sizeR = 0;
@@ -549,8 +598,8 @@ bool optimize1()
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
 #ifndef SHOWCPLEX
-	cplex.setOut(cplexenv.getNullStream());
-	cplex.setWarning(cplexenv.getNullStream());
+	cplex.setOut(Xenv.getNullStream());
+	cplex.setWarning(Xenv.getNullStream());
 #endif
 	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
@@ -669,14 +718,10 @@ bool optimize1()
 	set_color(10);
 	cout << "Optimality reached! :)" << endl;
 	set_color(3);
-	cout << "Solution (non-zero variables): ";
-	for (int x = 0; x < Xvars.getSize(); x++) {
-		double xval = cplex.getValue(Xvars[x]);
-		if (xval > EPSILON) cout << "x*(" <<  x << ") = " << xval << ", ";
-	}
+	print_solution(cplex);
+	set_color(7);
 	cout << "objective = " << cplex.getObjValue() << endl;
 	cout << "variables = " << cplex.getNcols() << endl;
-	set_color(7);
 
 	delete[] setV;
 	delete[] setX;
@@ -847,6 +892,95 @@ void stable_covering_heuristic() {
 
 }
 
+void stable_covering_heuristic2() {
+
+	vector<int> non_covered (colors);
+	int max_index = 0;
+	for(int i=0; i < colors; i++) {
+		non_covered[i] = C_size[i];
+		if ( (non_covered[i] > non_covered[max_index]) || ((non_covered[i] == non_covered[max_index]) && (cost[i] < cost[max_index])))
+			max_index = i;
+	}	
+	
+	int covered = 0; // number of covered vertices
+	vector<bool> covered_array(vertices, false); // at first every vertex is uncovered
+
+        int counter = 0;
+	while() {
+
+		// Termination criteria checking
+		if (covered == vertices)
+			break;
+
+		// Sort C[k] in such a way that non-covered vertices appear first
+		list<int> ordered_vertices;
+		
+		if (non_covered[max_index] == 0)
+			bye("Heuristic failed to find an initial maximal stable covering");
+		
+		for (int i = 0; i < C_size[max_index]; i++) {
+			if (covered_array[C_set[max_index][i]])
+				ordered_vertices.push_back(C_set[max_index][i]); // Push it at back
+			else {
+				ordered_vertices.push_front(C_set[max_index][i]); // Push it at front
+				flag = true;
+			}
+		}
+
+		// Maximal stable construction
+		vector<int> stable;
+		stable.reserve(C_size[max_index]);
+		while (ordered_vertices.size() != 0) {
+
+			int v = ordered_vertices.front();
+			ordered_vertices.pop_front(); // Add v to the stable set
+			stable.push_back(v);
+			if (!covered_array[v]) {
+                                covered_array[v] = true;
+                                covered++;
+				
+				for (int k = 0; k < L_size[C_set[max_index][v]]; k++)
+					non_covered[k]--;
+				
+			}
+
+			// Delete neighbors of v
+			// TODO: rewrite in case G[C(k)] is stored
+			for (int i = 0; i < degrees[v]; i++) {
+				ordered_vertices.remove(neigh_vertices[v][i]); // Time consuming implementation
+			}
+
+		}
+
+		// Add column
+		IloNumColumn column = Xobj(cost[k]);
+		// fill the column corresponding to ">= 1" constraints (insert "1" in constraint indexed by v)
+		for (int v : stable)
+			column += Xrestr[v](1.0);
+		// and the ">= -1 constraint (insert "-1" in constraint indexed by color)
+		column += Xrestr[vertices + k](-1.0);
+
+		/* add the column as a non-negative continuos variable */
+		Xvars.add(IloNumVar(column));
+                counter++;
+		
+		non_covered[max_index] = -1;
+		
+		for(int i=0; i < colors; i++) {
+			if ( (non_covered[i] > non_covered[max_index]) || ((non_covered[i] == non_covered[max_index]) && (cost[i] < cost[max_index])))
+				max_index = i;
+		}		
+		
+	}
+
+	// Check if there is a remaning non-covered vertex
+	if (covered != vertices)
+		bye("Heuristic failed to find an initial maximal stable covering");
+        else
+                cout << counter << " columns were added"<< endl;
+
+}
+
 
 /*
  * optimize2 - solve the set-cover formulation via column generation
@@ -875,8 +1009,8 @@ bool optimize2()
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
 #ifndef SHOWCPLEX
-	cplex.setOut(cplexenv.getNullStream());
-	cplex.setWarning(cplexenv.getNullStream());
+	cplex.setOut(Xenv.getNullStream());
+	cplex.setWarning(Xenv.getNullStream());
 #endif
 	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
@@ -1038,12 +1172,16 @@ bool optimize2()
 	        return false;
         }
         else {
-                cout << "Optimality reached" << endl;
-                cout << "Best solution = " << cplex.getObjValue() << endl;
-                cout << "Variables = " << cplex.getNcols() << endl;
-        }
+			/* optimality reached, show stables */
+			set_color(10);
+			cout << "Optimality reached! :)" << endl;
+			set_color(3);
+			print_solution(cplex);
+			set_color(7);
+			cout << "objective = " << cplex.getObjValue() << endl;
+			cout << "variables = " << cplex.getNcols() << endl;
+		}
 #endif
-
 
 	/* free memory */
 	delete[] pi;
@@ -1079,7 +1217,7 @@ bool check_coloring(int *f) {
 		}
 	}
 
-	/* there are conflicting edges ??? */
+	/* are there conflicting edges ??? */
 	for (int e = 0; e < edges; e++) {
 		int u = edge_u[e];
 		int v = edge_v[e];
@@ -1175,18 +1313,43 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	/* Show some basic statistics */
 	set_color(6);
 	cout << "Statistics:" << endl;
 	int clique_size = vertices * (vertices - 1) / 2;
 	float density = 100.0 * (float)edges / (float)clique_size;
-	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%)." << endl;
+	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
+	/* Average and standard deviation of size of lists */
+	float prom = 0.0;
+	for (int k = 0; k < vertices; k++) prom += (float)L_size[k];
+	prom /= (float)vertices;
+	float sigma = 0.0;
+	for (int k = 0; k < vertices; k++) {
+		float substr = (float)L_size[k] - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(vertices - 1);
+	cout << "  Behaviour of |L(v)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
+	/* Average and standard deviation of vertices of Gk */
+	prom = 0.0;
+	for (int k = 0; k < colors; k++) prom += (float)C_size[k];
+	prom /= (float)colors;
+	sigma = 0.0;
+	for (int k = 0; k < colors; k++) {
+		float substr = (float)C_size[k] - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(colors - 1);
+	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
 	set_color(5);
 	if (connected() == false) cout << "Note: G is not connected!" << endl;
 	set_color(7);
 
 	/* optimize using an exhaustive enmeration of stable sets */
 	optimal_coloring = new int[vertices];
+	double start_t = ECOclock();
 	bool status = optimize2();
+	double stop_t = ECOclock();
 	if (status) {
 #ifndef ONLYRELAXATION
 		/* show the answer on screen */
@@ -1195,6 +1358,7 @@ int main(int argc, char **argv)
 		check_coloring(optimal_coloring);
 #endif
 	}
+	cout << "Time of optimization = " << stop_t - start_t << " sec." << endl;
 
 	/* free memory */
 	delete[] optimal_coloring;
