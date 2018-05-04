@@ -51,6 +51,7 @@ using namespace std;
 /* FLAGS OF THE OPTIMIZATION */
 
 //#define PUREBYB
+#define USEBARRIER
 #define NOMEMEMPHASIS
 #define ONLYRELAXATION
 
@@ -601,7 +602,6 @@ bool optimize1()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -612,6 +612,11 @@ bool optimize1()
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
+#ifdef USEBARRIER
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
+#else
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
+#endif
 #ifdef NOMEMEMPHASIS
 	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_OFF);
 #else
@@ -921,7 +926,6 @@ bool optimize2()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -932,6 +936,11 @@ bool optimize2()
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
+#ifdef USEBARRIER
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
+#else
+	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
+#endif
 #ifdef NOMEMEMPHASIS
 	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_OFF);
 #else
