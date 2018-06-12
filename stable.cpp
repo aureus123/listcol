@@ -1,10 +1,12 @@
-#include <stable.h>
+#include "stable.h"
+#include "io.h"
 #include <algorithm>
 
 #define INTFACTOR 10000.0
+#define MAXTIME_MWIS 300.0
 
 // Perform some initializations for the MWSS algorithm, including the generation of the subgraphs
-Sewell:Sewell (Graph& G) MWSSgraph (G.colors) {
+Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
 
 	MWSSdata Mdata;
 	wstable_info Minfo;
@@ -41,18 +43,15 @@ Sewell:Sewell (Graph& G) MWSSgraph (G.colors) {
 		build_graph(&Mgraph[k]);
     }
 
-	free_data(&Mdata);
-	free_wstable_info(&Minfo);
-
 }
 
-void Sewell:solve (int k, vector<int>& pi, double goal, vector<int>& stable_set, double& weight) {
+void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
 
 	MWSSdata Mdata;
 	wstable_info Minfo;
 
 	// Perform optimization
-	for (int i = 1; i <= pi.size(); i++) 
+	for (int i = 1; i <= Mgraph[k].n_nodes; i++) 
         Mgraph[k].weight[i] = (int)(INTFACTOR*pi[i - 1]); /* recall that "0" is not used! */
 	if (initialize_max_wstable(&Mgraph[k], &Minfo) > 0) 
         bye("Failed in initialize_max_wstable");
@@ -64,12 +63,61 @@ void Sewell:solve (int k, vector<int>& pi, double goal, vector<int>& stable_set,
 	// Save best stable set (in terms of the vertices in G)
 	int stable_set_size = Mdata.n_best;
 	for (int i = 1; i <= stable_set_size; i++) 
-        stable_set.push_back() = Mdata.best_sol[i]->name - 1; /* recall that "0" is not used! */
+        stable_set.push_back(Mdata.best_sol[i]->name - 1); /* recall that "0" is not used! */
 	weight = ((double)Mdata.best_z) / INTFACTOR;
 
 	free_data(&Mdata);
 	free_wstable_info(&Minfo);
 
-	return stable_set_size;
+	return;
+
 }
 
+/*****************************************************************************************/
+//  RESOLVER MWSS CON CPLEX
+/*         
+    IloEnv XXenv; // CPLEX environment structure
+    IloModel XXmodel(XXenv); // CPLEX model
+    IloNumVarArray XXvars(XXenv); // CPLEX variables
+
+    for (int i = 0; i < C_size[k]; i++)
+        XXvars.add(IloNumVar(XXenv, 0.0, 1.0, ILOBOOL));
+
+    IloExpr fobj(XXenv, 0);
+    for (int i = 0; i < C_size[k]; i++)
+            fobj += XXvars[i]*duals[C_set[k][i]];
+    XXmodel.add(IloMaximize(XXenv,fobj));
+    fobj.end();
+
+    for (int i = 0; i < C_size[k] - 1; i++)
+            for (int j = i + 1; j < C_size[k]; j++)  {
+                    if (adjacency[C_set[k][i]][C_set[k][j]] > 0) {
+                    IloExpr restr(XXenv);
+                            restr += XXvars[i] + XXvars[j];
+                    XXmodel.add(restr <= 1);
+                            restr.end();
+                    }
+            }
+
+    IloCplex XXcplex(XXmodel);
+    XXcplex.setDefaults();
+    XXcplex.setOut(XXenv.getNullStream());
+    XXcplex.setWarning(XXenv.getNullStream());
+    XXcplex.extract(XXmodel);
+    XXcplex.solve();
+
+    int counter2 = 0;
+
+    for (int i = 0; i < C_size[k]; i++)
+            if (XXcplex.isExtracted(XXvars[i]))
+                    if (XXcplex.getValue(XXvars[i]) > 0.5)
+                            stable_set[counter2++] = i;
+    int stable_set_size = counter2;
+    stable_weight = XXcplex.getObjValue();
+
+    XXcplex.end();
+    XXvars.end();
+    XXmodel.end();
+    XXenv.end();                     
+*/
+/*****************************************************************************************/

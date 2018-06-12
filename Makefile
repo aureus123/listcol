@@ -14,16 +14,25 @@ CCFLAGS = $(CCOPT) -I$(CPLEXINCDIR) -I$(CONCERTINCDIR) -I.
 CPLEXLIBDIR   = $(CPLEXDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
-CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
+CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11
 
-main: listcol.o mwis_sewell/wstable.o
-	$(CC) $(CCFLAGS) -o $@ $^ $(LIBS) $(CCLNFLAGS)
+main: bp.cpp io.o graph.o lp.o io.o stable.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp.o: lp.cpp lp.h graph.o stable.o
+	$(CC) -c -o $@ $< $(CCLNFLAGS) $(CCFLAGS)
+
+stable.o: stable.cpp stable.h mwis_sewell/wstable.o
+	$(CC) -c -o $@ $< $(CCLNFLAGS)
 
 sewell:
 	$(MAKE) -C mwis_sewell
 
-listcol.o: listcol.cpp mwis_sewell/mwss.h
-	$(CC) $(CCFLAGS) -c -o $@ $< -std=c++11
+io.o: io.cpp io.h
+	$(CC) -c -o $@ $< $(CCLNFLAGS)
+
+graph.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCLNFLAGS)
 
 .PHONY: clean
 
