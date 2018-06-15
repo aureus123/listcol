@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="geninst.cpp" />
+    <ClCompile Include="genclassicinst.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7A8F28E4-568C-4E0D-BA90-6FD4930A5A1A}</ProjectGuid>
+    <ProjectGuid>{29864486-7E13-4B5E-A7BD-DFA8463BAA70}</ProjectGuid>
     <Keyword>x64Proj</Keyword>
     <RootNamespace>admipex5</RootNamespace>
   </PropertyGroup>
