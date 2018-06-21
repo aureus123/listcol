@@ -28,10 +28,10 @@ stable.o: stable.cpp stable.h mwis_sewell/wstable.o
 sewell:
 	$(MAKE) -C mwis_sewell
 
-io.o: io.cpp io.h
+graph.o: graph.cpp graph.h io.o
 	$(CC) -c -o $@ $< $(CCLNFLAGS)
 
-graph.o: graph.cpp graph.h
+io.o: io.cpp io.h
 	$(CC) -c -o $@ $< $(CCLNFLAGS)
 
 .PHONY: clean

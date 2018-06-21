@@ -43,24 +43,22 @@ int main (int argc, char **argv) {
 		bye("Bye!");
 	}
 
-	// Read graph
-    vector<pair<int,int> > edges_list;
-	int vertices = read_graph(argv[1], edges_list);
+    // Cost of colors
 
+
+    // Construct graph
+    Graph *G = new Graph(argv[1]);
     vector<int> costs_list;
-    vector<vector<int> > colors_list;
-    int colors;
-	if (argc == 4) {
-		// Read colors and its costs
-		colors = read_cost(argv[2], costs_list);
 
-		// Read list of colors per vertex
-		read_list(argv[3], vertices, colors, colors_list);
+	if (argc == 4) {
+        read_cost(argv[2], costs_list);
+        G->set_colors(costs_list.size());
+        G->set_L(argv[3]);
 	}
 	else {
+        
 		// set C = V, its costs as 1 (or random from {1,...,10}) and L(v)
-		colors = vertices;
-        costs_list.resize(colors);
+        costs_list.resize(G.vertices);
 		for (int k = 0; k < colors; k++) {
 #ifdef RANDOMCOSTS
 			costs_list[k] = (int)urnd(1, 10, false);

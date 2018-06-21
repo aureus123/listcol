@@ -45,7 +45,7 @@ void bye(string str)
 //     0,3
 //     1,2
 //     1,3
-int read_graph(char *filename, vector<pair<int,int> >& edges_list)
+void read_graph(char *filename, vector<vector<int> >& adj_list)
 {
 	// Open file 
 	FILE *stream = fopen(filename, "rt");
@@ -57,7 +57,7 @@ int read_graph(char *filename, vector<pair<int,int> >& edges_list)
 	if (vertices < 4) bye("Number of vertices out range!");
 	if (edges < 1 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
 
-    edges_list.resize(edges);
+    adj_list.resize(vertices);
 
 	// Read edges
 	for (int e = 0; e < edges; e++) {
@@ -67,11 +67,12 @@ int read_graph(char *filename, vector<pair<int,int> >& edges_list)
 			cout << "Error reading edge " << e + 1 << "!" << endl;
 			bye("Bye!");
 		}
-        edges_list[e] = make_pair(u,v);
+        adj_list[u].push_back(v);
+        adj_list[v].push_back(u);
 	}
 	fclose(stream);
 
-    return vertices;
+    return;
 }
 
 // read_cost - read costs of colors in the following format:
@@ -80,7 +81,7 @@ int read_graph(char *filename, vector<pair<int,int> >& edges_list)
 //   example for C = {0, 1, 2} with costs c_0 = 5, c_1 = 2, c_2 = 8:
 //     3
 //     5 2 8
-int read_cost(char *filename, vector<int>& costs_list)
+void read_cost(char *filename, vector<int>& costs_list)
 {
 	/* open file */
 	FILE *stream = fopen(filename, "rt");
@@ -102,7 +103,7 @@ int read_cost(char *filename, vector<int>& costs_list)
 	}
 	fclose(stream);
 
-    return colors;
+    return;
 }
 
 // read_list - read list of colors per vertex in the following format:
