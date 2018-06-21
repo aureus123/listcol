@@ -9,7 +9,7 @@
 Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
 {
     // Read adjacency list
-    read_graph(graph_filename, adj);
+    edges = read_graph(graph_filename, adj);
     // Update number of vertices
     vertices = adj.size();
     
@@ -84,6 +84,71 @@ int Graph::get_Vk_size(int k) {
 void Graph::get_Nv(int v, vector<int>& Nv) {
     Nv = adj[v];
     return;
+}
+
+void Graph::show_instance(vector<int>& costs_list) 
+{
+	set_color(2);
+
+	cout << "Neighborhoods:" << endl;
+	int maxdelta = 0;
+	for (int v = 0; v < vertices; v++) {
+		cout << "N(" << v << ") = {";
+		int degree = adj[v].size();
+		if (degree > maxdelta) maxdelta = degree;
+		for (int d = 0; d < degree; d++) cout << " " << adj[v][d];
+		cout << " }, degree = " << degree << endl;
+	}
+	cout << "Maximum degree = " << maxdelta << endl;
+
+	cout << "Vector of costs: {";
+	for (int k = 0; k < colors; k++) {
+		cout << " " << k << "->" << costs_list[k];
+	}
+	cout << " }, colors = " << colors << endl;
+
+	cout << "List of colors:" << endl;
+	for (int v = 0; v < vertices; v++) {
+		cout << "L(" << v << ") = {";
+		for (unsigned int s = 0; s < L[v].size(); s++) cout << " " << L[v][s];
+		cout << " }" << endl;
+	}
+    return;
+}
+
+void Graph::show_statics() {
+
+	/* Show some basic statistics */
+	set_color(6);
+	cout << "Statistics:" << endl;
+	int clique_size = vertices * (vertices - 1) / 2;
+	float density = 100.0 * (float)edges / (float)clique_size;
+	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
+	/* Average and standard deviation of size of lists */
+	float prom = 0.0;
+	for (int v = 0; v < vertices; v++) prom += (float)L[v].size();
+	prom /= (float)vertices;
+	float sigma = 0.0;
+	for (int v = 0; v < vertices; v++) {
+		float substr = (float)L[v].size() - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(vertices - 1);
+	cout << "  Behaviour of |L(v)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
+	/* Average and standard deviation of vertices of Gk */
+	prom = 0.0;
+	for (int k = 0; k < colors; k++) prom += (float)V[k].size();
+	prom /= (float)colors;
+	sigma = 0.0;
+	for (int k = 0; k < colors; k++) {
+		float substr = (float)V[k].size() - prom;
+		sigma += substr * substr;
+	}
+	sigma /= (float)(colors - 1);
+	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
+	set_color(7);
+
+    return; 
 }
 
 /*
