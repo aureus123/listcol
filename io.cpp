@@ -45,7 +45,7 @@ void bye(string str)
 //     0,3
 //     1,2
 //     1,3
-void read_graph(char *filename, vector<vector<int> >& adj_list)
+int read_graph(char *filename, vector<vector<int> >& adj_list)
 {
 	// Open file 
 	FILE *stream = fopen(filename, "rt");
@@ -72,7 +72,7 @@ void read_graph(char *filename, vector<vector<int> >& adj_list)
 	}
 	fclose(stream);
 
-    return;
+    return edges;
 }
 
 // read_cost - read costs of colors in the following format:
