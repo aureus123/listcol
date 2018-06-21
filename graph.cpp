@@ -1,44 +1,71 @@
 #include "graph.h"
 #include "io.h"
 #include <algorithm>
+#include <stdlib.h>
 
+#define RANDOMCOSTS
 
-#include <iostream>
-
-// Construct graph from .graph
-Graph(char *filename)
+// Construct graph from .graph, .cost and .list
+Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
 {
-
     // Read adjacency list
     read_graph(graph_filename, adj);
-    
     // Update number of vertices
     vertices = adj.size();
-
-}
-
-// Set lists of colors from .list
-void Graph::set_L (char *filename) {
-    read_list(filename,vertices,colors,L)
+    
+    // Read cost of colors
+    read_cost(cost_filename, cost_list);
+    // Update number of colors
+    colors = cost_list.size();
+    
+    // Read list of colors
+    read_list(list_filename, vertices, colors, L);
+    // Construct subgraphs G_k
     V.resize(colors);
     for(int v = 0; v < vertices; v++)
         for(int k: L[v])
-            V[k].push_back(v);
+            V[k].push_back(v);    
 }
 
-// Set lists of colors for classic coloring (the list of each vertex has every colors)
-void Graph::set_L () {
+// urnd - generate numbers with uniform random distribution
+//  if flag=false, the interval is [a, b]
+//  if flag=true, the interval is [a, b)
+float urnd(float a, float b, bool flag)
+{
+	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
+}
+
+// Construct graph from .graph (.cost and .list are automatically generated)
+Graph(char *graph_filename, vector<int>& cost_list)
+{
+    // Read adjacency list
+    read_graph(graph_filename, adj);
+    // Update number of vertices
+    vertices = adj.size();
+    
+    // Update number of colors
+    colors = vertices;    
+    // Generate costs of colors
+    costs_list.resize(colors);
+    for (int k = 0; k < colors; k++) {
+#ifdef RANDOMCOSTS
+        costs_list[k] = (int)urnd(1, 10, false);
+#else
+        costs_list[k] = 1;
+#endif
+    }
+    
+    // Generate list of colors
     L.resize(vertices, vector<int> (colors));
 	for (int v = 0; v < vertices; v++)
 		for (int k = 0; k < colors; k++)
             L[v][k] = k;
-
-    V.resize(colors, vector<int> (vertices));
+    // Construct subgraphs G_k
+    V.resize(colors);
     for(int v = 0; v < vertices; v++)
         for(int k: L[v])
-            V[k][v] = v;
+            V[k].push_back(v);     
 }
-
 
 bool Graph::is_edge (int u, int v) {
     return (find(adj[u].begin(), adj[u].end(), v) != adj[u].end());
