@@ -1,20 +1,19 @@
 #include "io.h"
 #include "graph.h"
 #include "lp.h"
-#include <stdlib.h>
 #include <iostream>
 #include <math.h>
 #include <queue>
 #include <functional>
 #include <cfloat>
 
-#define RANDOMCOSTS
 #define SHOWINSTANCE
+#define SHOWSTATICS
 
 class ComparePrioQueue
 {
 public:
-    bool operator()(pair<int,reference_wrapper<Graph> > n1,pair<int,reference_wrapper<Graph> > n2) {
+    bool operator()(pair<int,Graph*> n1, pair<int,Graph*> n2) {
         return n1.first<n2.first;
     }
 };
@@ -42,113 +41,36 @@ int main (int argc, char **argv) {
 		cout << "  if cost and list file are not given, then it solves the classic coloring problem" << endl;
 		bye("Bye!");
 	}
-
-    // Cost of colors
-
-
+    
     // Construct graph
-    Graph *G = new Graph(argv[1]);
+    Graph *G;
     vector<int> costs_list;
 
-	if (argc == 4) {
-        read_cost(argv[2], costs_list);
-        G->set_colors(costs_list.size());
-        G->set_L(argv[3]);
+	if (argc == 4) { 
+        // .cost and .list provided by user
+        G = new Graph(argv[1],argv[2],costs_list,argv[3]);
 	}
 	else {
-        
-		// set C = V, its costs as 1 (or random from {1,...,10}) and L(v)
-        costs_list.resize(G.vertices);
-		for (int k = 0; k < colors; k++) {
-#ifdef RANDOMCOSTS
-			costs_list[k] = (int)urnd(1, 10, false);
-#else
-			costs_list[k] = 1;
-#endif
-		}
-        colors_list.resize(vertices, vector<int> (colors));
-		for (int v = 0; v < vertices; v++)
-			for (int k = 0; k < colors; k++)
-                colors_list[v][k] = k;
-	}
-
-
-    // Construct graph
-    Graph G (edges_list, colors_list, costs_list);
-
-#ifdef SHOWINSTANCE
-
-	set_color(2);
-
-	cout << "Neighborhoods:" << endl;
-	int maxdelta = 0;
-	for (int v = 0; v < vertices; v++) {
-		cout << "N(" << v << ") = {";
-        vector<int> Nv;
-        G.get_Nv(v,Nv);
-		int degree = Nv.size();
-		if (degree > maxdelta) maxdelta = degree;
-		for (int d = 0; d < degree; d++) cout << " " << Nv[d];
-		cout << " }, degree = " << degree << endl;
-	}
-	cout << "Maximum degree = " << maxdelta << endl;
-
-	cout << "Vector of costs: {";
-	for (int k = 0; k < colors; k++) {
-		cout << " " << k << "->" << costs_list[k];
-	}
-	cout << " }, colors = " << colors << endl;
-
-	cout << "List of colors:" << endl;
-	for (int v = 0; v < vertices; v++) {
-		cout << "L(" << v << ") = {";
-		for (unsigned int s = 0; s < colors_list[v].size(); s++) cout << " " << colors_list[v][s];
-		cout << " }" << endl;
-	}
-
-#endif
-
-	/* Show some basic statistics */
-	set_color(6);
-	cout << "Statistics:" << endl;
-    int edges = edges_list.size();
-	int clique_size = vertices * (vertices - 1) / 2;
-	float density = 100.0 * (float)edges / (float)clique_size;
-	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
-	/* Average and standard deviation of size of lists */
-	float prom = 0.0;
-	for (int k = 0; k < vertices; k++) prom += (float)colors_list[k].size();
-	prom /= (float)vertices;
-	float sigma = 0.0;
-	for (int k = 0; k < vertices; k++) {
-		float substr = (float)colors_list.size() - prom;
-		sigma += substr * substr;
-	}
-	sigma /= (float)(vertices - 1);
-	cout << "  Behaviour of |L(v)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
-	/* Average and standard deviation of vertices of Gk */
-	prom = 0.0;
-	for (int k = 0; k < colors; k++) prom += (float)G.get_Vk_size(k);
-	prom /= (float)colors;
-	sigma = 0.0;
-	for (int k = 0; k < colors; k++) {
-		float substr = (float)G.get_Vk_size(k) - prom;
-		sigma += substr * substr;
-	}
-	sigma /= (float)(colors - 1);
-	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
-	set_color(7);
+		// list of costs and list of colors are automatically genereted
+        G = new Graph(argv[1],costs_list);
+    }
 
 #ifndef VERBOSE
 	std::cout.clear();
+#endif
+#ifdef SHOWINSTANCE
+    G->show_instance(costs_list);
+#endif
+#ifdef SHOWSTATICS
+    G->show_statics();
 #endif
 
     // BRANCH AND PRICE
     cout << endl << "Branch and Price" << endl;
 
     // Priority queue
-    priority_queue<pair<int,reference_wrapper<Graph> >, vector<pair<int,reference_wrapper<Graph> > >, ComparePrioQueue> queue;
-    queue.push(pair<int,reference_wrapper<Graph> > (1,G));
+    priority_queue<pair<int,Graph*>, vector<pair<int,Graph*> >, ComparePrioQueue> queue;
+    queue.push(pair<int,Graph*> (1,G));
 
     // Best integer solution
     double best_integer = DBL_MAX;
