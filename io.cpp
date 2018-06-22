@@ -4,6 +4,8 @@
 #include <utility>
 #include <iostream>
 
+#define VERBOSE
+
 /* for linux users: do not define VISUALC */
 #ifndef VISUALC
 #include <unistd.h>

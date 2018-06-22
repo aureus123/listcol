@@ -1,9 +1,8 @@
 #include "lp.h"
-#include "graph.h"
 #include "stable.h"
 #include "io.h"
-#include <ilcplex/ilocplex.h>
-#include <ilcplex/cplex.h>
+#include <cmath>
+#include <string>
 
 #define EPSILON 0.00001
 #define MAXTIME 7200.0
@@ -12,18 +11,18 @@
 #define NOMEMEMPHASIS
 #define FICTIONAL_COST 10000
 
-static void initialize_LP(Graph&, IloObjective&, IloRangeArray&, IloNumVarArray&);
-static void set_params(IloEnv&, IloModel&, IloCplex&);
+Lopt::Lopt(Graph& G, vector<int>& cost_list) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), G(G), cost_list(cost_list) {}
 
-int optimize (Graph& G, double& obj_value) {
+Lopt::~Lopt() {
+    Xrestr.end();
+    Xvars.end();
+    Xmodel.end();
+    Xenv.end();
+}
+
+int Lopt::optimize (double& obj_value) {
 
     // COLUMN GENERATION //
-
-    IloEnv Xenv; // CPLEX environment structure
-    IloModel Xmodel(Xenv); // CPLEX model
-    IloObjective Xobj; // CPLEX objective function
-    IloNumVarArray Xvars(Xenv); // CPLEX variables
-    IloRangeArray Xrestr(Xenv); // CPLEX constraints
 
 	Xobj = IloMinimize(Xenv);
 
@@ -34,14 +33,15 @@ int optimize (Graph& G, double& obj_value) {
         Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 
     // Initial LP solution
-	initialize_LP(G, Xobj, Xrestr, Xvars);
+	initialize_LP(G);
 
 	Xmodel.add(Xobj);
 	Xmodel.add(Xrestr);
+
 	IloCplex cplex(Xmodel);
 
 	// Settings
-    set_params(Xenv,Xmodel,cplex);
+    set_params(cplex);
 
     // Initialize MWSS solver
     MWSS<Sewell> solver (G);
@@ -67,22 +67,22 @@ int optimize (Graph& G, double& obj_value) {
                 G.get_Vk(k,Vk);
 
                 // Get duals values of Vk
-                vector<double> pi;
+                vector<double> pi (Vk.size());
                 for (unsigned int i = 0; i < Vk.size(); i++) {
                         double d = duals[Vk[i]];
                         if (d > -EPSILON && d < 0.0) d = 0.0;
-                        pi.push_back(d);
+                        pi[i] = d;
                 }
 
                 vector<int> stable_set;
                 double stable_weight = 0.0; 
-                double goal = G.get_cost(k) + duals[G.vertices + k];
+                double goal = cost_list[k] + duals[G.vertices + k];
                 solver.solve(k, pi, goal, stable_set, stable_weight);
 
                 // Add column if the reduced cost is negative
                 if (goal - stable_weight < -EPSILON) {
 
-                        IloNumColumn column = Xobj(G.get_cost(k));
+                        IloNumColumn column = Xobj(cost_list[k]);
                         // fill the column corresponding to ">= 1" constraints
                         for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
                         // and the ">= -1 constraint
@@ -100,6 +100,9 @@ int optimize (Graph& G, double& obj_value) {
                 break; // optimality reached
     }
 
+    // Save solution
+    cplex.getValues(solution, Xvars);
+
     /* LP treatment */
     IloCplex::CplexStatus status = cplex.getCplexStatus();
 
@@ -108,22 +111,21 @@ int optimize (Graph& G, double& obj_value) {
         obj_value = cplex.getObjValue(); 
 
         // Check for integrality
-        IloNumArray values (Xenv,G.vertices+G.colors);
-        cplex.getValues(values, Xvars);
         bool integral = true;
-        for (int i = 0; i < G.vertices + G.colors; i++)
-            if (values[i] > EPSILON && values[i] < 1 - EPSILON) {
+        for (int i = 0; i < solution.getSize(); i++)
+            if (solution[i] > EPSILON && solution[i] < 1 - EPSILON) {
                 integral = false;
                 break;
             }
-        
+        cplex.end();
         if (integral)
             return 1;
         else
             return 0;
 
     }
-    else if (status == IloCplex::Infeasible)
+    cplex.end();
+    if (status == IloCplex::Infeasible)
         return -1;
 
     bye("Error solving LP relaxation");
@@ -131,7 +133,59 @@ int optimize (Graph& G, double& obj_value) {
 
 }
 
-static void initialize_LP(Graph& G, IloObjective& Xobj, IloRangeArray& Xrestr, IloNumVarArray& Xvars) {
+void Lopt::find_branching_vertices (int& i, int& j) {
+    
+    // Find most fractional column
+    double most_frac = 1;
+    int s1 = -1;
+    for (int k = 0; k < solution.getSize(); k++)    
+        if (abs(solution[k]-0.5) < most_frac) {
+            most_frac = abs(solution[k]-0.5);
+            s1 = k;
+        }
+
+    if (s1 == -1) bye("Error finding vertices for branching");
+
+    // Find first row covered by s1
+    for (i = 0; i < G.vertices; i++) {
+        bool flag = false; // for double breaking
+        for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it)
+            if ((Xvars[s1].getImpl() == it.getVar().getImpl()) && (it.getCoef() == 1)) { // it's horrible but it's the best i could do
+                flag = true;
+                break;  
+            }
+        if (flag) break;
+    }
+    if (i == G.vertices) bye("Error finding vertices for branching");
+
+    // Find another column that cover i
+    IloNumVar s2;
+    for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
+        if (it.getVar().getImpl() == Xvars[s1].getImpl()) continue;
+        if (it.getCoef() == 1) {
+            s2 = it.getVar().getImpl();
+            break; // What a mess!
+        }
+    }
+    //if (s2 == -1) bye("Error finding vertices for branching");
+
+    // Find row j such that only one of s1 or s2 cover j
+    for (j = 0; j < G.vertices; ++j) {
+        if (j == i) continue;
+        bool cover_s1 = false;
+        bool cover_s2 = false;
+        for (IloExpr::LinearIterator it = Xrestr[j].getLinearIterator(); it.ok(); ++it) {
+            if (it.getVar().getImpl() == Xvars[s1].getImpl()) cover_s1 = true;
+            else if (it.getVar().getImpl() == s2.getImpl()) cover_s2 = true;
+        }
+        if (cover_s1 != cover_s2) break;
+    }
+    if (j == G.vertices) bye("Error finding vertices for branching");   
+
+    return;
+}
+
+void Lopt::initialize_LP(Graph& G) {
 
     if (G.colors < G.vertices) {
         cout << "Error initializing LP relaxation: number of vertices is grater than the number of colors" << endl;
@@ -158,7 +212,8 @@ static void initialize_LP(Graph& G, IloObjective& Xobj, IloRangeArray& Xrestr, I
 }
 
 
-static void set_params(IloEnv& Xenv, IloModel& Xmodel, IloCplex& cplex) {
+void Lopt::set_params(IloCplex& cplex) {
+
 	cplex.setDefaults();
 
 #ifndef SHOWCPLEX

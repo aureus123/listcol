@@ -77,27 +77,51 @@ int main (int argc, char **argv) {
 
     while (!queue.empty()) {
 
-        pair<int,Graph> p = queue.top();
+        pair<int,Graph*> p = queue.top();
         queue.pop();
 
         // Solve LP relaxation by column generation approach
-        double obj_value;      
-        int ret = optimize(p.second, obj_value);
+        double obj_value;
+        Lopt opt (*p.second, costs_list);
+        int ret = opt.optimize(obj_value);
+        cout << "Objective value = " << obj_value << "\t Best integer = " << best_integer;
 
-        switch (ret) {
-        case 1: // Optimal LP solution is integer
+        if (ret == 1) { // Optimal LP solution is integer
+
             if (obj_value < best_integer) { // Update best integer
                 best_integer = obj_value;
-                cout << "New incumbent: " << best_integer << endl;
+                cout << "\t *New incumbent = " << best_integer;
             }
-        case 0: // Optimal LP solution is fractional
-            if (obj_value >= best_integer)
-                ; // Prune by bound
-            else
-                ;
-        case -1: // LP relaxation is infeasible
-            ;   // Prune by infeasibility
+            //delete[] p.second; // Prune by optimality
         }
+
+        else if (ret == 0) { // Optimal LP solution is fractional
+
+            if (obj_value >= best_integer)
+                ;//delete[] p.second; // Prune by bound
+            else {
+
+                // Find vertices u and v for branching
+                int u, v;
+                opt.find_branching_vertices(u,v);
+
+                Graph* G1 = p.second;
+                Graph* G2 = new Graph(*G1);
+                G2->collapse_vertices(u,v); // CAUTION: collapse precedes joint
+                G1->join_vertices(u,v);
+
+                queue.push(pair<int,Graph*> (1,G1));
+                queue.push(pair<int,Graph*> (1,G2));
+
+            }
+        }
+
+        else if (ret == -1) { // LP relaxation is infeasible
+            ;
+            //delete[] p.second;   // Prune by infeasibility
+        }
+
+        cout << "\t Nodes left = " << queue.size() << endl;
 
     }
 

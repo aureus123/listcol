@@ -2,11 +2,13 @@
 #include "io.h"
 #include <algorithm>
 #include <stdlib.h>
+#include <iostream>
+#include <set>
 
 #define RANDOMCOSTS
 
 // Construct graph from .graph, .cost and .list
-Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
+Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
 {
     // Read adjacency list
     edges = read_graph(graph_filename, adj);
@@ -30,28 +32,28 @@ Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *l
 // urnd - generate numbers with uniform random distribution
 //  if flag=false, the interval is [a, b]
 //  if flag=true, the interval is [a, b)
-float urnd(float a, float b, bool flag)
+static float urnd(float a, float b, bool flag)
 {
 	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
 }
 
 // Construct graph from .graph (.cost and .list are automatically generated)
-Graph(char *graph_filename, vector<int>& cost_list)
+Graph::Graph(char *graph_filename, vector<int>& cost_list)
 {
     // Read adjacency list
-    read_graph(graph_filename, adj);
+    edges = read_graph(graph_filename, adj);
     // Update number of vertices
     vertices = adj.size();
     
     // Update number of colors
     colors = vertices;    
     // Generate costs of colors
-    costs_list.resize(colors);
+    cost_list.resize(colors);
     for (int k = 0; k < colors; k++) {
 #ifdef RANDOMCOSTS
-        costs_list[k] = (int)urnd(1, 10, false);
+        cost_list[k] = (int)urnd(1, 10, false);
 #else
-        costs_list[k] = 1;
+        cost_list[k] = 1;
 #endif
     }
     
@@ -76,19 +78,12 @@ void Graph::get_Vk (int k, vector<int>& Vk) {
     return;
 }
 
-int Graph::get_Vk_size(int k) {
-    return V[k].size();
-}
-
-
-void Graph::get_Nv(int v, vector<int>& Nv) {
-    Nv = adj[v];
-    return;
-}
-
 void Graph::show_instance(vector<int>& costs_list) 
 {
 	set_color(2);
+
+    cout << "Vertices = " << vertices << endl;
+    cout << "Edges = " << edges << endl;
 
 	cout << "Neighborhoods:" << endl;
 	int maxdelta = 0;
@@ -113,6 +108,14 @@ void Graph::show_instance(vector<int>& costs_list)
 		for (unsigned int s = 0; s < L[v].size(); s++) cout << " " << L[v][s];
 		cout << " }" << endl;
 	}
+
+	cout << "Gk subgraphs:" << endl;
+	for (int k = 0; k < colors; k++) {
+		cout << "V(" << k << ") = {";
+		for (unsigned int s = 0; s < V[k].size(); s++) cout << " " << V[k][s];
+		cout << " }" << endl;
+	}
+
     return;
 }
 
@@ -151,23 +154,86 @@ void Graph::show_statics() {
     return; 
 }
 
-/*
-Graph::Graph (vector<pair<int,int> >& edges, vector<vector <int>>& color_list, vector<int>& cost_list) :
-    L(color_list), cost(cost_list)
-{
-    vertices = L.size();
-    colors = cost.size();
+// Add an edge between vertices u and v
+// CUATION: This function modify the current graph
+void Graph::join_vertices (int u, int v) {
 
-    adj.resize(vertices); 
-    V.resize(colors);
+    if (is_edge(u,v)) bye("Branching error");
 
-    for (auto p: edges) {
-        adj[p.first].push_back(p.second);
-        adj[p.second].push_back(p.first);
+    edges++;
+    adj[u].push_back(v);
+    adj[v].push_back(u);
+    return;
+}
+
+static int old_index (int i, int v) {
+    if (i == v) bye("Branching error");
+    return (i < v ? i : i-1);
+}
+
+static int new_index (int j, int v) {
+    return (j < v ? j : j+1);
+}
+
+// Generate a new graph from the current one by collapsing vertices u and v
+void Graph::collapse_vertices (int u, int v) {
+
+    if (is_edge(u,v)) bye("Branching error");
+
+    if (u > v) {
+        int temp = u;
+        u = v;
+        v = temp;
     }
 
-    for (int v = 0; v < vertices; v++)
-        for (int k: L[v])
-            V[k].push_back(v);
+    // Merge adj[u] and adj[v]
+    for (int j: adj[v]) {
+        vector<int>::iterator it = find(adj[u].begin(), adj[u].end(), j);
+        if (it == adj[u].end()) {
+            // j is only adjacent to v
+            adj[u].push_back(j);
+            *(find(adj[j].begin(), adj[j].end(), v)) = u; // change v to u
+        }
+        else {
+            // j is adjacent to u and v
+            edges--;
+            adj[j].erase(find(adj[j].begin(), adj[j].end(), v));
+        }
+    }
+    adj.erase(adj.begin()+v);
+    vertices--;
+
+    // Rearrange indices of adjacency list
+    for(int i = 0; i < vertices; i++)
+        for (int& j: adj[i])
+            if (j > v)
+                j--;
+
+    // Intersection of L(u) and L(v)
+    set<int> intersection;
+    for (int k: L[u])
+        if (find(L[v].begin(), L[v].end(), k) != L[v].end())
+            intersection.insert(k);
+    if (intersection.size() == 0)
+        bye("Branching error");
+
+    // Modify subgraphs Gk
+    for (int k: L[u]) {
+        if (intersection.find(k) != intersection.end()) 
+            V[k].erase(find(V[k].begin(), V[k].end(), v));
+        else
+            V[k].erase(find(V[k].begin(), V[k].end(), u));
+    }
+    for (int k: L[v])
+        if (intersection.find(k) == intersection.end()) 
+            V[k].erase(find(V[k].begin(), V[k].end(), v));
+
+    // Rearrange L
+    L[u].clear();
+    L[u].reserve(intersection.size());
+    for (int k: intersection)
+        L[u].push_back(k);
+    L.erase(L.begin()+v);
+
+    return;
 }
-*/
