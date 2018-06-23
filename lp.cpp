@@ -160,14 +160,15 @@ void Lopt::find_branching_vertices (int& i, int& j) {
 
     // Find another column that cover i
     IloNumVar s2;
-    for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
+    IloExpr::LinearIterator it;
+    for (it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
         if (it.getVar().getImpl() == Xvars[s1].getImpl()) continue;
         if (it.getCoef() == 1) {
             s2 = it.getVar().getImpl();
             break; // What a mess!
         }
     }
-    //if (s2 == -1) bye("Error finding vertices for branching");
+    if (!it.ok()) bye("Error finding vertices for branching");
 
     // Find row j such that only one of s1 or s2 cover j
     for (j = 0; j < G.vertices; ++j) {

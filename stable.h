@@ -24,11 +24,14 @@ class Sewell {
 
     public:
     Sewell(Graph& G);
+    ~Sewell();
     void solve(int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight);
 
     private:
     vector<MWSSgraph> Mgraph;   // subgraphs of G (one per color) for the MWSS algorithm
     wstable_parameters Mparms;  // parameters for the MWSS algorithm
+	MWSSdata Mdata;
+	wstable_info Minfo;
 
 };
 

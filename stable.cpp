@@ -8,9 +8,6 @@
 // Perform some initializations for the MWSS algorithm, including the generation of the subgraphs
 Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
 
-	MWSSdata Mdata;
-	wstable_info Minfo;
-
 	default_parameters(&Mparms);
 	Mparms.cpu_limit = MAXTIME_MWIS;
 	// Mparms.reorder = 1; /* reorder vertices of subgraph by degree */
@@ -45,10 +42,12 @@ Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
 
 }
 
-void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
+Sewell::~Sewell () {
+    for(int k = 0; k < Mgraph.size(); k++)
+        free_graph(&Mgraph[k]);
+}
 
-	MWSSdata Mdata;
-	wstable_info Minfo;
+void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
 
 	// Perform optimization
 	for (int i = 1; i <= Mgraph[k].n_nodes; i++) 
@@ -66,8 +65,8 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
         stable_set.push_back(Mdata.best_sol[i]->name - 1); /* recall that "0" is not used! */
 	weight = ((double)Mdata.best_z) / INTFACTOR;
 
-	free_data(&Mdata);
-	free_wstable_info(&Minfo);
+    free_data(&Mdata);
+    free_wstable_info(&Minfo);
 
 	return;
 
