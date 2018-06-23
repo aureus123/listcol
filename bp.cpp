@@ -6,6 +6,7 @@
 #include <queue>
 #include <functional>
 #include <cfloat>
+#include <iomanip> 
 
 #define SHOWINSTANCE
 #define SHOWSTATICS
@@ -75,30 +76,32 @@ int main (int argc, char **argv) {
     // Best integer solution
     double best_integer = DBL_MAX;
 
+    int state = 0;
+
     while (!queue.empty()) {
 
         pair<int,Graph*> p = queue.top();
         queue.pop();
 
+        //p.second->show_instance(costs_list);
+
         // Solve LP relaxation by column generation approach
         double obj_value;
         Lopt opt (*p.second, costs_list);
         int ret = opt.optimize(obj_value);
-        cout << "Objective value = " << obj_value << "\t Best integer = " << best_integer;
 
         if (ret == 1) { // Optimal LP solution is integer
-
-            if (obj_value < best_integer) { // Update best integer
+            if (obj_value < best_integer) // Update best integer
                 best_integer = obj_value;
-                cout << "\t *New incumbent = " << best_integer;
-            }
-            //delete[] p.second; // Prune by optimality
+            delete p.second; // Prune by optimality
+            state = 0;
         }
 
         else if (ret == 0) { // Optimal LP solution is fractional
-
-            if (obj_value >= best_integer)
-                ;//delete[] p.second; // Prune by bound
+            if (obj_value >= best_integer) {
+                delete p.second; // Prune by bound
+                state = 1;
+            }
             else {
 
                 // Find vertices u and v for branching
@@ -113,18 +116,31 @@ int main (int argc, char **argv) {
                 queue.push(pair<int,Graph*> (1,G1));
                 queue.push(pair<int,Graph*> (1,G2));
 
+                state = 2;
             }
         }
 
         else if (ret == -1) { // LP relaxation is infeasible
-            ;
-            //delete[] p.second;   // Prune by infeasibility
+            delete p.second;   // Prune by infeasibility
+            state = 3;
         }
 
-        cout << "\t Nodes left = " << queue.size() << endl;
-
+        cout << "Objective value = " << setprecision(3) << obj_value << "\t Best integer = ";
+        if (best_integer == DBL_MAX)
+            cout << "inf";
+        else
+            cout << best_integer;
+        cout << "\t Nodes left = " << queue.size();
+        if (state == 0)
+            cout << "\t Prune by opt" << endl;
+        else if (state == 1)
+            cout << "\t Prune by bound" << endl;
+        else if (state == 2)
+            cout << "\t Branch" << endl;
+        else if (state == 3)
+            cout << "\t Prune by infeas" << endl;
     }
 
 	return 0;
-
 }
+

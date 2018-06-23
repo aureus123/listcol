@@ -166,15 +166,6 @@ void Graph::join_vertices (int u, int v) {
     return;
 }
 
-static int old_index (int i, int v) {
-    if (i == v) bye("Branching error");
-    return (i < v ? i : i-1);
-}
-
-static int new_index (int j, int v) {
-    return (j < v ? j : j+1);
-}
-
 // Generate a new graph from the current one by collapsing vertices u and v
 void Graph::collapse_vertices (int u, int v) {
 
@@ -217,16 +208,18 @@ void Graph::collapse_vertices (int u, int v) {
     if (intersection.size() == 0)
         bye("Branching error");
 
-    // Modify subgraphs Gk
-    for (int k: L[u]) {
-        if (intersection.find(k) != intersection.end()) 
-            V[k].erase(find(V[k].begin(), V[k].end(), v));
-        else
-            V[k].erase(find(V[k].begin(), V[k].end(), u));
-    }
-    for (int k: L[v])
-        if (intersection.find(k) == intersection.end()) 
-            V[k].erase(find(V[k].begin(), V[k].end(), v));
+    // Delete v from V[k] with k in intersection
+    for (int k: intersection)
+        V[k].erase(find(V[k].begin(), V[k].end(), v));
+
+    // Rearrange subgraphs Gk
+    for (int k = 0; k < colors; k++)
+        for (int& w: V[k]) {
+            if (w == v)
+                w = u;
+            else if (w > v)
+                w--;
+        }
 
     // Rearrange L
     L[u].clear();
