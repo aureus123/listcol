@@ -15,7 +15,7 @@ class ComparePrioQueue
 {
 public:
     bool operator()(pair<int,Graph*> n1, pair<int,Graph*> n2) {
-        return n1.first<n2.first;
+        return n1.first >= n2.first;
     }
 };
 
@@ -83,13 +83,11 @@ int main (int argc, char **argv) {
         pair<int,Graph*> p = queue.top();
         queue.pop();
 
-        //p.second->show_instance(costs_list);
-
         // Solve LP relaxation by column generation approach
         double obj_value;
         Lopt opt (*p.second, costs_list);
         int ret = opt.optimize(obj_value);
-
+    
         if (ret == 1) { // Optimal LP solution is integer
             if (obj_value < best_integer) // Update best integer
                 best_integer = obj_value;
@@ -102,6 +100,10 @@ int main (int argc, char **argv) {
                 delete p.second; // Prune by bound
                 state = 1;
             }
+            else if (ceil(obj_value) >= best_integer) {
+                delete p.second; // Prune by bound
+                state = 2;
+            }
             else {
 
                 // Find vertices u and v for branching
@@ -113,19 +115,19 @@ int main (int argc, char **argv) {
                 G2->collapse_vertices(u,v); // CAUTION: collapse precedes joint
                 G1->join_vertices(u,v);
 
-                queue.push(pair<int,Graph*> (1,G1));
                 queue.push(pair<int,Graph*> (1,G2));
+                queue.push(pair<int,Graph*> (1,G1));
 
-                state = 2;
+                state = 3;
             }
         }
 
         else if (ret == -1) { // LP relaxation is infeasible
             delete p.second;   // Prune by infeasibility
-            state = 3;
+            state = 4;
         }
 
-        cout << "Objective value = " << setprecision(3) << obj_value << "\t Best integer = ";
+        cout << "Objective value = " << setprecision(2) << fixed << obj_value << "\t Best integer = ";
         if (best_integer == DBL_MAX)
             cout << "inf";
         else
@@ -136,8 +138,10 @@ int main (int argc, char **argv) {
         else if (state == 1)
             cout << "\t Prune by bound" << endl;
         else if (state == 2)
-            cout << "\t Branch" << endl;
+            cout << "\t Prune by round-up bound" << endl;
         else if (state == 3)
+            cout << "\t Branch" << endl;
+        else if (state == 4)
             cout << "\t Prune by infeas" << endl;
     }
 

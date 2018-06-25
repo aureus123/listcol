@@ -3,6 +3,8 @@
 #include "io.h"
 #include <cmath>
 #include <string>
+#include <map>
+#include <cfloat>
 
 #define EPSILON 0.00001
 #define MAXTIME 7200.0
@@ -100,6 +102,15 @@ int Lopt::optimize (double& obj_value) {
                 break; // optimality reached
     }
 
+    // Cut fictional columns
+    IloExpr restr(Xenv);
+    for (int n = 0; n < G.vertices; ++n) {
+        restr += Xvars[n];
+    }
+	Xmodel.add(restr <= 0);
+    restr.end();
+    cplex.solve();
+
     // Save solution
     cplex.getValues(solution, Xvars);
 
@@ -135,7 +146,53 @@ int Lopt::optimize (double& obj_value) {
 
 void Lopt::find_branching_vertices (int& i, int& j) {
     
-    // Find most fractional column
+    // Mapeo de variables a indices
+    map<IloNumVarI*,int> map;
+    for (int n = 0; n < solution.getSize(); ++n)    
+        map[Xvars[n].getImpl()] = n;
+
+    // LP to matrix
+    vector<vector<int> > matrix (G.vertices, vector<int> (solution.getSize(),0));
+    for(int m = 0; m < G.vertices; ++m)
+        for (IloExpr::LinearIterator it = Xrestr[m].getLinearIterator(); it.ok(); ++it)
+            if (it.getCoef() == 1)
+                matrix[m][map[it.getVar().getImpl()]] = 1;
+  
+    double best_rank = DBL_MAX;
+
+    for (int u = 0; u < G.vertices - 1; ++u)
+        for (int v = u+1; v < G.vertices; ++v) {
+            
+            // u and v must be non-adjacent
+            if (G.is_edge(u,v))
+                continue;
+
+            // L(u) cap L(v) must be non-empty
+            if (!G.have_common_color(u,v))
+                continue;
+
+            double best_s1 = DBL_MAX; // Stable that contains both u and v
+            double best_s2 = DBL_MAX; // Stable that contains only one of {u,v}
+            for (int n = 0; n < solution.getSize(); ++n) {
+                if ((matrix[u][n] == 1) && (matrix[v][n]) == 1) {
+                    if (abs(solution[n] - 0.5) < best_s1)
+                        best_s1 = abs(solution[n] - 0.5);
+                }
+                else if (matrix[u][n] != matrix[v][n]) {
+                    if (abs(solution[n] - 0.5) < best_s2)
+                        best_s2 = abs(solution[n] - 0.5);
+                }
+            }
+            if (best_s1 + best_s2 < best_rank) {
+                i = u;
+                j = v;
+            }
+        }
+
+    return;
+
+/*
+    // Find most fractional column s1
     double most_frac = 1;
     int s1 = -1;
     for (int k = 0; k < solution.getSize(); k++)    
@@ -146,7 +203,18 @@ void Lopt::find_branching_vertices (int& i, int& j) {
 
     if (s1 == -1) bye("Error finding vertices for branching");
 
-    // Find first row covered by s1
+    cout << "Var: " << Xvars[s1] << endl;
+    for (int k = 0; k < G.vertices; ++k) {
+        for (IloExpr::LinearIterator it = Xrestr[k].getLinearIterator(); it.ok(); ++it)
+            cout << " " << it.getVar();
+        cout << endl;
+    }
+    for (int k = 0; k < solution.getSize(); k++)    
+        cout << " " << solution[k];
+    cout << endl;
+    
+
+    // Find first row i covered by s1
     for (i = 0; i < G.vertices; i++) {
         bool flag = false; // for double breaking
         for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it)
@@ -158,7 +226,7 @@ void Lopt::find_branching_vertices (int& i, int& j) {
     }
     if (i == G.vertices) bye("Error finding vertices for branching");
 
-    // Find another column that cover i
+    // Find another column s2 that cover i
     IloNumVar s2;
     IloExpr::LinearIterator it;
     for (it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
@@ -184,14 +252,10 @@ void Lopt::find_branching_vertices (int& i, int& j) {
     if (j == G.vertices) bye("Error finding vertices for branching");   
 
     return;
+*/
 }
 
 void Lopt::initialize_LP(Graph& G) {
-
-    if (G.colors < G.vertices) {
-        cout << "Error initializing LP relaxation: number of vertices is grater than the number of colors" << endl;
-        return;
-    }
 
     // Add a fictional column (e_i,-e_i) = (0..010..0,0..0-10..0) for every i = 1,...,vertices
     // This column has got a really high cost
@@ -200,8 +264,6 @@ void Lopt::initialize_LP(Graph& G) {
 		IloNumColumn column = Xobj(FICTIONAL_COST);
 		// fill the column corresponding to ">= 1" constraint
 		column += Xrestr[v](1.0);
-		// and the ">= -1 constraint
-		column += Xrestr[G.vertices + v](-1.0);
 
 		/* add the column as a non-negative continuos variable */
 		Xvars.add(IloNumVar(column));

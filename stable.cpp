@@ -6,7 +6,7 @@
 #define MAXTIME_MWIS 300.0
 
 // Perform some initializations for the MWSS algorithm, including the generation of the subgraphs
-Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
+Sewell::Sewell (Graph& G) : Mgraph (G.colors), Minfo (G.colors) {
 
 	default_parameters(&Mparms);
 	Mparms.cpu_limit = MAXTIME_MWIS;
@@ -15,7 +15,7 @@ Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
 	// else Mparms.clique_cover = 1;
 
 	for (int k = 0; k < G.colors; k++) {
-		reset_pointers(&Mgraph[k], &Mdata, &Minfo);
+		reset_pointers(&Mgraph[k], &Mdata, &Minfo[k]);
 
         vector<int> Vk;
         G.get_Vk(k, Vk);
@@ -38,13 +38,17 @@ Sewell::Sewell (Graph& G) : Mgraph (G.colors) {
 			}
 		}
 		build_graph(&Mgraph[k]);
+	    if (initialize_max_wstable(&Mgraph[k], &Minfo[k]) > 0) 
+            bye("Failed in initialize_max_wstable");
     }
 
 }
 
 Sewell::~Sewell () {
-    for(int k = 0; k < Mgraph.size(); k++)
+    for(int k = 0; k < Mgraph.size(); k++) {
         free_graph(&Mgraph[k]);
+        free_wstable_info(&Minfo[k]);
+    }
 }
 
 void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
@@ -52,9 +56,7 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
 	// Perform optimization
 	for (int i = 1; i <= Mgraph[k].n_nodes; i++) 
         Mgraph[k].weight[i] = (int)(INTFACTOR*pi[i - 1]); /* recall that "0" is not used! */
-	if (initialize_max_wstable(&Mgraph[k], &Minfo) > 0) 
-        bye("Failed in initialize_max_wstable");
-	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo, (int)(INTFACTOR*goal), 0) > 0) 
+	if (call_max_wstable(&Mgraph[k], &Mdata, &Mparms, &Minfo[k], (int)(INTFACTOR*goal), 0) > 0) 
         bye("Failed in call_max_wstable");
 	//	if (Mparms.cpu_limit >= 0 && Minfo.cpu > Mparms.cpu_limit) printf("cpu_limit of %f seconds exceeded: %f seconds. Solution may not optimum.\n", Mparms.cpu_limit, Minfo.cpu);
 	// printf("Found best stable set of weight %d.\n", Mdata.best_z);
@@ -66,7 +68,6 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
 	weight = ((double)Mdata.best_z) / INTFACTOR;
 
     free_data(&Mdata);
-    free_wstable_info(&Minfo);
 
 	return;
 

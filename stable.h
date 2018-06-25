@@ -31,7 +31,7 @@ class Sewell {
     vector<MWSSgraph> Mgraph;   // subgraphs of G (one per color) for the MWSS algorithm
     wstable_parameters Mparms;  // parameters for the MWSS algorithm
 	MWSSdata Mdata;
-	wstable_info Minfo;
+	vector<wstable_info> Minfo;
 
 };
 

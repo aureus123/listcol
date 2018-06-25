@@ -16,6 +16,7 @@ class Graph {
     Graph(char *graph_filename, vector<int>& cost_list);
     bool is_edge(int u, int v);
     void get_Vk(int k, vector<int>& Vk);
+    bool have_common_color(int u, int v);
 
     void show_instance(vector<int>& costs_list);
     void show_statics();

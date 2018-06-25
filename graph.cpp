@@ -78,6 +78,16 @@ void Graph::get_Vk (int k, vector<int>& Vk) {
     return;
 }
 
+bool Graph::have_common_color(int u, int v) {
+
+    for (int k: L[u])
+        if (find(L[v].begin(), L[v].end(), k) != L[v].end())
+            return true;
+
+    return false;
+
+}
+
 void Graph::show_instance(vector<int>& costs_list) 
 {
 	set_color(2);
@@ -208,6 +218,14 @@ void Graph::collapse_vertices (int u, int v) {
     if (intersection.size() == 0)
         bye("Branching error");
 
+    // Delete u from V[k] with k in L(u)/intersection
+    for (int k: L[u])
+        if (find(intersection.begin(), intersection.end(), k) == intersection.end())
+            V[k].erase(find(V[k].begin(), V[k].end(), u));
+    // Delete v from V[k] with k in L(v)/intersection
+    for (int k: L[v])
+        if (find(intersection.begin(), intersection.end(), k) == intersection.end())
+            V[k].erase(find(V[k].begin(), V[k].end(), v));
     // Delete v from V[k] with k in intersection
     for (int k: intersection)
         V[k].erase(find(V[k].begin(), V[k].end(), v));
