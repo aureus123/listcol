@@ -35,4 +35,15 @@ class Sewell {
 
 };
 
+class CPLEX {
+
+    public:
+    CPLEX(Graph& G);
+    void solve(int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight);
+
+    private:
+    Graph& G;
+
+};
+
 #endif

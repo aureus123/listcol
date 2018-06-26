@@ -1,6 +1,8 @@
 #include "stable.h"
 #include "io.h"
 #include <algorithm>
+#include <ilcplex/ilocplex.h>
+#include <ilcplex/cplex.h>
 
 #define INTFACTOR 10000.0
 #define MAXTIME_MWIS 300.0
@@ -45,7 +47,7 @@ Sewell::Sewell (Graph& G) : Mgraph (G.colors), Minfo (G.colors) {
 }
 
 Sewell::~Sewell () {
-    for(int k = 0; k < Mgraph.size(); k++) {
+    for(unsigned int k = 0; k < Mgraph.size(); k++) {
         free_graph(&Mgraph[k]);
         free_wstable_info(&Minfo[k]);
     }
@@ -74,28 +76,34 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
 }
 
 /*****************************************************************************************/
-//  RESOLVER MWSS CON CPLEX
-/*         
+
+CPLEX::CPLEX (Graph& G) : G(G) {
+}
+
+void CPLEX::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
+     
     IloEnv XXenv; // CPLEX environment structure
     IloModel XXmodel(XXenv); // CPLEX model
     IloNumVarArray XXvars(XXenv); // CPLEX variables
 
-    for (int i = 0; i < C_size[k]; i++)
+    vector<int> Vk;
+    G.get_Vk(k, Vk);
+    for (unsigned int i = 0; i < Vk.size(); i++)
         XXvars.add(IloNumVar(XXenv, 0.0, 1.0, ILOBOOL));
 
     IloExpr fobj(XXenv, 0);
-    for (int i = 0; i < C_size[k]; i++)
-            fobj += XXvars[i]*duals[C_set[k][i]];
+    for (unsigned int i = 0; i < Vk.size(); i++)
+            fobj += XXvars[i]*pi[Vk[i]];
     XXmodel.add(IloMaximize(XXenv,fobj));
     fobj.end();
 
-    for (int i = 0; i < C_size[k] - 1; i++)
-            for (int j = i + 1; j < C_size[k]; j++)  {
-                    if (adjacency[C_set[k][i]][C_set[k][j]] > 0) {
-                    IloExpr restr(XXenv);
-                            restr += XXvars[i] + XXvars[j];
-                    XXmodel.add(restr <= 1);
-                            restr.end();
+    for (unsigned int i = 0; i < Vk.size() - 1; i++)
+            for (unsigned int j = i + 1; j < Vk.size(); j++)  {
+                    if (G.is_edge(Vk[i],Vk[j])) {
+                        IloExpr restr(XXenv);
+                        restr += XXvars[i] + XXvars[j];
+                        XXmodel.add(restr <= 1);
+                        restr.end();
                     }
             }
 
@@ -106,18 +114,17 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
     XXcplex.extract(XXmodel);
     XXcplex.solve();
 
-    int counter2 = 0;
-
-    for (int i = 0; i < C_size[k]; i++)
+    for (unsigned int i = 0; i < Vk.size(); i++)
             if (XXcplex.isExtracted(XXvars[i]))
                     if (XXcplex.getValue(XXvars[i]) > 0.5)
-                            stable_set[counter2++] = i;
-    int stable_set_size = counter2;
-    stable_weight = XXcplex.getObjValue();
+                            stable_set.push_back(i);
+    weight = XXcplex.getObjValue();
 
     XXcplex.end();
     XXvars.end();
     XXmodel.end();
-    XXenv.end();                     
-*/
+    XXenv.end();  
+}
+                   
+
 /*****************************************************************************************/

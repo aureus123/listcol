@@ -88,6 +88,8 @@ int main (int argc, char **argv) {
         Lopt opt (*p.second, costs_list);
         int ret = opt.optimize(obj_value);
     
+        //p.second->show_instance(costs_list);
+
         if (ret == 1) { // Optimal LP solution is integer
             if (obj_value < best_integer) // Update best integer
                 best_integer = obj_value;
@@ -115,8 +117,8 @@ int main (int argc, char **argv) {
                 G2->collapse_vertices(u,v); // CAUTION: collapse precedes joint
                 G1->join_vertices(u,v);
 
-                queue.push(pair<int,Graph*> (1,G2));
                 queue.push(pair<int,Graph*> (1,G1));
+                queue.push(pair<int,Graph*> (1,G2));
 
                 state = 3;
             }

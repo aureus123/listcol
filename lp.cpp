@@ -102,6 +102,7 @@ int Lopt::optimize (double& obj_value) {
                 break; // optimality reached
     }
 
+
     // Cut fictional columns
     IloExpr restr(Xenv);
     for (int n = 0; n < G.vertices; ++n) {
@@ -157,7 +158,7 @@ void Lopt::find_branching_vertices (int& i, int& j) {
         for (IloExpr::LinearIterator it = Xrestr[m].getLinearIterator(); it.ok(); ++it)
             if (it.getCoef() == 1)
                 matrix[m][map[it.getVar().getImpl()]] = 1;
-  
+
     double best_rank = DBL_MAX;
 
     for (int u = 0; u < G.vertices - 1; ++u)

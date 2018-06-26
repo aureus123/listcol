@@ -23,7 +23,7 @@ lp.o: lp.cpp lp.h graph.o stable.o
 	$(CC) -c -o $@ $< $(CCLNFLAGS) $(CCFLAGS)
 
 stable.o: stable.cpp stable.h mwis_sewell/wstable.o
-	$(CC) -c -o $@ $< $(CCLNFLAGS)
+	$(CC) -c -o $@ $< $(CCLNFLAGS) $(CCFLAGS)
 
 sewell:
 	$(MAKE) -C mwis_sewell
