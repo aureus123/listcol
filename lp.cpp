@@ -11,7 +11,7 @@
 //#define SAVELP "form.lp"
 //#define PUREBYB
 #define NOMEMEMPHASIS
-#define FICTIONAL_COST 10000
+#define FICTIONAL_COST 1000
 
 Lopt::Lopt(Graph& G, vector<int>& cost_list) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), G(G), cost_list(cost_list) {}
 
@@ -189,6 +189,8 @@ void Lopt::find_branching_vertices (int& i, int& j) {
                 j = v;
             }
         }
+
+    if ((i == j) || (G.is_edge(i,j))) bye("Branching error");
 
     return;
 

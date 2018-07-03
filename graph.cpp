@@ -5,7 +5,7 @@
 #include <iostream>
 #include <set>
 
-#define RANDOMCOSTS
+//#define RANDOMCOSTS
 
 // Construct graph from .graph, .cost and .list
 Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
