@@ -112,7 +112,7 @@ int Lopt::optimize (double& obj_value) {
     restr.end();
     cplex.solve();
 
-    // Save solution
+    // Recover LP solution
     cplex.getValues(solution, Xvars);
 
     /* LP treatment */
@@ -129,13 +129,15 @@ int Lopt::optimize (double& obj_value) {
                 integral = false;
                 break;
             }
-        cplex.end();
-        if (integral)
-            return 1;
-        else
-            return 0;
 
+        cplex.end();
+
+        if (!integral)
+            return 0;
+        else
+            return 1;
     }
+
     cplex.end();
     if (status == IloCplex::Infeasible)
         return -1;
@@ -146,7 +148,27 @@ int Lopt::optimize (double& obj_value) {
 }
 
 void Lopt::find_branching_vertices (int& i, int& j) {
-    
+
+/*
+    // ****** Random approach ******
+
+    for (int u = 0; u < G.vertices - 1; ++u)
+        for (int v = u+1; v < G.vertices; ++v) {
+            
+            // u and v must be non-adjacent
+            if (G.is_edge(u,v))
+                continue;
+            else {
+                i = u;
+                j = v;
+                return;
+            }
+                
+        }
+*/
+  
+    // ****** Most fractional approach ******
+
     // Mapeo de variables a indices
     map<IloNumVarI*,int> map;
     for (int n = 0; n < solution.getSize(); ++n)    
@@ -185,6 +207,7 @@ void Lopt::find_branching_vertices (int& i, int& j) {
                 }
             }
             if (best_s1 + best_s2 < best_rank) {
+                best_rank = best_s1 + best_s2;
                 i = u;
                 j = v;
             }
@@ -194,68 +217,48 @@ void Lopt::find_branching_vertices (int& i, int& j) {
 
     return;
 
-/*
-    // Find most fractional column s1
-    double most_frac = 1;
-    int s1 = -1;
-    for (int k = 0; k < solution.getSize(); k++)    
-        if (abs(solution[k]-0.5) < most_frac) {
-            most_frac = abs(solution[k]-0.5);
-            s1 = k;
-        }
+}
 
-    if (s1 == -1) bye("Error finding vertices for branching");
+void Lopt::save_coloring(vector<int>& f) {
 
-    cout << "Var: " << Xvars[s1] << endl;
-    for (int k = 0; k < G.vertices; ++k) {
-        for (IloExpr::LinearIterator it = Xrestr[k].getLinearIterator(); it.ok(); ++it)
-            cout << " " << it.getVar();
-        cout << endl;
+    // Mapeo de variables a indices
+    map<IloNumVarI*,int> map;
+    for (int n = 0; n < solution.getSize(); ++n)    
+        map[Xvars[n].getImpl()] = n;
+
+    // Save optimal integer solution
+    vector<int> temp_coloring (G.vertices);
+    for (int v = 0; v < G.vertices; v++) {
+	    int color_chosen = -1;
+	    IloRange expr1 = Xrestr[v];
+	    for (IloExpr::LinearIterator it1 = expr1.getLinearIterator(); it1.ok(); ++it1) {
+		    IloNumVar var1 = it1.getVar();
+		    IloNum coef1 = it1.getCoef();
+		    if (solution[map[var1.getImpl()]] > 0.5 && coef1 > 0.5) {
+			    for (int k = 0; k < G.colors; k++) {
+				    IloRange expr2 = Xrestr[G.vertices + k];
+				    for (IloExpr::LinearIterator it2 = expr2.getLinearIterator(); it2.ok(); ++it2) {
+					    IloNumVar var2 = it2.getVar();
+					    IloNum coef2 = it2.getCoef();
+					    if (var2.getId() == var1.getId() && coef2 < -0.5) {
+						    color_chosen = k;
+						    break;
+					    }
+				    }
+			    }
+			    break;
+		    }
+	    }
+	    if (color_chosen == -1) bye("No color chosen!");
+	    temp_coloring[v] = color_chosen;
     }
-    for (int k = 0; k < solution.getSize(); k++)    
-        cout << " " << solution[k];
-    cout << endl;
-    
+    // Rearrange temp_coloring in terms of the original vertices
+    vector<int> new_vertex;
+    G.get_new_vertex(new_vertex);
+    f.resize(new_vertex.size());
+    for (unsigned int i = 0; i < new_vertex.size(); ++i)
+        f[i] = temp_coloring[new_vertex[i]];
 
-    // Find first row i covered by s1
-    for (i = 0; i < G.vertices; i++) {
-        bool flag = false; // for double breaking
-        for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it)
-            if ((Xvars[s1].getImpl() == it.getVar().getImpl()) && (it.getCoef() == 1)) { // it's horrible but it's the best i could do
-                flag = true;
-                break;  
-            }
-        if (flag) break;
-    }
-    if (i == G.vertices) bye("Error finding vertices for branching");
-
-    // Find another column s2 that cover i
-    IloNumVar s2;
-    IloExpr::LinearIterator it;
-    for (it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
-        if (it.getVar().getImpl() == Xvars[s1].getImpl()) continue;
-        if (it.getCoef() == 1) {
-            s2 = it.getVar().getImpl();
-            break; // What a mess!
-        }
-    }
-    if (!it.ok()) bye("Error finding vertices for branching");
-
-    // Find row j such that only one of s1 or s2 cover j
-    for (j = 0; j < G.vertices; ++j) {
-        if (j == i) continue;
-        bool cover_s1 = false;
-        bool cover_s2 = false;
-        for (IloExpr::LinearIterator it = Xrestr[j].getLinearIterator(); it.ok(); ++it) {
-            if (it.getVar().getImpl() == Xvars[s1].getImpl()) cover_s1 = true;
-            else if (it.getVar().getImpl() == s2.getImpl()) cover_s2 = true;
-        }
-        if (cover_s1 != cover_s2) break;
-    }
-    if (j == G.vertices) bye("Error finding vertices for branching");   
-
-    return;
-*/
 }
 
 void Lopt::initialize_LP(Graph& G) {
@@ -276,7 +279,6 @@ void Lopt::initialize_LP(Graph& G) {
     return;
 
 }
-
 
 void Lopt::set_params(IloCplex& cplex) {
 

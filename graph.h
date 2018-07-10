@@ -17,6 +17,8 @@ class Graph {
     bool is_edge(int u, int v);
     void get_Vk(int k, vector<int>& Vk);
     bool have_common_color(int u, int v);
+    void get_new_vertex(vector<int>&);
+    void check_coloring(vector<int>& f);
 
     void show_instance(vector<int>& costs_list);
     void show_statics();
@@ -28,7 +30,7 @@ class Graph {
     vector<vector <int> > adj;    // adj[v]: open neighborhood of vertex v
     vector<vector <int> > L;      // L[v]: allowed colors for vertex v
     vector<vector <int> > V;      // V[k]: vertices coloreable with color k
-    
+    vector<int> new_vertex;       // new_vertex[v]: mapping from original vertices to current vertices
 };
 
 #endif

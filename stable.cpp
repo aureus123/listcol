@@ -4,7 +4,7 @@
 #include <ilcplex/ilocplex.h>
 #include <ilcplex/cplex.h>
 
-#define INTFACTOR 10000.0
+#define INTFACTOR 1000.0
 #define MAXTIME_MWIS 300.0
 
 // Perform some initializations for the MWSS algorithm, including the generation of the subgraphs
@@ -77,53 +77,65 @@ void Sewell::solve (int k, vector<double>& pi, double goal, vector<int>& stable_
 
 /*****************************************************************************************/
 
-CPLEX::CPLEX (Graph& G) : G(G) {
+CPLEX::CPLEX (Graph& G) : G(G), Xenv(G.colors), Xmodel(G.colors), Xobj(G.colors), Xvars(G.colors) {
+
+    for (int k = 0; k < G.colors; k++) {
+
+        vector<int> Vk;
+        G.get_Vk(k,Vk);
+
+        Xmodel[k] = IloModel (Xenv[k]);
+        Xobj[k] = IloAdd (Xmodel[k], IloMaximize(Xenv[k],0));
+        Xvars[k] = IloNumVarArray (Xenv[k], Vk.size(), 0.0, 1.0, ILOBOOL);
+
+        for (unsigned int i = 0; i < Vk.size() - 1; i++)
+                for (unsigned int j = i + 1; j < Vk.size(); j++)  {
+                        if (G.is_edge(Vk[i],Vk[j])) {
+                            IloExpr restr(Xenv[k]);
+                            restr += Xvars[k][i] + Xvars[k][j];
+                            Xmodel[k].add(restr <= 1);
+                            restr.end();
+                        }
+                }        
+    }
+
+}
+
+CPLEX::~CPLEX () {
+    for (int k = 0; k < G.colors; k++) {
+        Xobj[k].end();
+        Xvars[k].end();
+        Xmodel[k].end();
+        Xenv[k].end();
+    }
 }
 
 void CPLEX::solve (int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight) {
      
-    IloEnv XXenv; // CPLEX environment structure
-    IloModel XXmodel(XXenv); // CPLEX model
-    IloNumVarArray XXvars(XXenv); // CPLEX variables
+
+    IloCplex Xcplex(Xmodel[k]);
+
+    IloNumArray pii(Xenv[k], pi.size());
+    for (unsigned int k = 0; k < pi.size(); k++)
+        pii[k] = pi[k];
+    Xobj[k].setLinearCoefs(Xvars[k], pii);
+
+    Xcplex.setDefaults();
+    Xcplex.setOut(Xenv[k].getNullStream());
+    Xcplex.setWarning(Xenv[k].getNullStream());
+    Xcplex.extract(Xmodel[k]);
+    Xcplex.solve();
 
     vector<int> Vk;
-    G.get_Vk(k, Vk);
-    for (unsigned int i = 0; i < Vk.size(); i++)
-        XXvars.add(IloNumVar(XXenv, 0.0, 1.0, ILOBOOL));
-
-    IloExpr fobj(XXenv, 0);
-    for (unsigned int i = 0; i < Vk.size(); i++)
-            fobj += XXvars[i]*pi[Vk[i]];
-    XXmodel.add(IloMaximize(XXenv,fobj));
-    fobj.end();
-
-    for (unsigned int i = 0; i < Vk.size() - 1; i++)
-            for (unsigned int j = i + 1; j < Vk.size(); j++)  {
-                    if (G.is_edge(Vk[i],Vk[j])) {
-                        IloExpr restr(XXenv);
-                        restr += XXvars[i] + XXvars[j];
-                        XXmodel.add(restr <= 1);
-                        restr.end();
-                    }
-            }
-
-    IloCplex XXcplex(XXmodel);
-    XXcplex.setDefaults();
-    XXcplex.setOut(XXenv.getNullStream());
-    XXcplex.setWarning(XXenv.getNullStream());
-    XXcplex.extract(XXmodel);
-    XXcplex.solve();
+    G.get_Vk(k,Vk);
 
     for (unsigned int i = 0; i < Vk.size(); i++)
-            if (XXcplex.isExtracted(XXvars[i]))
-                    if (XXcplex.getValue(XXvars[i]) > 0.5)
+            if (Xcplex.isExtracted(Xvars[k][i]))
+                    if (Xcplex.getValue(Xvars[k][i]) > 0.5)
                             stable_set.push_back(i);
-    weight = XXcplex.getObjValue();
+    weight = Xcplex.getObjValue();
 
-    XXcplex.end();
-    XXvars.end();
-    XXmodel.end();
-    XXenv.end();  
+    Xcplex.end();
 }
                    
 

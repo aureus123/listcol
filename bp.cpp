@@ -32,9 +32,15 @@ class Node {
 #else
         prio = obj_value;
 #endif
+        return;
     };
     void find_branching_vertices(int& u, int& v) {
         opt.find_branching_vertices(u,v);
+        return;
+    };
+    void save_coloring(vector<int>& f) {
+        opt.save_coloring(f);
+        return;
     };
 
     private:
@@ -99,7 +105,7 @@ int main (int argc, char **argv) {
     // BRANCH AND PRICE
     cout << endl << "Branch and Price" << endl;
 #ifdef DFS
-    cout << "Node selection strategy: right-DFS (collapse first)" << endl << endl;
+    cout << "Node selection strategy: DFS" << endl << endl;
 #else
     cout << "Node selection strategy: best-bound" << endl << endl;
 #endif
@@ -112,18 +118,22 @@ int main (int argc, char **argv) {
 
     // Best integer solution
     double best_integer = DBL_MAX;
-    double best_bound = DBL_MAX;
 
-    int state;
+    int state = -1;
+    int explored_nodes = 0;
+    vector<int> f; // best coloring
 
     while (!queue.empty()) {
 
         node = queue.top();
         queue.pop();
-    
+        explored_nodes++;
+
         if (node->ret == 1) { // Optimal LP solution is integer
-            if (node->obj_value < best_integer) // Update best integer
+            if (node->obj_value < best_integer) { // Update best integer
                 best_integer = node->obj_value;
+                node->save_coloring(f);
+            }
             delete node->graph; // Prune by optimality
             state = 0;
         }
@@ -156,11 +166,6 @@ int main (int argc, char **argv) {
                 queue.push(node2);
                 queue.push(node1);
 
-                if (node1->obj_value < best_bound)
-                    best_bound = node1->obj_value;
-                if (node2->obj_value < best_bound)
-                    best_bound = node2->obj_value;
-
                 state = 3;
             }
         }
@@ -170,28 +175,38 @@ int main (int argc, char **argv) {
             state = 4;
         }
 
-        cout << "Obj value = " << setprecision(2) << fixed << node->obj_value << "\t Best integer = ";
+        cout << "Obj value = " << setprecision(2) << fixed << node->obj_value << "\t Best int = ";
         if (best_integer == DBL_MAX)
             cout << "inf";
         else
             cout << best_integer;
-        cout << "\t Gap = " << setprecision(2) << fixed << abs(best_bound - best_integer) / (0.0000000001 + abs(best_integer)) * 100 << "%";
-        cout << "\t Nodes left = " << queue.size();
+        //cout << "\t Gap = " << setprecision(2) << fixed << abs(best_bound - best_integer) / (0.0000000001 + abs(best_integer)) * 100 << "%";
+        cout << "\t Nodes: expored = " << explored_nodes << ", left = " << queue.size();
         if (state == 0)
-            cout << "\t Pruned by opt" << endl;
+            cout << "\t Pruned (opt)" << endl;
         else if (state == 1)
-            cout << "\t Pruned by bound" << endl;
+            cout << "\t Pruned (bound)" << endl;
         else if (state == 2)
-            cout << "\t Pruned by round-up bound" << endl;
+            cout << "\t Pruned (round-up bound)" << endl;
         else if (state == 3)
-            cout << "\t Branch" << endl;
+            cout << "\t Branched" << endl;
         else if (state == 4)
-            cout << "\t Pruned by infeas" << endl;
+            cout << "\t Pruned (infeas)" << endl;
 
         delete node;
 
     }
 
-	return 0;
-}
+    cout << endl << "Optimal coloring information" << endl;
+    cout << "cost = " << best_integer << endl;
+    for (unsigned int i = 0; i < f.size(); ++i)
+        cout << "f(" << i << ") = " << f[i] << endl;
 
+	if (argc == 4) G = new Graph(argv[1],argv[2],costs_list,argv[3]);
+	else G = new Graph(argv[1],costs_list);
+    G->check_coloring(f); 
+    delete G;
+
+	return 0;
+
+}

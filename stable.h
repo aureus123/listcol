@@ -1,6 +1,8 @@
 #ifndef _STABLE_H_
 #define _STABLE_H_
 
+#include <ilcplex/ilocplex.h>
+#include <ilcplex/cplex.h>
 #include "graph.h"
 #include "mwis_sewell/mwss.h"
 #include <vector>
@@ -39,10 +41,15 @@ class CPLEX {
 
     public:
     CPLEX(Graph& G);
+    ~CPLEX();
     void solve(int k, vector<double>& pi, double goal, vector<int>& stable_set, double& weight);
 
     private:
     Graph& G;
+    vector<IloEnv> Xenv;            // CPLEX environments
+    vector<IloModel> Xmodel;        // CPLEX models
+    vector<IloObjective> Xobj;      // CPLEX objective functions
+    vector<IloNumVarArray> Xvars;   // CPLEX variables
 
 };
 

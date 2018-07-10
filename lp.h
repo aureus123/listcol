@@ -15,6 +15,7 @@ class Lopt {
 
     int optimize (double& obj_value);
     void find_branching_vertices (int& u, int& v);
+    void save_coloring(vector<int>& f);
 
     private:
     

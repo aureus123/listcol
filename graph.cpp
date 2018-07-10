@@ -26,7 +26,12 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
     V.resize(colors);
     for(int v = 0; v < vertices; v++)
         for(int k: L[v])
-            V[k].push_back(v);    
+            V[k].push_back(v);
+
+    // At first, it is the identity mapping
+    new_vertex.resize(vertices);
+    iota(new_vertex.begin(), new_vertex.end(), 0);
+
 }
 
 // urnd - generate numbers with uniform random distribution
@@ -66,7 +71,12 @@ Graph::Graph(char *graph_filename, vector<int>& cost_list)
     V.resize(colors);
     for(int v = 0; v < vertices; v++)
         for(int k: L[v])
-            V[k].push_back(v);     
+            V[k].push_back(v);
+
+    // At first, it is the identity mapping
+    new_vertex.resize(vertices);
+    iota(new_vertex.begin(), new_vertex.end(), 0);
+
 }
 
 bool Graph::is_edge (int u, int v) {
@@ -74,6 +84,7 @@ bool Graph::is_edge (int u, int v) {
 }
 
 void Graph::get_Vk (int k, vector<int>& Vk) {
+    Vk.resize(V[k].size());
     Vk = V[k];
     return;
 }
@@ -86,6 +97,35 @@ bool Graph::have_common_color(int u, int v) {
 
     return false;
 
+}
+
+void Graph::get_new_vertex(vector<int>& ret) {
+    ret.resize(new_vertex.size());
+    ret = new_vertex;
+    return;
+}
+
+void Graph::check_coloring(vector<int>& f) {
+
+	// colors of each vertex belong to the list?
+	for (int v = 0; v < vertices; v++) {
+		int k_chosen = f[v];
+        if (find(L[v].begin(), L[v].end(), k_chosen) == L[v].end()) {
+            bye("Coloring error");
+			return;
+        }
+	}
+
+	// are there conflicting edges?
+	for (int u = 0; u < vertices; u++)
+        for (int v: adj[u])
+    		if (f[u] == f[v]) {
+                bye("Coloring error");
+			    return;
+		    }
+
+    cout << endl << "CHECKING: f is a valid list coloring :)" << endl;
+	return;
 }
 
 void Graph::show_instance(vector<int>& costs_list) 
@@ -176,7 +216,8 @@ void Graph::join_vertices (int u, int v) {
     return;
 }
 
-// Generate a new graph from the current one by collapsing vertices u and v
+// Collapse vertices u and v
+// CUATION: This function modify the current graph
 void Graph::collapse_vertices (int u, int v) {
 
     if (is_edge(u,v)) bye("Branching error");
@@ -245,6 +286,13 @@ void Graph::collapse_vertices (int u, int v) {
     for (int k: intersection)
         L[u].push_back(k);
     L.erase(L.begin()+v);
+
+    // Rearrange new_vertex
+    for (int& i : new_vertex)
+        if (i == v)
+            i = u;
+        else if (i > v)
+            i--;
 
     return;
 }
