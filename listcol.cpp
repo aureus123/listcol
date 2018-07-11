@@ -52,7 +52,7 @@ using namespace std;
 
 //#define PUREBYB
 #define NOMEMEMPHASIS
-#define ONLYRELAXATION
+//#define ONLYRELAXATION
 
 /* GLOBAL VARIABLES */
 
@@ -1347,7 +1347,7 @@ int main(int argc, char **argv)
 	/* optimize using an exhaustive enmeration of stable sets */
 	optimal_coloring = new int[vertices];
 	double start_t = ECOclock();
-	bool status = optimize2();
+	bool status = optimize1();
 	double stop_t = ECOclock();
 	if (status) {
 #ifndef ONLYRELAXATION

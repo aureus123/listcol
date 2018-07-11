@@ -13,7 +13,7 @@ class Lopt {
     Lopt(Graph& G, vector<int>& cost_list);
     ~Lopt();
 
-    int optimize (double& obj_value);
+    int optimize (double goal, double& obj_value);
     void find_branching_vertices (int& u, int& v);
     void save_coloring(vector<int>& f);
 

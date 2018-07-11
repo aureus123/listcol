@@ -10,6 +10,14 @@
 #include <ctime>
 #include <cmath>  
 
+/* for linux users: do not define VISUALC */
+#ifndef VISUALC
+#include <unistd.h>
+#include <sys/times.h>
+#else
+#include <windows.h>
+#endif
+
 #define SHOWINSTANCE
 #define SHOWSTATICS
 //#define DFS
@@ -17,16 +25,16 @@
 class Node {
 
     public:
-    Graph* graph;
-    double obj_value;
-    int ret;
-    double prio;
+    Graph* graph;               // Graph
+    double obj_value;           // Objective value of LP
+    int ret;                    // Exit state of the LP (Optimal: fractional or integer, infeasible)
+    double prio;                // Priority in the priority queue (equal to 0 in DFS and obj_value in best-bound strategy)
 
     Node(Graph* G, vector<int>& costs_list) : opt(*G,costs_list) {
         graph = G;
     };
-    void solve() {
-        ret = opt.optimize(obj_value);
+    void solve(double goal) {
+        ret = opt.optimize(goal, obj_value);
 #ifdef DFS
         prio = 0.0;
 #else
@@ -61,6 +69,22 @@ public:
 float urnd(float a, float b, bool flag)
 {
 	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
+}
+
+
+/*
+ * ECOclock - get a timestamp (in seconds)
+ */
+double ECOclock() {
+#ifndef VISUALC
+	/* measure user-time: use it on single-threaded system in Linux (more accurate) */
+	struct tms buf;
+	times(&buf);
+	return ((double)buf.tms_utime) / (double)sysconf(_SC_CLK_TCK);
+#else
+	/* measure standard wall-clock: use it on Windows */
+	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+#endif
 }
 
 int main (int argc, char **argv) {
@@ -110,18 +134,28 @@ int main (int argc, char **argv) {
     cout << "Node selection strategy: best-bound" << endl << endl;
 #endif
 
+    double start_t = ECOclock();
+
     // Priority queue
     priority_queue<Node*, vector<Node*>, ComparePrioQueue> queue;
     Node *node = new Node(G, costs_list);
-    node->solve();
+    node->solve(-1.0);
     queue.push(node);
 
-    // Best integer solution
-    double best_integer = DBL_MAX;
+    
+    double best_integer = DBL_MAX;  // Objective value of the best integer solution
+    int explored_nodes = 0;         // Number of explored nodes
+    vector<int> f;                  // Best coloring f: V -> C
 
-    int state = -1;
-    int explored_nodes = 0;
-    vector<int> f; // best coloring
+    // **** Early Branching **** 
+    //  root_lower_bound is the round-up of the LP objective value at the root of the B&P
+    //  At any node, if the column generation arrives to a solution with lower value than root_lower_bound,
+    //  then is not necessary to keep optimizing the node and it could be inmediatly banched.
+    //  CAUTION: Early branching may alter the way nodes are branched (beacause braching depends on the LP solution)
+    double root_lower_bound = -1.0;
+    //if (node->ret != -1) root_lower_bound = ceil(node->obj_value); // Comment this line to turn off early branching
+
+    int state = -1;                 // Flag
 
     while (!queue.empty()) {
 
@@ -159,12 +193,12 @@ int main (int argc, char **argv) {
                 G1->join_vertices(u,v);
 
                 Node *node1 = new Node(G1, costs_list);
-                node1->solve();
+                node1->solve(root_lower_bound);
                 Node *node2 = new Node(G2, costs_list);
-                node2->solve();
+                node2->solve(root_lower_bound);
 
-                queue.push(node2);
                 queue.push(node1);
+                queue.push(node2);
 
                 state = 3;
             }
@@ -197,6 +231,8 @@ int main (int argc, char **argv) {
 
     }
 
+    double stop_t = ECOclock();
+
     cout << endl << "Optimal coloring information" << endl;
     cout << "cost = " << best_integer << endl;
     for (unsigned int i = 0; i < f.size(); ++i)
@@ -206,6 +242,8 @@ int main (int argc, char **argv) {
 	else G = new Graph(argv[1],costs_list);
     G->check_coloring(f); 
     delete G;
+
+    cout << "Optimization time = " << stop_t - start_t << "s" << endl;
 
 	return 0;
 

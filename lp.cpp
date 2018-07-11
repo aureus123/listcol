@@ -22,7 +22,7 @@ Lopt::~Lopt() {
     Xenv.end();
 }
 
-int Lopt::optimize (double& obj_value) {
+int Lopt::optimize (double goal, double& obj_value) {
 
     // COLUMN GENERATION //
 
@@ -53,6 +53,10 @@ int Lopt::optimize (double& obj_value) {
 
         // Solve LP
         cplex.solve();
+
+        // Early branching
+        if (cplex.getObjValue() < goal - EPSILON)
+            break;
 
         // Now, find an entering column (if exists)
 
@@ -101,7 +105,6 @@ int Lopt::optimize (double& obj_value) {
         if (added_columns == 0)
                 break; // optimality reached
     }
-
 
     // Cut fictional columns
     IloExpr restr(Xenv);

@@ -16,6 +16,9 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11
 
+#listcol: listcol.cpp mwis_sewell/wstable.o
+#	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
 main: bp.cpp io.o graph.o lp.o io.o stable.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
@@ -40,3 +43,4 @@ clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
 	rm -f main
+#	rm -f listcol
