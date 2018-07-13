@@ -6,16 +6,22 @@
 #include "graph.h"
 #include <vector>
 
-class Lopt {
+enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL};
+
+class LP {
 
     public:
 
-    Lopt(Graph& G, vector<int>& cost_list);
-    ~Lopt();
+    LP(Graph* G);
+    ~LP();
 
-    int optimize (double goal, double& obj_value);
-    void find_branching_vertices (int& u, int& v);
-    void save_coloring(vector<int>& f);
+    LP_STATE optimize (double goal);
+    void branch1 (vector<LP*>& lps);     // Trick's branching rutine
+    void branch2 (vector<LP*>& lps);     // Sewell's branching rutine
+
+    double get_obj_value();
+    void save_solution(vector<int>& sol);
+    bool check_solution(vector<int>& sol);
 
     private:
     
@@ -25,12 +31,14 @@ class Lopt {
     IloNumVarArray Xvars;   // CPLEX variables
     IloRangeArray Xrestr;   // CPLEX constraints
     IloNumArray solution;
+    double obj_value;
 
-    Graph &G;
-    vector<int>& cost_list;
+    Graph* G;
 
-    void initialize_LP(Graph& G);
+    void initialize_LP();
     void set_params(IloCplex&);
+    void select_vertices (int& u, int& v);
+    void select_vertex (int& v);
 
 };
 

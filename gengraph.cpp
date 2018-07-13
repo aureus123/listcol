@@ -56,6 +56,8 @@ int main(int argc, char **argv)
 	int *edge_u = new int[clique_size];
 	int *edge_v = new int[clique_size];
 
+    srand (time(NULL)); // seed
+
 	/* generate the random graph and the number of colors */
 	int edges = 0;
 	for (int u = 0; u < vertices - 1; u++) {

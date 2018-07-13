@@ -4,11 +4,12 @@
 #include <stdlib.h>
 #include <iostream>
 #include <set>
+#include <climits>
 
 //#define RANDOMCOSTS
 
 // Construct graph from .graph, .cost and .list
-Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename)
+Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename) : cost_list(cost_list)
 {
     // Read adjacency list
     edges = read_graph(graph_filename, adj);
@@ -34,59 +35,28 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
 
 }
 
-// urnd - generate numbers with uniform random distribution
-//  if flag=false, the interval is [a, b]
-//  if flag=true, the interval is [a, b)
-static float urnd(float a, float b, bool flag)
-{
-	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
-}
-
-// Construct graph from .graph (.cost and .list are automatically generated)
-Graph::Graph(char *graph_filename, vector<int>& cost_list)
-{
-    // Read adjacency list
-    edges = read_graph(graph_filename, adj);
-    // Update number of vertices
-    vertices = adj.size();
-    
-    // Update number of colors
-    colors = vertices;    
-    // Generate costs of colors
-    cost_list.resize(colors);
-    for (int k = 0; k < colors; k++) {
-#ifdef RANDOMCOSTS
-        cost_list[k] = (int)urnd(1, 10, false);
-#else
-        cost_list[k] = 1;
-#endif
-    }
-    
-    // Generate list of colors
-    L.resize(vertices, vector<int> (colors));
-	for (int v = 0; v < vertices; v++)
-		for (int k = 0; k < colors; k++)
-            L[v][k] = k;
-    // Construct subgraphs G_k
-    V.resize(colors);
-    for(int v = 0; v < vertices; v++)
-        for(int k: L[v])
-            V[k].push_back(v);
-
-    // At first, it is the identity mapping
-    new_vertex.resize(vertices);
-    iota(new_vertex.begin(), new_vertex.end(), 0);
-
-}
-
 bool Graph::is_edge (int u, int v) {
     return (find(adj[u].begin(), adj[u].end(), v) != adj[u].end());
+}
+
+int Graph:: get_Lv_size (int v) {
+    return L[v].size();
+}
+
+void Graph::get_Lv (int v, vector<int>& Lv) {
+    Lv.resize(L[v].size());
+    Lv = L[v];
+    return;
 }
 
 void Graph::get_Vk (int k, vector<int>& Vk) {
     Vk.resize(V[k].size());
     Vk = V[k];
     return;
+}
+
+int Graph::get_cost(int k) {
+    return cost_list[k];
 }
 
 bool Graph::have_common_color(int u, int v) {
@@ -105,14 +75,13 @@ void Graph::get_new_vertex(vector<int>& ret) {
     return;
 }
 
-void Graph::check_coloring(vector<int>& f) {
+bool Graph::check_coloring(vector<int>& f) {
 
 	// colors of each vertex belong to the list?
 	for (int v = 0; v < vertices; v++) {
 		int k_chosen = f[v];
         if (find(L[v].begin(), L[v].end(), k_chosen) == L[v].end()) {
-            bye("Coloring error");
-			return;
+			return false;
         }
 	}
 
@@ -120,12 +89,10 @@ void Graph::check_coloring(vector<int>& f) {
 	for (int u = 0; u < vertices; u++)
         for (int v: adj[u])
     		if (f[u] == f[v]) {
-                bye("Coloring error");
-			    return;
+			    return false;
 		    }
 
-    cout << endl << "CHECKING: f is a valid list coloring :)" << endl;
-	return;
+	return true;
 }
 
 void Graph::show_instance(vector<int>& costs_list) 
@@ -295,4 +262,33 @@ void Graph::collapse_vertices (int u, int v) {
             i--;
 
     return;
+}
+
+int Graph::celim(int v) {
+    int ret = 0;
+    for (int k: L[v])
+        for (int u: V[k])
+            if ((u != v) && is_edge(u,v))
+                if ((L[u].size() > 1) && (find(L[u].begin(),L[u].end(),k) != L[u].end()))
+                    ret++;
+    return ret;
+}
+
+// Color a vertex
+// CUATION: This function modify the current graph
+void Graph::color_vertex(int v, int k) {
+
+    // Color vertex v with color k
+    // this is equal to set L[v] = k
+
+    // Erase v from V[j] forall j in L[v] - k
+    for (int j: L[v])
+        if (j != k)
+            V[j].erase(find(V[j].begin(), V[j].end(), v));
+
+    L[v].clear();
+    L[v].push_back(k);
+
+    return;
+
 }

@@ -13,29 +13,34 @@
 #define NOMEMEMPHASIS
 #define FICTIONAL_COST 1000
 
-Lopt::Lopt(Graph& G, vector<int>& cost_list) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), G(G), cost_list(cost_list) {}
+LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), G(G) {}
 
-Lopt::~Lopt() {
+LP::~LP() {
     Xrestr.end();
     Xvars.end();
     Xmodel.end();
     Xenv.end();
+    delete G;
 }
 
-int Lopt::optimize (double goal, double& obj_value) {
+double LP::get_obj_value() {
+    return obj_value;
+}
+
+LP_STATE LP::optimize (double goal) {
 
     // COLUMN GENERATION //
 
 	Xobj = IloMinimize(Xenv);
 
 	// We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
-	for (int v = 0; v < G.vertices; v++) 
+	for (int v = 0; v < G->vertices; v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
-	for (int k = 0; k < G.colors; k++) 
+	for (int k = 0; k < G->colors; k++) 
         Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 
     // Initial LP solution
-	initialize_LP(G);
+	initialize_LP();
 
 	Xmodel.add(Xobj);
 	Xmodel.add(Xrestr);
@@ -46,7 +51,7 @@ int Lopt::optimize (double goal, double& obj_value) {
     set_params(cplex);
 
     // Initialize MWSS solver
-    MWSS<Sewell> solver (G);
+    MWSS<Sewell> solver (*G);
 
     // Generate columns
 	while (true) {
@@ -61,16 +66,16 @@ int Lopt::optimize (double goal, double& obj_value) {
         // Now, find an entering column (if exists)
 
         // Save dual values
-        IloNumArray duals (Xenv,G.vertices+G.colors);
+        IloNumArray duals (Xenv,G->vertices+G->colors);
         cplex.getDuals(duals, Xrestr);
 
         int added_columns = 0;
 
-        for (int k = 0; k < G.colors;k++) {
+        for (int k = 0; k < G->colors;k++) {
 
                 // Get Vk
                 vector<int> Vk;
-                G.get_Vk(k,Vk);
+                G->get_Vk(k,Vk);
 
                 // Get duals values of Vk
                 vector<double> pi (Vk.size());
@@ -82,17 +87,17 @@ int Lopt::optimize (double goal, double& obj_value) {
 
                 vector<int> stable_set;
                 double stable_weight = 0.0; 
-                double goal = cost_list[k] + duals[G.vertices + k];
+                double goal = G->get_cost(k) + duals[G->vertices + k];
                 solver.solve(k, pi, goal, stable_set, stable_weight);
 
                 // Add column if the reduced cost is negative
                 if (goal - stable_weight < -EPSILON) {
 
-                        IloNumColumn column = Xobj(cost_list[k]);
+                        IloNumColumn column = Xobj(G->get_cost(k));
                         // fill the column corresponding to ">= 1" constraints
                         for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
                         // and the ">= -1 constraint
-                        column += Xrestr[G.vertices + k](-1.0);
+                        column += Xrestr[G->vertices + k](-1.0);
 
                         /* add the column as a non-negative continuos variable */
                         Xvars.add(IloNumVar(column));
@@ -108,7 +113,7 @@ int Lopt::optimize (double goal, double& obj_value) {
 
     // Cut fictional columns
     IloExpr restr(Xenv);
-    for (int n = 0; n < G.vertices; ++n) {
+    for (int n = 0; n < G->vertices; ++n) {
         restr += Xvars[n];
     }
 	Xmodel.add(restr <= 0);
@@ -136,30 +141,72 @@ int Lopt::optimize (double goal, double& obj_value) {
         cplex.end();
 
         if (!integral)
-            return 0;
+            return FRACTIONAL;
         else
-            return 1;
+            return INTEGER;
     }
 
     cplex.end();
     if (status == IloCplex::Infeasible)
-        return -1;
+        return INFEASIBLE;
 
     bye("Error solving LP relaxation");
-    return 0;
+    return INFEASIBLE;
 
 }
 
-void Lopt::find_branching_vertices (int& i, int& j) {
+void LP::branch1 (vector<LP*>& lps) {
+
+    // Find vertices u and v to branch
+    int u, v;
+    select_vertices(u,v);
+
+    // Create LPs
+    lps.reserve(2);
+    Graph* G2 = new Graph(*G);      // Copy G
+    G2->join_vertices(u,v);
+    lps.push_back(new LP(G2));
+    G->collapse_vertices(u,v);      // Reuse G
+    lps.push_back(new LP(G));
+    G = NULL;                       // This prevent G being deleted by the father 
+
+    return;
+
+}
+
+void LP::branch2 (vector<LP*>& lps) {
+
+    // Find vertex to branch
+    int v;
+    select_vertex(v);
+
+    // Create LPs
+    vector<int> Lv;
+    G->get_Lv(v, Lv);
+    lps.reserve(Lv.size());
+    for (int k = Lv.size()-1; k > 0; --k) {
+        Graph* G2 = new Graph(*G);  // copy graph
+        G2->color_vertex(v,Lv[k]);
+        lps.push_back(new LP(G2));
+    }
+    G->color_vertex(v,Lv[0]);       // Reuse G
+    lps.push_back(new LP(G));
+    G = NULL;                       // This prevent G being deleted by the father 
+
+    return;
+
+}
+
+void LP::select_vertices (int& i, int& j) {
 
 /*
     // ****** Random approach ******
 
-    for (int u = 0; u < G.vertices - 1; ++u)
-        for (int v = u+1; v < G.vertices; ++v) {
+    for (int u = 0; u < G->vertices - 1; ++u)
+        for (int v = u+1; v < G->vertices; ++v) {
             
             // u and v must be non-adjacent
-            if (G.is_edge(u,v))
+            if (G->is_edge(u,v))
                 continue;
             else {
                 i = u;
@@ -178,23 +225,23 @@ void Lopt::find_branching_vertices (int& i, int& j) {
         map[Xvars[n].getImpl()] = n;
 
     // LP to matrix
-    vector<vector<int> > matrix (G.vertices, vector<int> (solution.getSize(),0));
-    for(int m = 0; m < G.vertices; ++m)
+    vector<vector<int> > matrix (G->vertices, vector<int> (solution.getSize(),0));
+    for(int m = 0; m < G->vertices; ++m)
         for (IloExpr::LinearIterator it = Xrestr[m].getLinearIterator(); it.ok(); ++it)
             if (it.getCoef() == 1)
                 matrix[m][map[it.getVar().getImpl()]] = 1;
 
     double best_rank = DBL_MAX;
 
-    for (int u = 0; u < G.vertices - 1; ++u)
-        for (int v = u+1; v < G.vertices; ++v) {
+    for (int u = 0; u < G->vertices - 1; ++u)
+        for (int v = u+1; v < G->vertices; ++v) {
             
             // u and v must be non-adjacent
-            if (G.is_edge(u,v))
+            if (G->is_edge(u,v))
                 continue;
 
             // L(u) cap L(v) must be non-empty
-            if (!G.have_common_color(u,v))
+            if (!G->have_common_color(u,v))
                 continue;
 
             double best_s1 = DBL_MAX; // Stable that contains both u and v
@@ -216,13 +263,82 @@ void Lopt::find_branching_vertices (int& i, int& j) {
             }
         }
 
-    if ((i == j) || (G.is_edge(i,j))) bye("Branching error");
+    if ((i == j) || (G->is_edge(i,j))) bye("Branching error");
 
     return;
 
 }
 
-void Lopt::save_coloring(vector<int>& f) {
+void LP::select_vertex (int& v) {
+
+    // Mapeo de variables a indices
+    map<IloNumVarI*,int> map;
+    for (int n = 0; n < solution.getSize(); ++n)    
+        map[Xvars[n].getImpl()] = n;
+
+    // Find vertex v that minimize L(v) and L(v) > 1}
+    int min1 = INT_MAX;
+    int min2 = INT_MAX;
+    for (int i = 0; i < G->vertices; i++) {
+
+        // i is cover by a fractional stable?
+        bool ok = false;
+        for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
+            if (it.getCoef() < 1) continue;
+            double val = solution[map[it.getVar().getImpl()]];
+            if ((val > 0 + EPSILON) && (val < 1 - EPSILON)) {
+                ok = true;
+                break;
+            }
+        }
+        if (!ok)
+            continue;
+
+        int size = G->get_Lv_size(i);
+
+        if (size <= 1) continue;
+
+        if (size < min1) {
+
+            // Update v
+            v = i;
+
+            // Update min1
+            min1 = size;
+
+            // Update min2
+            min2 = G->celim(i);
+
+        }
+        else if (size == min1) { 
+
+            // Tie rule: choose the node that produces the largest decrease in the
+            //           number of colors available for the remaining uncolored nodes
+
+            int sum = G->celim(i);
+            
+            if (sum > min2) {
+
+                // Update v
+                v = i;
+
+                // Update min1
+                min1 = size;
+
+                // Update min2
+                min2 = sum;
+
+            }
+
+        }
+
+    }
+
+    return;
+
+}
+
+void LP::save_solution(vector<int>& f) {
 
     // Mapeo de variables a indices
     map<IloNumVarI*,int> map;
@@ -230,16 +346,16 @@ void Lopt::save_coloring(vector<int>& f) {
         map[Xvars[n].getImpl()] = n;
 
     // Save optimal integer solution
-    vector<int> temp_coloring (G.vertices);
-    for (int v = 0; v < G.vertices; v++) {
+    vector<int> temp_coloring (G->vertices);
+    for (int v = 0; v < G->vertices; v++) {
 	    int color_chosen = -1;
 	    IloRange expr1 = Xrestr[v];
 	    for (IloExpr::LinearIterator it1 = expr1.getLinearIterator(); it1.ok(); ++it1) {
 		    IloNumVar var1 = it1.getVar();
 		    IloNum coef1 = it1.getCoef();
 		    if (solution[map[var1.getImpl()]] > 0.5 && coef1 > 0.5) {
-			    for (int k = 0; k < G.colors; k++) {
-				    IloRange expr2 = Xrestr[G.vertices + k];
+			    for (int k = 0; k < G->colors; k++) {
+				    IloRange expr2 = Xrestr[G->vertices + k];
 				    for (IloExpr::LinearIterator it2 = expr2.getLinearIterator(); it2.ok(); ++it2) {
 					    IloNumVar var2 = it2.getVar();
 					    IloNum coef2 = it2.getCoef();
@@ -257,18 +373,22 @@ void Lopt::save_coloring(vector<int>& f) {
     }
     // Rearrange temp_coloring in terms of the original vertices
     vector<int> new_vertex;
-    G.get_new_vertex(new_vertex);
+    G->get_new_vertex(new_vertex);
     f.resize(new_vertex.size());
     for (unsigned int i = 0; i < new_vertex.size(); ++i)
         f[i] = temp_coloring[new_vertex[i]];
 
 }
 
-void Lopt::initialize_LP(Graph& G) {
+bool LP::check_solution(vector<int>& sol) {
+    return G->check_coloring(sol);
+}
+
+void LP::initialize_LP() {
 
     // Add a fictional column (e_i,-e_i) = (0..010..0,0..0-10..0) for every i = 1,...,vertices
     // This column has got a really high cost
-    for (int v = 0; v < G.vertices; v++) {
+    for (int v = 0; v < G->vertices; v++) {
 
 		IloNumColumn column = Xobj(FICTIONAL_COST);
 		// fill the column corresponding to ">= 1" constraint
@@ -283,7 +403,7 @@ void Lopt::initialize_LP(Graph& G) {
 
 }
 
-void Lopt::set_params(IloCplex& cplex) {
+void LP::set_params(IloCplex& cplex) {
 
 	cplex.setDefaults();
 

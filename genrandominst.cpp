@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <iostream>
+#include <cstring>
 
 using namespace std;
 
@@ -36,7 +37,10 @@ void bye(char *string)
 */
 float urnd(float a, float b, bool flag)
 {
-	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
+    if (!flag)
+        return a + rand() * (b - a) / (float) RAND_MAX;
+	else
+        return a + (rand() % RAND_MAX) * (b - a) / (float) RAND_MAX;
 }
 
 /*

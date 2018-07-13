@@ -16,11 +16,23 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11
 
-#listcol: listcol.cpp mwis_sewell/wstable.o
+#listcola: listcola.cpp mwis_sewell/wstable.o
 #	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-main: bp.cpp io.o graph.o lp.o io.o stable.o mwis_sewell/wstable.o
+#genclassicinst: genclassicinst.cpp mwis_sewell/wstable.o
+#	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+#gengraph: gengraph.cpp mwis_sewell/wstable.o
+#	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+#genrandominst: genrandominst.cpp mwis_sewell/wstable.o
+#	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+main: main.cpp bp.o io.o graph.o lp.o io.o stable.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+bp.o: bp.cpp bp.h graph.o lp.o io.o
+	$(CC) -c -o $@ $< $(CCLNFLAGS) $(CCFLAGS)
 
 lp.o: lp.cpp lp.h graph.o stable.o
 	$(CC) -c -o $@ $< $(CCLNFLAGS) $(CCFLAGS)
@@ -43,4 +55,3 @@ clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
 	rm -f main
-#	rm -f listcol
