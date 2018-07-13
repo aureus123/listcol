@@ -37,7 +37,7 @@ LP_STATE LP::optimize (double goal) {
 	for (int v = 0; v < G->vertices; v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
 	for (int k = 0; k < G->colors; k++) 
-        Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
+        Xrestr.add(IloRange(Xenv, G->get_right_hand_side(k), IloInfinity));
 
     // Initial LP solution
 	initialize_LP();
@@ -73,36 +73,38 @@ LP_STATE LP::optimize (double goal) {
 
         for (int k = 0; k < G->colors;k++) {
 
-                // Get Vk
-                vector<int> Vk;
-                G->get_Vk(k,Vk);
+            if (G->get_Vk_size(k) == 0) continue;
 
-                // Get duals values of Vk
-                vector<double> pi (Vk.size());
-                for (unsigned int i = 0; i < Vk.size(); i++) {
-                        double d = duals[Vk[i]];
-                        if (d > -EPSILON && d < 0.0) d = 0.0;
-                        pi[i] = d;
-                }
+            // Get Vk
+            vector<int> Vk;
+            G->get_Vk(k,Vk);
 
-                vector<int> stable_set;
-                double stable_weight = 0.0; 
-                double goal = G->get_cost(k) + duals[G->vertices + k];
-                solver.solve(k, pi, goal, stable_set, stable_weight);
+            // Get duals values of Vk
+            vector<double> pi (Vk.size());
+            for (unsigned int i = 0; i < Vk.size(); i++) {
+                    double d = duals[Vk[i]];
+                    if (d > -EPSILON && d < 0.0) d = 0.0;
+                    pi[i] = d;
+            }
 
-                // Add column if the reduced cost is negative
-                if (goal - stable_weight < -EPSILON) {
+            vector<int> stable_set;
+            double stable_weight = 0.0; 
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+            solver.solve(k, pi, goal, stable_set, stable_weight);
 
-                        IloNumColumn column = Xobj(G->get_cost(k));
-                        // fill the column corresponding to ">= 1" constraints
-                        for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
-                        // and the ">= -1 constraint
-                        column += Xrestr[G->vertices + k](-1.0);
+            // Add column if the reduced cost is negative
+            if (goal - stable_weight < -EPSILON) {
 
-                        /* add the column as a non-negative continuos variable */
-                        Xvars.add(IloNumVar(column));
-                        ++added_columns;
-                }
+                    IloNumColumn column = Xobj(G->get_cost(k));
+                    // fill the column corresponding to ">= 1" constraints
+                    for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                    // and the ">= -1 constraint
+                    column += Xrestr[G->vertices + k](-1.0);
+
+                    /* add the column as a non-negative continuos variable */
+                    Xvars.add(IloNumVar(column));
+                    ++added_columns;
+            }
         }
 
         //cout << added_columns << " columns were added"<< endl;
@@ -165,8 +167,11 @@ void LP::branch1 (vector<LP*>& lps) {
     lps.reserve(2);
     Graph* G2 = new Graph(*G);      // Copy G
     G2->join_vertices(u,v);
+#ifdef COLORS_DELETION
+    G2->delete_equal_colors();
+#endif
     lps.push_back(new LP(G2));
-    G->collapse_vertices(u,v);      // Reuse G
+    G->collapse_vertices(u,v);      // Reuse G (delete_equal_colors is not needed!)
     lps.push_back(new LP(G));
     G = NULL;                       // This prevent G being deleted by the father 
 
@@ -295,20 +300,12 @@ void LP::select_vertex (int& v) {
             continue;
 
         int size = G->get_Lv_size(i);
-
         if (size <= 1) continue;
 
         if (size < min1) {
-
-            // Update v
-            v = i;
-
-            // Update min1
-            min1 = size;
-
-            // Update min2
-            min2 = G->celim(i);
-
+            v = i;  // Update v
+            min1 = size; // Update min1
+            min2 = G->celim(i); // Update min2
         }
         else if (size == min1) { 
 
@@ -318,16 +315,9 @@ void LP::select_vertex (int& v) {
             int sum = G->celim(i);
             
             if (sum > min2) {
-
-                // Update v
-                v = i;
-
-                // Update min1
-                min1 = size;
-
-                // Update min2
-                min2 = sum;
-
+                v = i; // Update v
+                min1 = size; // Update min1
+                min2 = sum; // Update min2
             }
 
         }
@@ -386,7 +376,7 @@ bool LP::check_solution(vector<int>& sol) {
 
 void LP::initialize_LP() {
 
-    // Add a fictional column (e_i,-e_i) = (0..010..0,0..0-10..0) for every i = 1,...,vertices
+    // Add a fictional column
     // This column has got a really high cost
     for (int v = 0; v < G->vertices; v++) {
 

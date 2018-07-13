@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#define COLORS_DELETION
+
 using namespace std;
 
 class Graph {
@@ -12,12 +14,15 @@ class Graph {
     int colors;
     int edges;
 
-    Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename);
+    Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename);  // Constructor
+
     bool is_edge(int u, int v);
     int get_Lv_size(int v);
     void get_Lv(int v, vector<int>& Lv);
+    int get_Vk_size(int k);
     void get_Vk(int k, vector<int>& Vk);
     int get_cost(int k);
+    int get_right_hand_side(int k);
     bool have_common_color(int u, int v);
     void get_new_vertex(vector<int>&);
     bool check_coloring(vector<int>& f);
@@ -30,12 +35,17 @@ class Graph {
     int celim(int v);
     void color_vertex(int v, int k);
 
+    void delete_equal_colors();   // If colors k1 < k2 have got the same associated subgraph and same cost, then
+                                  // erase k2 from every list of L and update right_hand_side of k1
+
     private:
     vector<vector <int> > adj;    // adj[v]: open neighborhood of vertex v
     vector<vector <int> > L;      // L[v]: allowed colors for vertex v
     vector<vector <int> > V;      // V[k]: vertices coloreable with color k
-    vector<int>& cost_list;
+    vector<int>& cost_list;       // cost_list[k]: cost associated to color k
     vector<int> new_vertex;       // new_vertex[v]: mapping from original vertices to current vertices
+    vector<int> right_hand_side;  // right_hand_side[k]: right hand side of constraint associated to color k
+
 };
 
 #endif

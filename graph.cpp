@@ -6,8 +6,6 @@
 #include <set>
 #include <climits>
 
-//#define RANDOMCOSTS
-
 // Construct graph from .graph, .cost and .list
 Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename) : cost_list(cost_list)
 {
@@ -15,7 +13,7 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
     edges = read_graph(graph_filename, adj);
     // Update number of vertices
     vertices = adj.size();
-    
+
     // Read cost of colors
     read_cost(cost_filename, cost_list);
     // Update number of colors
@@ -29,11 +27,37 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
         for(int k: L[v])
             V[k].push_back(v);
 
-    // At first, it is the identity mapping
+    // At first, new_vertex is the identity mapping
     new_vertex.resize(vertices);
     iota(new_vertex.begin(), new_vertex.end(), 0);
 
+    // At first, right_hand_side = -1
+    right_hand_side.resize(colors,-1);
+#ifdef COLORS_DELETION
+    delete_equal_colors();
+#endif
 }
+
+void Graph::delete_equal_colors() {
+
+    // CUATION: V[k] must be in INCREASING ORDER for all k
+    for (int k1 = 0; k1 < colors-1; ++k1)
+        for (int k2 = k1+1; k2 < colors; ++k2)
+            if ((cost_list[k1] == cost_list[k2]) && (V[k1] == V[k2])) {
+
+                // Delete k2 from every list
+                for (int v: V[k2]) {
+                    L[v].erase(find(L[v].begin(), L[v].end(), k2));
+                }
+                V[k2].clear(); // Clear V[k2]
+
+                // Update right-hand side of k1
+                right_hand_side[k1]--;
+
+            }
+
+}
+
 
 bool Graph::is_edge (int u, int v) {
     return (find(adj[u].begin(), adj[u].end(), v) != adj[u].end());
@@ -49,6 +73,10 @@ void Graph::get_Lv (int v, vector<int>& Lv) {
     return;
 }
 
+int Graph::get_Vk_size(int k) {
+    return V[k].size();
+}
+
 void Graph::get_Vk (int k, vector<int>& Vk) {
     Vk.resize(V[k].size());
     Vk = V[k];
@@ -57,6 +85,10 @@ void Graph::get_Vk (int k, vector<int>& Vk) {
 
 int Graph::get_cost(int k) {
     return cost_list[k];
+}
+
+int Graph::get_right_hand_side(int k) {
+    return right_hand_side[k];
 }
 
 bool Graph::have_common_color(int u, int v) {
