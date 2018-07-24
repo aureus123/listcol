@@ -31,33 +31,12 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
     new_vertex.resize(vertices);
     iota(new_vertex.begin(), new_vertex.end(), 0);
 
+#ifdef COLORS_DELETION
     // At first, right_hand_side = -1
     right_hand_side.resize(colors,-1);
-#ifdef COLORS_DELETION
-    delete_equal_colors();
 #endif
-}
-
-void Graph::delete_equal_colors() {
-
-    // CUATION: V[k] must be in INCREASING ORDER for all k
-    for (int k1 = 0; k1 < colors-1; ++k1)
-        for (int k2 = k1+1; k2 < colors; ++k2)
-            if ((cost_list[k1] == cost_list[k2]) && (V[k1] == V[k2])) {
-
-                // Delete k2 from every list
-                for (int v: V[k2]) {
-                    L[v].erase(find(L[v].begin(), L[v].end(), k2));
-                }
-                V[k2].clear(); // Clear V[k2]
-
-                // Update right-hand side of k1
-                right_hand_side[k1]--;
-
-            }
 
 }
-
 
 bool Graph::is_edge (int u, int v) {
     return (find(adj[u].begin(), adj[u].end(), v) != adj[u].end());
@@ -87,9 +66,6 @@ int Graph::get_cost(int k) {
     return cost_list[k];
 }
 
-int Graph::get_right_hand_side(int k) {
-    return right_hand_side[k];
-}
 
 bool Graph::have_common_color(int u, int v) {
 
@@ -296,16 +272,6 @@ void Graph::collapse_vertices (int u, int v) {
     return;
 }
 
-int Graph::celim(int v) {
-    int ret = 0;
-    for (int k: L[v])
-        for (int u: V[k])
-            if ((u != v) && is_edge(u,v))
-                if ((L[u].size() > 1) && (find(L[u].begin(),L[u].end(),k) != L[u].end()))
-                    ret++;
-    return ret;
-}
-
 // Color a vertex
 // CUATION: This function modify the current graph
 void Graph::color_vertex(int v, int k) {
@@ -324,3 +290,135 @@ void Graph::color_vertex(int v, int k) {
     return;
 
 }
+
+void Graph::set_Lv(int v, vector<int>& Lv) {
+
+    for (int k : L[v])
+        if (find(Lv.begin(), Lv.end(), k) == Lv.end()) {
+            V[k].erase(find(V[k].begin(), V[k].end(), v));
+        }
+
+    L[v] = Lv;
+
+    return;
+}
+
+bool Graph::coloring_heuristic(vector<vector<int>>& stables_set) {
+
+    // Initialize adjacency matrix for quick indexing
+    vector<vector<bool>> M (vertices, vector<bool>(vertices,false));
+    for (int v = 0; v < vertices; ++v)
+        for (int u: adj[v])
+            M[v][u] = true;
+
+    // Degrees array
+    vector<int> deg (vertices, 0);
+    for (int v = 0; v < vertices; ++v)
+        deg[v] = adj[v].size();
+    
+    vector<vector<int>> VV = V; // Copy V[k]'s
+
+    vector<bool> colored (vertices, false); // Currently colored vertices
+    int colored_size = 0; // Currently colored vertices size
+    vector<int> used (colors,0);
+
+    while (colored_size != vertices) {
+
+        // Sort each VV[k] in non-decreasing degree order
+        for (int k = 0; k < colors; ++k)
+            sort(VV[k].begin(), VV[k].end(), [deg](int u, int v) {return deg[u] < deg[v];} );
+
+        // Find a big maximal stable with uncolored vertices of some VV[k].
+        // Note: a greedy approach is used
+        vector<int> max_stable;
+        int color;
+        for (int k = 0; k < colors; ++k) {
+
+#ifdef COLORS_DELETION
+            if (used[k] >= abs(right_hand_side[k])) continue;
+#elif
+            if (used[k] >= 1) continue;
+#endif
+
+            vector<int> stable;
+            vector<int> candidates;
+            for (int v: VV[k])
+                if (!colored[v])
+                    candidates.push_back(v);
+            while (!candidates.empty()) {
+                int v = candidates.back();
+                stable.push_back(v);
+                candidates.pop_back();
+                // Remove N(v) from candidates
+                for (auto it = candidates.begin(); it != candidates.end();)
+                    if (M[v][*it]) it = candidates.erase(it);
+                    else ++it;
+            }
+            if (stable.size() > max_stable.size()) {
+                max_stable = stable;
+                color = k;
+            }
+        }
+
+        if (max_stable.empty())
+            return false;
+
+        // Color vertices from max_stable
+        for (int v: max_stable) {
+            colored[v] = true;
+            colored_size++;
+        }
+
+        // Rearrange degrees
+        for (int v: max_stable)
+            for (int u = 0; u < vertices; u++)
+                if (M[v][u])
+                    deg[u]--;
+
+        max_stable.push_back(color);
+        used[color]++;
+        stables_set.push_back(max_stable);
+
+    }
+
+    return true;
+
+}
+
+#ifdef COLORS_DELETION
+void Graph::delete_equal_colors() {
+
+    // CUATION: V[k]'s must be sorted with the same order function
+
+    for (int k1 = 0; k1 < colors-1; ++k1)
+        for (int k2 = k1+1; k2 < colors; ++k2) {
+            if (right_hand_side[k2] == 0) continue;
+            if ((cost_list[k1] == cost_list[k2]) && (V[k1] == V[k2])) {
+
+                // Delete k2 from every list
+                for (int v: V[k2]) {
+                    L[v].erase(find(L[v].begin(), L[v].end(), k2));
+                }
+                V[k2].clear(); // Clear V[k2]
+
+                // Update right-hand side of k1 and k2
+                right_hand_side[k1]--;
+                right_hand_side[k2] = 0;
+
+                // Updated eq_colors of k1
+                eq_colors[k1].push_back(k2);
+
+            }
+        }
+
+}
+
+int Graph::get_right_hand_side(int k) {
+    return right_hand_side[k];
+}
+
+int Graph::get_eq_colors(int k, int d) {
+    return eq_colors[k][d];
+}
+
+#endif

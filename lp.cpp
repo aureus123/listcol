@@ -6,14 +6,7 @@
 #include <map>
 #include <cfloat>
 
-#define EPSILON 0.00001
-#define MAXTIME 7200.0
-//#define SAVELP "form.lp"
-//#define PUREBYB
-#define NOMEMEMPHASIS
-#define FICTIONAL_COST 1000
-
-LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), G(G) {}
+LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), fictional(true), G(G) {}
 
 LP::~LP() {
     Xrestr.end();
@@ -36,8 +29,13 @@ LP_STATE LP::optimize (double goal) {
 	// We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
 	for (int v = 0; v < G->vertices; v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
-	for (int k = 0; k < G->colors; k++) 
+	for (int k = 0; k < G->colors; k++) {
+#ifdef COLORS_DELETION
         Xrestr.add(IloRange(Xenv, G->get_right_hand_side(k), IloInfinity));
+#elif
+        Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
+#endif
+    }
 
     // Initial LP solution
 	initialize_LP();
@@ -52,6 +50,8 @@ LP_STATE LP::optimize (double goal) {
 
     // Initialize MWSS solver
     MWSS<Sewell> solver (*G);
+
+    int total_added_columns = 0;
 
     // Generate columns
 	while (true) {
@@ -89,7 +89,7 @@ LP_STATE LP::optimize (double goal) {
 
             vector<int> stable_set;
             double stable_weight = 0.0; 
-            double goal = G->get_cost(k) + duals[G->vertices + k];
+            double goal = G->get_cost(k) + duals[G->vertices + k] + THRESHOLD;
             solver.solve(k, pi, goal, stable_set, stable_weight);
 
             // Add column if the reduced cost is negative
@@ -104,6 +104,8 @@ LP_STATE LP::optimize (double goal) {
                     /* add the column as a non-negative continuos variable */
                     Xvars.add(IloNumVar(column));
                     ++added_columns;
+                    ++total_added_columns;
+
             }
         }
 
@@ -113,14 +115,18 @@ LP_STATE LP::optimize (double goal) {
                 break; // optimality reached
     }
 
+    //cout << total_added_columns << " columns were added"<< endl;
+
     // Cut fictional columns
-    IloExpr restr(Xenv);
-    for (int n = 0; n < G->vertices; ++n) {
-        restr += Xvars[n];
+    if (fictional) {
+        IloExpr restr(Xenv);
+        for (int n = 0; n < G->vertices; ++n) {
+            restr += Xvars[n];
+        }
+	    Xmodel.add(restr <= 0);
+        restr.end();
+        cplex.solve();
     }
-	Xmodel.add(restr <= 0);
-    restr.end();
-    cplex.solve();
 
     // Recover LP solution
     cplex.getValues(solution, Xvars);
@@ -157,6 +163,42 @@ LP_STATE LP::optimize (double goal) {
 
 }
 
+void LP::initialize_LP() {
+
+#ifdef INITIAL_HEURISTIC
+    vector<vector<int>> stables_set;
+    if (G->coloring_heuristic(stables_set)) {
+
+        // Add columns
+        for (auto s: stables_set) {
+
+            int k = s.back(); // color
+            s.pop_back();
+
+		    IloNumColumn column = Xobj(G->get_cost(k));
+            for (int v: s)
+		        column += Xrestr[v](1.0); // fill the column corresponding to ">= 1" constraint
+            column += Xrestr[G->vertices+k](-1.0); // fill the column corresponding to ">= -1" constraint
+		    Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+        }
+
+        fictional = false;
+        return;
+    }
+#endif
+
+    // Add a fictional columns
+    for (int v = 0; v < G->vertices; v++) {
+		IloNumColumn column = Xobj(FICTIONAL_COST);
+		column += Xrestr[v](1.0); // fill the column corresponding to ">= 1" constraint
+	    Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+    }
+
+    return;
+
+}
+
 void LP::branch1 (vector<LP*>& lps) {
 
     // Find vertices u and v to branch
@@ -183,20 +225,38 @@ void LP::branch2 (vector<LP*>& lps) {
 
     // Find vertex to branch
     int v;
-    select_vertex(v);
+    set<int> colors;
+    select_vertex(v, colors);
 
     // Create LPs
     vector<int> Lv;
     G->get_Lv(v, Lv);
-    lps.reserve(Lv.size());
-    for (int k = Lv.size()-1; k > 0; --k) {
-        Graph* G2 = new Graph(*G);  // copy graph
-        G2->color_vertex(v,Lv[k]);
-        lps.push_back(new LP(G2));
+
+    // Unused colors
+    vector<int> uc;
+    for (int k: Lv)
+        if (colors.find(k) == colors.end())
+            uc.push_back(k);
+
+    lps.reserve(colors.size() + uc.size());
+
+    if (uc.size() > 0) {
+        for (int k : colors) {
+            Graph* G2 = new Graph(*G);  // copy graph
+            G2->color_vertex(v,k);
+            lps.push_back(new LP(G2));
+        }
+        G->set_Lv(v,uc);                // Reuse G
+        lps.push_back(new LP(G));
+        G = NULL;                       // This prevent G being deleted by the father 
     }
-    G->color_vertex(v,Lv[0]);       // Reuse G
-    lps.push_back(new LP(G));
-    G = NULL;                       // This prevent G being deleted by the father 
+    else {
+        for (int k : colors) {
+            Graph* G2 = new Graph(*G);  
+            G2->color_vertex(v,k);
+            lps.push_back(new LP(G2));
+        }
+    }
 
     return;
 
@@ -274,55 +334,45 @@ void LP::select_vertices (int& i, int& j) {
 
 }
 
-void LP::select_vertex (int& v) {
+void LP::select_vertex (int& v, set<int>& colors) {
 
     // Mapeo de variables a indices
     map<IloNumVarI*,int> map;
     for (int n = 0; n < solution.getSize(); ++n)    
         map[Xvars[n].getImpl()] = n;
 
-    // Find vertex v that minimize L(v) and L(v) > 1}
-    int min1 = INT_MAX;
-    int min2 = INT_MAX;
+    // C(v): set of colors associated to some fractional covering that covers v
+    // Find v that minimize |C(v)| > 1
     for (int i = 0; i < G->vertices; i++) {
-
-        // i is cover by a fractional stable?
-        bool ok = false;
+        set<int> C;
         for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
             if (it.getCoef() < 1) continue;
             double val = solution[map[it.getVar().getImpl()]];
-            if ((val > 0 + EPSILON) && (val < 1 - EPSILON)) {
-                ok = true;
-                break;
+            if ((val > EPSILON) && (val < 1 - EPSILON))
+                // Find color
+                for (int k = 0; k < G->colors; ++k)
+		            for (IloExpr::LinearIterator it2 =  Xrestr[G->vertices + k].getLinearIterator(); it2.ok(); ++it2) {
+			            if (it.getVar().getImpl() == it2.getVar().getImpl() && it2.getCoef() < -0.5) {
+				            if (C.find(k) == C.end())
+                                C.insert(k);
+                            break;
+                        }
+                    }
+
+            if (C.size() < 2) continue;
+
+            if (colors.size() == 0) {
+                colors = C;
+                v = i;
             }
-        }
-        if (!ok)
-            continue;
-
-        int size = G->get_Lv_size(i);
-        if (size <= 1) continue;
-
-        if (size < min1) {
-            v = i;  // Update v
-            min1 = size; // Update min1
-            min2 = G->celim(i); // Update min2
-        }
-        else if (size == min1) { 
-
-            // Tie rule: choose the node that produces the largest decrease in the
-            //           number of colors available for the remaining uncolored nodes
-
-            int sum = G->celim(i);
-            
-            if (sum > min2) {
-                v = i; // Update v
-                min1 = size; // Update min1
-                min2 = sum; // Update min2
+            else if (colors.size() > 0 && C.size() < colors.size()) {
+                colors = C;
+                v = i;
             }
-
-        }
-
+        }        
     }
+
+    if (colors.size() < 2) bye("Branching error");
 
     return;
 
@@ -330,67 +380,64 @@ void LP::select_vertex (int& v) {
 
 void LP::save_solution(vector<int>& f) {
 
-    // Mapeo de variables a indices
-    map<IloNumVarI*,int> map;
+    // Mapping from variable to index in solution array
+    map<IloNumVarI*,int> var_index;
     for (int n = 0; n < solution.getSize(); ++n)    
-        map[Xvars[n].getImpl()] = n;
+        var_index[Xvars[n].getImpl()] = n;
 
+    map<IloNumVarI*,int> sol_color; // Mapping from used variables to associated color
+#ifdef COLORS_DELETION
+    vector<int> stables_per_color (G->colors,0);
+#endif
+    for (int n = 0; n < solution.getSize(); ++n)
+        if (solution[var_index[Xvars[n].getImpl()]] > 0.5) {
+            // Find associated color
+	        for (int k = 0; k < G->colors; k++) {
+		        IloRange expr = Xrestr[G->vertices + k];
+		        for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
+			        IloNumVar var = it.getVar();
+			        IloNum coef = it.getCoef();
+			        if (var.getImpl() == Xvars[n].getImpl() && coef < -0.5) {
+#ifdef COLORS_DELETION
+                        if (abs(G->get_right_hand_side(k)) > 1) {
+				            sol_color[Xvars[n].getImpl()] = G->get_eq_colors(k,stables_per_color[k]);
+                            stables_per_color[k]++;
+                        }
+                        else
+                            sol_color[Xvars[n].getImpl()] = k;
+#elif
+                        sol_color[Xvars[n].getImpl()] = k;
+#endif
+				        break;
+			        }
+		        }
+	        }
+        }
+   
     // Save optimal integer solution
     vector<int> temp_coloring (G->vertices);
     for (int v = 0; v < G->vertices; v++) {
-	    int color_chosen = -1;
 	    IloRange expr1 = Xrestr[v];
 	    for (IloExpr::LinearIterator it1 = expr1.getLinearIterator(); it1.ok(); ++it1) {
 		    IloNumVar var1 = it1.getVar();
 		    IloNum coef1 = it1.getCoef();
-		    if (solution[map[var1.getImpl()]] > 0.5 && coef1 > 0.5) {
-			    for (int k = 0; k < G->colors; k++) {
-				    IloRange expr2 = Xrestr[G->vertices + k];
-				    for (IloExpr::LinearIterator it2 = expr2.getLinearIterator(); it2.ok(); ++it2) {
-					    IloNumVar var2 = it2.getVar();
-					    IloNum coef2 = it2.getCoef();
-					    if (var2.getId() == var1.getId() && coef2 < -0.5) {
-						    color_chosen = k;
-						    break;
-					    }
-				    }
-			    }
-			    break;
-		    }
+		    if (solution[var_index[var1.getImpl()]] > 0.5 && coef1 > 0.5)
+                temp_coloring[v] = sol_color[var1.getImpl()];
 	    }
-	    if (color_chosen == -1) bye("No color chosen!");
-	    temp_coloring[v] = color_chosen;
     }
-    // Rearrange temp_coloring in terms of the original vertices
+
+    // Rearrange temp_coloring in terms of the vertices of the original graph
     vector<int> new_vertex;
     G->get_new_vertex(new_vertex);
     f.resize(new_vertex.size());
     for (unsigned int i = 0; i < new_vertex.size(); ++i)
         f[i] = temp_coloring[new_vertex[i]];
 
+    return;
 }
 
 bool LP::check_solution(vector<int>& sol) {
     return G->check_coloring(sol);
-}
-
-void LP::initialize_LP() {
-
-    // Add a fictional column
-    // This column has got a really high cost
-    for (int v = 0; v < G->vertices; v++) {
-
-		IloNumColumn column = Xobj(FICTIONAL_COST);
-		// fill the column corresponding to ">= 1" constraint
-		column += Xrestr[v](1.0);
-
-		/* add the column as a non-negative continuos variable */
-		Xvars.add(IloNumVar(column));
-
-    }
-
-    return;
-
 }
 
 void LP::set_params(IloCplex& cplex) {

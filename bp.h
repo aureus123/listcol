@@ -25,7 +25,10 @@ class Coloring {
         return;
     };
     void check(Graph& g) {
-        g.check_coloring(f);
+    if (g.check_coloring(f))
+        cout << "Valid coloring :)" << endl;
+    else
+        cout << "Invalid coloring :(" << endl;
     };
 
     private:
