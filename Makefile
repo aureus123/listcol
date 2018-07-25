@@ -28,7 +28,7 @@ CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11
 #genrandominst: genrandominst.cpp
 #	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-#genrandominst2: genrandominst2.cpp mwis_sewell/wstable.o
+#genrandominst2: genrandominst2.cpp io.o mwis_sewell/wstable.o
 #	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 main: main.cpp bp.o io.o graph.o lp.o io.o stable.o mwis_sewell/wstable.o

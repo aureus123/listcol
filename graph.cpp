@@ -188,6 +188,7 @@ void Graph::join_vertices (int u, int v) {
     edges++;
     adj[u].push_back(v);
     adj[v].push_back(u);
+
     return;
 }
 
@@ -277,7 +278,7 @@ void Graph::collapse_vertices (int u, int v) {
 void Graph::color_vertex(int v, int k) {
 
     // Color vertex v with color k
-    // this is equal to set L[v] = k
+    // (this is equal to set L[v] = k and delete k from the neighbors' lists)
 
     // Erase v from V[j] forall j in L[v] - k
     for (int j: L[v])
@@ -286,6 +287,14 @@ void Graph::color_vertex(int v, int k) {
 
     L[v].clear();
     L[v].push_back(k);
+
+    for (int u: adj[v]) {
+        auto it = find(L[u].begin(), L[u].end(), k);
+        if (it != L[u].end()) {
+            L[u].erase(it);
+            V[k].erase(find(V[k].begin(), V[k].end(), u));
+        }
+    }
 
     return;
 

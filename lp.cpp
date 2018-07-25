@@ -89,8 +89,8 @@ LP_STATE LP::optimize (double goal) {
 
             vector<int> stable_set;
             double stable_weight = 0.0; 
-            double goal = G->get_cost(k) + duals[G->vertices + k] + THRESHOLD;
-            solver.solve(k, pi, goal, stable_set, stable_weight);
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+            solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
 
             // Add column if the reduced cost is negative
             if (goal - stable_weight < -EPSILON) {
@@ -227,6 +227,7 @@ void LP::branch2 (vector<LP*>& lps) {
     int v;
     set<int> colors;
     select_vertex(v, colors);
+    if (colors.size() < 2) bye("Branching error");
 
     // Create LPs
     vector<int> Lv;
@@ -241,22 +242,20 @@ void LP::branch2 (vector<LP*>& lps) {
     lps.reserve(colors.size() + uc.size());
 
     if (uc.size() > 0) {
-        for (int k : colors) {
-            Graph* G2 = new Graph(*G);  // copy graph
-            G2->color_vertex(v,k);
-            lps.push_back(new LP(G2));
-        }
-        G->set_Lv(v,uc);                // Reuse G
-        lps.push_back(new LP(G));
-        G = NULL;                       // This prevent G being deleted by the father 
+        Graph* G2 = new Graph(*G); // copy graph 
+        G2->set_Lv(v,uc);
+        lps.push_back(new LP(G2));
     }
-    else {
-        for (int k : colors) {
-            Graph* G2 = new Graph(*G);  
-            G2->color_vertex(v,k);
-            lps.push_back(new LP(G2));
-        }
+
+    auto it = colors.begin(); 
+    for (; it != prev(colors.end()); ++it) {
+        Graph* G2 = new Graph(*G);  // copy graph
+        G2->color_vertex(v,*it);
+        lps.push_back(new LP(G2));
     }
+    G->color_vertex(v,*it);  // Reuse G
+    lps.push_back(new LP(G));
+    G = NULL;                                    // This prevent G being deleted by the father 
 
     return;
 

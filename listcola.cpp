@@ -622,6 +622,8 @@ bool optimize1()
 	}
 #else
 	/* MIP treatment */
+	IloInt nodes = cplex.getNnodes();
+	cout << "Number of nodes evaluated: " << nodes << endl;
 	if (status != IloCplex::Optimal) {
 		switch (status) {
 		case IloCplex::InfOrUnbd:
