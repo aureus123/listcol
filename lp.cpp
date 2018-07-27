@@ -20,7 +20,7 @@ double LP::get_obj_value() {
     return obj_value;
 }
 
-LP_STATE LP::optimize (double goal) {
+LP_STATE LP::optimize (double brach_threshold) {
 
     // COLUMN GENERATION //
 
@@ -53,6 +53,8 @@ LP_STATE LP::optimize (double goal) {
 
     int total_added_columns = 0;
 
+#ifdef MULTI_COLUMNS_ADDITION
+
     // Generate columns
 	while (true) {
 
@@ -60,7 +62,7 @@ LP_STATE LP::optimize (double goal) {
         cplex.solve();
 
         // Early branching
-        if (cplex.getObjValue() < goal - EPSILON)
+        if (cplex.getObjValue() < brach_threshold - EPSILON)
             break;
 
         // Now, find an entering column (if exists)
@@ -72,6 +74,83 @@ LP_STATE LP::optimize (double goal) {
         int added_columns = 0;
 
         for (int k = 0; k < G->colors;k++) {
+
+            if (G->get_Vk_size(k) == 0) continue;
+
+            // Get Vk
+            vector<int> Vk;
+            G->get_Vk(k,Vk);
+
+            // Get duals values of Vk
+            vector<double> pi (Vk.size());
+double ddd = 0;
+            for (unsigned int i = 0; i < Vk.size(); i++) {
+                    double d = duals[Vk[i]];
+                    if (d > -EPSILON && d < 0.0) d = 0.0;
+                    pi[i] = d;
+ddd+=d;
+            }
+cout << "Color: " << k << ", Weight: " << ddd << endl;
+
+            vector<int> stable_set;
+            double stable_weight = 0.0; 
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+            solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
+
+            // Add column if the reduced cost is negative
+            if (goal - stable_weight < -EPSILON) {
+                    IloNumColumn column = Xobj(G->get_cost(k));
+                    // fill the column corresponding to ">= 1" constraints
+                    for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                    // and the ">= -1 constraint
+                    column += Xrestr[G->vertices + k](-1.0);
+
+                    /* add the column as a non-negative continuos variable */
+                    Xvars.add(IloNumVar(column));
+                    ++added_columns;
+                    ++total_added_columns;
+            }
+        }
+
+        cout << added_columns << " columns were added"<< endl;
+
+        if (added_columns == 0)
+                break; // optimality reached
+    }
+
+#elif
+
+    // Generate columns
+	while (true) {
+
+        // Solve LP
+        cplex.solve();
+
+        // Early branching
+        if (cplex.getObjValue() < brach_threshold - EPSILON)
+            break;
+
+        // Now, find an entering column (if exists)
+
+        // Save dual values
+        IloNumArray duals (Xenv,G->vertices+G->colors);
+        cplex.getDuals(duals, Xrestr);
+
+        // Vector of pairs (weight of Gk, color k)
+        vector<pair<int, double> > order (G->colors);
+        double weight = 0
+        for (int k = 0; k < G->colors;k++) {
+            vector<int> Vk;
+            G->get_Vk(k,Vk);
+            for (unsigned int i = 0; i < Vk.size(); i++) {
+                    double d = duals[Vk[i]];
+                    if (d > -EPSILON && d < 0.0) d = 0.0;
+                    pi[i] = d;
+            }        
+        }
+
+
+
 
             if (G->get_Vk_size(k) == 0) continue;
 
@@ -94,7 +173,6 @@ LP_STATE LP::optimize (double goal) {
 
             // Add column if the reduced cost is negative
             if (goal - stable_weight < -EPSILON) {
-
                     IloNumColumn column = Xobj(G->get_cost(k));
                     // fill the column corresponding to ">= 1" constraints
                     for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
@@ -105,7 +183,6 @@ LP_STATE LP::optimize (double goal) {
                     Xvars.add(IloNumVar(column));
                     ++added_columns;
                     ++total_added_columns;
-
             }
         }
 
@@ -114,6 +191,8 @@ LP_STATE LP::optimize (double goal) {
         if (added_columns == 0)
                 break; // optimality reached
     }
+
+#endif
 
     //cout << total_added_columns << " columns were added"<< endl;
 
