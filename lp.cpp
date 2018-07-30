@@ -148,48 +148,92 @@ cout << "Color: " << k << ", Weight: " << ddd << endl;
                     pi[i] = d;
             }        
         }
+        
+        int size = 5;
+        
+        while (true) {
+        
+            auto it = order.rbegin();
+            int i = 0;
+            int added_columns = 0;
+            
+            while ( i < 5 ) {
+                
+                int k = it->second;
+                
+                if (G->get_Vk_size(k) == 0) continue;
 
+                // Get Vk
+                vector<int> Vk;
+                G->get_Vk(k,Vk);
 
+                vector<int> stable_set;
+                double stable_weight = 0.0; 
+                double goal = G->get_cost(k) + duals[G->vertices + k];
+                solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
 
+                // Add column if the reduced cost is negative
+                if (goal - stable_weight < -EPSILON) {
+                        IloNumColumn column = Xobj(G->get_cost(k));
+                        // fill the column corresponding to ">= 1" constraints
+                        for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                        // and the ">= -1 constraint
+                        column += Xrestr[G->vertices + k](-1.0);
 
-            if (G->get_Vk_size(k) == 0) continue;
-
-            // Get Vk
-            vector<int> Vk;
-            G->get_Vk(k,Vk);
-
-            // Get duals values of Vk
-            vector<double> pi (Vk.size());
-            for (unsigned int i = 0; i < Vk.size(); i++) {
-                    double d = duals[Vk[i]];
-                    if (d > -EPSILON && d < 0.0) d = 0.0;
-                    pi[i] = d;
+                        /* add the column as a non-negative continuos variable */
+                        Xvars.add(IloNumVar(column));
+                        ++added_columns;
+                        ++total_added_columns;
+                }             
+                
+                ++i;
+                ++it;
+                
             }
+            
+            if (added_columns > 0)
+                continue;
 
-            vector<int> stable_set;
-            double stable_weight = 0.0; 
-            double goal = G->get_cost(k) + duals[G->vertices + k];
-            solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
+            added_columns = 0;
+            
+            while (it != order.rend()) {
+            
+                int k = it->second;
+                
+                if (G->get_Vk_size(k) == 0) continue;
 
-            // Add column if the reduced cost is negative
-            if (goal - stable_weight < -EPSILON) {
-                    IloNumColumn column = Xobj(G->get_cost(k));
-                    // fill the column corresponding to ">= 1" constraints
-                    for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
-                    // and the ">= -1 constraint
-                    column += Xrestr[G->vertices + k](-1.0);
+                // Get Vk
+                vector<int> Vk;
+                G->get_Vk(k,Vk);
 
-                    /* add the column as a non-negative continuos variable */
-                    Xvars.add(IloNumVar(column));
-                    ++added_columns;
-                    ++total_added_columns;
+                vector<int> stable_set;
+                double stable_weight = 0.0; 
+                double goal = G->get_cost(k) + duals[G->vertices + k];
+                solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
+
+                // Add column if the reduced cost is negative
+                if (goal - stable_weight < -EPSILON) {
+                        IloNumColumn column = Xobj(G->get_cost(k));
+                        // fill the column corresponding to ">= 1" constraints
+                        for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                        // and the ">= -1 constraint
+                        column += Xrestr[G->vertices + k](-1.0);
+
+                        /* add the column as a non-negative continuos variable */
+                        Xvars.add(IloNumVar(column));
+                        ++added_columns;
+                        ++total_added_columns;
+                }             
+                
+                ++it;            
+                
             }
+            
+            if (added_columns > 0)
+                continue;
+            else
+                break;
         }
-
-        //cout << added_columns << " columns were added"<< endl;
-
-        if (added_columns == 0)
-                break; // optimality reached
     }
 
 #endif
