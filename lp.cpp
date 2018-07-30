@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <cfloat>
+#include <algorithm>
 
 LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), solution (Xenv), fictional(true), G(G) {}
 
@@ -60,6 +61,7 @@ LP_STATE LP::optimize (double brach_threshold) {
 
         // Solve LP
         cplex.solve();
+cout << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -83,14 +85,11 @@ LP_STATE LP::optimize (double brach_threshold) {
 
             // Get duals values of Vk
             vector<double> pi (Vk.size());
-double ddd = 0;
             for (unsigned int i = 0; i < Vk.size(); i++) {
                     double d = duals[Vk[i]];
                     if (d > -EPSILON && d < 0.0) d = 0.0;
                     pi[i] = d;
-ddd+=d;
             }
-cout << "Color: " << k << ", Weight: " << ddd << endl;
 
             vector<int> stable_set;
             double stable_weight = 0.0; 
@@ -118,13 +117,18 @@ cout << "Color: " << k << ", Weight: " << ddd << endl;
                 break; // optimality reached
     }
 
-#elif
+#else
+
+    vector<pair<int, double> > order (G->colors);
+    int SIZE = 100;
+    bool ORDER_BOOL = true;
 
     // Generate columns
 	while (true) {
 
         // Solve LP
         cplex.solve();
+        cout << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -137,103 +141,132 @@ cout << "Color: " << k << ", Weight: " << ddd << endl;
         cplex.getDuals(duals, Xrestr);
 
         // Vector of pairs (weight of Gk, color k)
-        vector<pair<int, double> > order (G->colors);
-        double weight = 0
-        for (int k = 0; k < G->colors;k++) {
-            vector<int> Vk;
-            G->get_Vk(k,Vk);
-            for (unsigned int i = 0; i < Vk.size(); i++) {
+        if (ORDER_BOOL) {
+            order.clear();
+            order.resize(G->colors);
+            for (int k = 0; k < G->colors;k++) {
+                double weight = 0;
+                vector<int> Vk;
+                G->get_Vk(k,Vk);
+                for (unsigned int i = 0; i < Vk.size(); i++) {
                     double d = duals[Vk[i]];
                     if (d > -EPSILON && d < 0.0) d = 0.0;
-                    pi[i] = d;
-            }        
+                    weight += d;
+                }
+                order[k] = pair<double,int> (weight, k);
+            }
+            sort(order.begin(), order.end());
         }
+
+        auto it = order.rbegin();
+        int ii = 0;
+        int added_columns = 0;
         
-        int size = 5;
-        
-        while (true) {
-        
-            auto it = order.rbegin();
-            int i = 0;
-            int added_columns = 0;
+        while ( ii < SIZE ) {
+
+            int k = it->second;
             
-            while ( i < 5 ) {
-                
-                int k = it->second;
-                
-                if (G->get_Vk_size(k) == 0) continue;
-
-                // Get Vk
-                vector<int> Vk;
-                G->get_Vk(k,Vk);
-
-                vector<int> stable_set;
-                double stable_weight = 0.0; 
-                double goal = G->get_cost(k) + duals[G->vertices + k];
-                solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
-
-                // Add column if the reduced cost is negative
-                if (goal - stable_weight < -EPSILON) {
-                        IloNumColumn column = Xobj(G->get_cost(k));
-                        // fill the column corresponding to ">= 1" constraints
-                        for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
-                        // and the ">= -1 constraint
-                        column += Xrestr[G->vertices + k](-1.0);
-
-                        /* add the column as a non-negative continuos variable */
-                        Xvars.add(IloNumVar(column));
-                        ++added_columns;
-                        ++total_added_columns;
-                }             
-                
-                ++i;
+            if (G->get_Vk_size(k) == 0) {
+                ++ii;
                 ++it;
-                
-            }
-            
-            if (added_columns > 0)
                 continue;
-
-            added_columns = 0;
-            
-            while (it != order.rend()) {
-            
-                int k = it->second;
-                
-                if (G->get_Vk_size(k) == 0) continue;
-
-                // Get Vk
-                vector<int> Vk;
-                G->get_Vk(k,Vk);
-
-                vector<int> stable_set;
-                double stable_weight = 0.0; 
-                double goal = G->get_cost(k) + duals[G->vertices + k];
-                solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
-
-                // Add column if the reduced cost is negative
-                if (goal - stable_weight < -EPSILON) {
-                        IloNumColumn column = Xobj(G->get_cost(k));
-                        // fill the column corresponding to ">= 1" constraints
-                        for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
-                        // and the ">= -1 constraint
-                        column += Xrestr[G->vertices + k](-1.0);
-
-                        /* add the column as a non-negative continuos variable */
-                        Xvars.add(IloNumVar(column));
-                        ++added_columns;
-                        ++total_added_columns;
-                }             
-                
-                ++it;            
-                
             }
+
+            // Get Vk
+            vector<int> Vk;
+            G->get_Vk(k,Vk);
+
+            // Get duals values of Vk
+            vector<double> pi (Vk.size());
+            for (unsigned int i = 0; i < Vk.size(); i++) {
+                double d = duals[Vk[i]];
+                if (d > -EPSILON && d < 0.0) d = 0.0;
+                pi[i] = d;
+            }
+
+            vector<int> stable_set;
+            double stable_weight = 0.0; 
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+            solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
+
+            // Add column if the reduced cost is negative
+            if (goal - stable_weight < -EPSILON) {
+                IloNumColumn column = Xobj(G->get_cost(k));
+                // fill the column corresponding to ">= 1" constraints
+                for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                // and the ">= -1 constraint
+                column += Xrestr[G->vertices + k](-1.0);
+
+                /* add the column as a non-negative continuos variable */
+                Xvars.add(IloNumVar(column));
+                ++added_columns;
+                ++total_added_columns;
+            }             
+           
+            ++ii;
+            ++it;
             
-            if (added_columns > 0)
-                continue;
-            else
-                break;
         }
+
+        if (added_columns > 0) {
+cout << "A: " << added_columns << endl;
+            ORDER_BOOL = false;
+            continue;
+        }
+
+        // added_columns = 0;
+        
+        while (it != order.rend()) {
+
+            int k = it->second;
+     
+            if (G->get_Vk_size(k) == 0) {
+                ++it;
+                continue;
+            }
+
+            // Get Vk
+            vector<int> Vk;
+            G->get_Vk(k,Vk);
+
+            // Get duals values of Vk
+            vector<double> pi (Vk.size());
+            for (unsigned int i = 0; i < Vk.size(); i++) {
+                double d = duals[Vk[i]];
+                if (d > -EPSILON && d < 0.0) d = 0.0;
+                pi[i] = d;
+            }
+
+            vector<int> stable_set;
+            double stable_weight = 0.0; 
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+            solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
+
+            // Add column if the reduced cost is negative
+            if (goal - stable_weight < -EPSILON) {
+                IloNumColumn column = Xobj(G->get_cost(k));
+                // fill the column corresponding to ">= 1" constraints
+                for (unsigned int i = 0; i < stable_set.size(); i++) column += Xrestr[Vk[stable_set[i]]](1.0);
+                // and the ">= -1 constraint
+                column += Xrestr[G->vertices + k](-1.0);
+
+                /* add the column as a non-negative continuos variable */
+                Xvars.add(IloNumVar(column));
+                ++added_columns;
+                ++total_added_columns;
+            }             
+            
+            ++it;            
+            
+        }
+        
+        if (added_columns > 0) {
+cout << "B: " << added_columns << endl;
+            ORDER_BOOL = true;
+            continue;
+        }
+        else
+            break;
     }
 
 #endif
