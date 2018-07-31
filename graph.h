@@ -36,6 +36,7 @@ class Graph {
     void set_Lv(int v, vector<int>& Lv);
 
     bool coloring_heuristic(vector<vector<int>>& stables_set);
+    bool coloring_heuristic2(vector<vector<int>>& stables_set);
 
     private:
     vector<vector <int> > adj;    // adj[v]: open neighborhood of vertex v

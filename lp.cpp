@@ -61,7 +61,7 @@ LP_STATE LP::optimize (double brach_threshold) {
 
         // Solve LP
         cplex.solve();
-cout << cplex.getObjValue() << endl;
+cout << cplex.getCplexStatus() << " " << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -323,7 +323,7 @@ void LP::initialize_LP() {
 
 #ifdef INITIAL_HEURISTIC
     vector<vector<int>> stables_set;
-    if (G->coloring_heuristic(stables_set)) {
+    if (G->coloring_heuristic2(stables_set)) {
 
         // Add columns
         for (auto s: stables_set) {

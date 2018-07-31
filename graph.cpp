@@ -394,6 +394,67 @@ bool Graph::coloring_heuristic(vector<vector<int>>& stables_set) {
 
 }
 
+bool Graph::coloring_heuristic2(vector<vector<int>>& stables_set) {
+
+    // For each vertex v, find a maximal stable that covers it
+    // The stable is chosen from the larger Gk with k in L(v)
+    // The stable is constructed in a greedy fashion:
+    //   the vertices are sorted in non-decreasing degree order
+
+    for (int v = 0; v < vertices; ++v) {
+
+        if (L[v].size() == 0) bye("Heuristic error: empty list");
+
+        // Choose unused color
+        int r = rand() % L[v].size();
+        int k = L[v][r];
+
+        // Construct stable
+        vector<int> stable;
+        stable.push_back(v);
+        vector<bool> used (V[k].size(), false);
+
+        do {
+
+            // Mark N[v] as used
+            int u = stable.back();
+            for (int i = 0; i < V[k].size(); ++i)
+                if (V[k][i] == u)
+                    used[i] = true;
+            for (int w: adj[u])
+                for (int i = 0; i < V[k].size(); ++i)
+                    if (V[k][i] == w)
+                        used[i] = true;
+
+            // Choose next vertex
+            vector<int> candidates;
+            for (int i = 0; i < V[k].size(); ++i)
+                if (!used[i])
+                    candidates.push_back(V[k][i]);
+
+            if (candidates.size() == 0)
+                break;
+
+            r = rand() % candidates.size();
+            stable.push_back(candidates[r]);
+
+        }
+        while (true);
+
+        cout << "Stable: ";
+        for (int i: stable)
+            cout << " " << i;
+        cout << endl;
+
+        stable.push_back(k); // push color at back
+        stables_set.push_back(stable);
+        
+    }
+
+    return true;
+
+}
+
 #ifdef COLORS_DELETION
 void Graph::delete_equal_colors() {
 
