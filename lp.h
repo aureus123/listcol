@@ -15,7 +15,6 @@
 #define FICTIONAL_COST 1000
 #define THRESHOLD 0.1
 //#define INITIAL_HEURISTIC
-#define MULTI_COLUMNS_ADDITION
 
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL};
 
@@ -26,7 +25,8 @@ class LP {
     LP(Graph* G);
     ~LP();
 
-    LP_STATE optimize (double goal);
+    LP_STATE optimize1 (double goal);
+    LP_STATE optimize2 (double goal);
     void branch1 (vector<LP*>& lps);     // Trick's branching rutine
     void branch2 (vector<LP*>& lps);     // Alternative branching rutine
 

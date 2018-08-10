@@ -20,7 +20,7 @@ bool Node::operator< (const Node& n) const {
 }
 
 LP_STATE Node::solve(double root_lower_bound) {
-    return lp->optimize(root_lower_bound);
+    return lp->optimize1(root_lower_bound);
 }
 
 void Node::branch(vector<Node*>& sons) {
