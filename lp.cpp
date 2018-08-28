@@ -23,6 +23,8 @@ double LP::get_obj_value() {
 
 LP_STATE LP::optimize1 (double brach_threshold) {
 
+    //G->show_instance();
+
     // COLUMN GENERATION //
 
 	Xobj = IloMinimize(Xenv);
@@ -59,7 +61,6 @@ LP_STATE LP::optimize1 (double brach_threshold) {
 
         // Solve LP
         cplex.solve();
-cout << cplex.getCplexStatus() << " " << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -114,8 +115,6 @@ cout << cplex.getCplexStatus() << " " << cplex.getObjValue() << endl;
         if (added_columns == 0)
                 break; // optimality reached
     }
-
-    cout << total_added_columns << " columns were added"<< endl;
 
     // Cut fictional columns
     if (fictional) {
@@ -246,7 +245,6 @@ LP_STATE LP::optimize2 (double brach_threshold) {
 
         // Solve LP
         cplex.solve();
-cout << cplex.getCplexStatus() << " " << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -420,9 +418,9 @@ void LP::branch2 (vector<LP*>& lps) {
     lps.reserve(colors.size() + uc.size());
 
     if (uc.size() > 0) {
-        Graph* G2 = new Graph(*G); // copy graph 
-        G2->set_Lv(v,uc);
-        lps.push_back(new LP(G2));
+        Graph *G0 = new Graph(*G); // copy graph 
+        G0->set_Lv(v,uc);
+        lps.push_back(new LP(G0));
     }
 
     auto it = colors.begin(); 

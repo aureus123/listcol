@@ -27,7 +27,7 @@ class Graph {
     void get_new_vertex(vector<int>&);
     bool check_coloring(vector<int>& f);
 
-    void show_instance(vector<int>& costs_list);
+    void show_instance();
     void show_statics();
     
     void join_vertices(int u, int v);

@@ -21,6 +21,17 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
     
     // Read list of colors
     read_list(list_filename, vertices, colors, L);
+
+    // If |L[v]| = 1, then that color must be erase from the list of neighbors of v
+    for (int v = 0; v < vertices; ++v)
+        if (L[v].size() == 1)
+            for (int u: adj[v]) {
+                auto it = find(L[u].begin(), L[u].end(), L[v][0]);
+                if (it != L[u].end())
+                    L[u].erase(it);
+            }
+    
+
     // Construct subgraphs G_k
     V.resize(colors);
     for(int v = 0; v < vertices; v++)
@@ -103,7 +114,7 @@ bool Graph::check_coloring(vector<int>& f) {
 	return true;
 }
 
-void Graph::show_instance(vector<int>& costs_list) 
+void Graph::show_instance() 
 {
 	set_color(2);
 
@@ -123,7 +134,7 @@ void Graph::show_instance(vector<int>& costs_list)
 
 	cout << "Vector of costs: {";
 	for (int k = 0; k < colors; k++) {
-		cout << " " << k << "->" << costs_list[k];
+		cout << " " << k << "->" << cost_list[k];
 	}
 	cout << " }, colors = " << colors << endl;
 
@@ -269,6 +280,16 @@ void Graph::collapse_vertices (int u, int v) {
             i = u;
         else if (i > v)
             i--;
+
+    // If |L[v]| = 1, then that color must be erase from the list of neighbors of v
+    if (L[u].size() == 1)
+        for (int w: adj[u]) {
+            auto it = find(L[w].begin(), L[w].end(), L[u][0]);
+            if (it != L[w].end()) {
+                L[w].erase(it);
+                V[L[u][0]].erase(find(V[L[u][0]].begin(), V[L[u][0]].end(), w));
+            }
+        }
 
     return;
 }

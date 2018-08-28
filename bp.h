@@ -13,9 +13,9 @@ class Coloring {
 
     void show() {
         cout << endl << "Optimal coloring information:" << endl;
-        cout << "cost = " << value << endl;
         for (unsigned int i = 0; i < f.size(); ++i)
             cout << "f(" << i << ") = " << f[i] << endl;
+        cout << "cost = " << value << endl;
         return;
     };
     void save(LP& lp) {

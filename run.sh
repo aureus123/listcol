@@ -1,0 +1,9 @@
+./main instances/tests/V55/d25_l25
+./main instances/tests/V55/d25_l50
+./main instances/tests/V55/d25_l75
+./main instances/tests/V55/d50_l25
+./main instances/tests/V55/d50_l50
+./main instances/tests/V55/d50_l75
+./main instances/tests/V55/d75_l25
+./main instances/tests/V55/d75_l50
+./main instances/tests/V55/d75_l75

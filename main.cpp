@@ -12,8 +12,8 @@
 #include <windows.h>
 #endif
 
-#define SHOWINSTANCE
-#define SHOWSTATICS
+//#define SHOWINSTANCE
+//#define SHOWSTATICS
 #define VERBOSE
 
 //
@@ -60,7 +60,7 @@ int main (int argc, char **argv) {
 	std::cout.clear();
 #endif
 #ifdef SHOWINSTANCE
-    G->show_instance(costs_list);
+    G->show_instance();
 #endif
 #ifdef SHOWSTATICS
     G->show_statics();
@@ -71,7 +71,7 @@ int main (int argc, char **argv) {
     start_t = ECOclock();
     Node* root = new Node(new LP(G));  // Create root
     Coloring col;                      // Create solution
-    BP<Coloring> bp(col,true);         // Initialize B&P
+    BP<Coloring> bp(col,true,true);         // Initialize B&P
     bp.solve(root);                    // Solve B&P
     stop_t = ECOclock();
 

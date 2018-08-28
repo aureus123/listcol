@@ -26,7 +26,7 @@ LP_STATE Node::solve(double root_lower_bound) {
 void Node::branch(vector<Node*>& sons) {
 
     vector<LP*> lps;
-    lp->branch1(lps);
+    lp->branch2(lps);
 
     sons.reserve(lps.size());
     for (auto x: lps)
@@ -88,6 +88,7 @@ void BP<Solution>::push (Node* node) {
     // Solve the linear relaxation of the node and prune if possible
     LP_STATE state = EARLY_BRANCHING ? node->solve(root_lower_bound) : node->solve(); 
     double obj_value;
+cout << node->get_obj_value() << endl;
     switch (state) {
 
         case INFEASIBLE:
