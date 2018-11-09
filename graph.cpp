@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include <set>
 #include <climits>
+#include <math.h>
 
 // Construct graph from .graph, .cost and .list
 Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename) : cost_list(cost_list)
@@ -162,7 +164,36 @@ void Graph::show_statics() {
 	cout << "Statistics:" << endl;
 	int clique_size = vertices * (vertices - 1) / 2;
 	float density = 100.0 * (float)edges / (float)clique_size;
-	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
+	cout << "  |V| = " << vertices << ", |E| = " << edges << ", |C| = " << colors << "." << endl;
+
+    /* New densities */
+    int count1 = 0;
+    int count2 = 0;
+    for (int v = 0; v < vertices - 1; v++) 
+    {
+        for (int u = v+1; u < vertices; u++)
+        {
+            if (is_edge(u,v))
+            {
+                if (have_common_color(u,v)) 
+                {
+                    count1++;
+                }
+                count2++;
+            }
+            else
+            {
+                if (!have_common_color(u,v))
+                {
+                    count2++;
+                }
+            }
+        }
+    }
+    float dG1 = 100.0 * (float)count1 / (float)clique_size;
+    float dG2 = 100.0 * (float)count2 / (float)clique_size;
+    cout << "  density(G) = " << density << "%, density(G') = " << dG1 << "%, density(G'') = " << dG2 << "%" << endl;
+
 	/* Average and standard deviation of size of lists */
 	float prom = 0.0;
 	for (int v = 0; v < vertices; v++) prom += (float)L[v].size();
@@ -175,17 +206,22 @@ void Graph::show_statics() {
 	sigma /= (float)(vertices - 1);
 	cout << "  Behaviour of |L(v)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
 	/* Average and standard deviation of vertices of Gk */
-	prom = 0.0;
-	for (int k = 0; k < colors; k++) prom += (float)V[k].size();
-	prom /= (float)colors;
-	sigma = 0.0;
+	float prom1 = 0.0;
+	for (int k = 0; k < colors; k++) prom1 += (float)V[k].size();
+	prom1 /= (float)colors;
+	float sigma1 = 0.0;
 	for (int k = 0; k < colors; k++) {
-		float substr = (float)V[k].size() - prom;
-		sigma += substr * substr;
+		float substr = (float)V[k].size() - prom1;
+		sigma1 += substr * substr;
 	}
-	sigma /= (float)(colors - 1);
-	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom << ", sigma = " << sqrt(sigma) << "." << endl;
+	sigma1 /= (float)(colors - 1);
+	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom1 << ", sigma = " << sqrt(sigma1) << "." << endl;
 	set_color(7);
+
+    // BORRAR
+    ofstream out ("a.txt", std::ios::app);
+    out << prom << "\t" << density << "\t" << colors << "\t" << dG1 << "\t" << dG2 << "\t" << prom1 << "\t" << sqrt(sigma1) << "\t";
+    out.close();
 
     return; 
 }
@@ -193,8 +229,6 @@ void Graph::show_statics() {
 // Add an edge between vertices u and v
 // CUATION: This function modify the current graph
 void Graph::join_vertices (int u, int v) {
-
-    if (is_edge(u,v)) bye("Branching error");
 
     edges++;
     adj[u].push_back(v);
@@ -206,8 +240,6 @@ void Graph::join_vertices (int u, int v) {
 // Collapse vertices u and v
 // CUATION: This function modify the current graph
 void Graph::collapse_vertices (int u, int v) {
-
-    if (is_edge(u,v)) bye("Branching error");
 
     if (u > v) {
         int temp = u;
@@ -239,6 +271,7 @@ void Graph::collapse_vertices (int u, int v) {
                 j--;
 
     // Intersection of L(u) and L(v)
+
     set<int> intersection;
     for (int k: L[u])
         if (find(L[v].begin(), L[v].end(), k) != L[v].end())

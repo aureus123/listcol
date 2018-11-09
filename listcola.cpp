@@ -33,7 +33,7 @@ using namespace std;
 
 #define EPSILON 0.00001
 #define INFDIST 9999999
-#define MAXTIME 7200.0
+#define MAXTIME 300.0
 #define VERBOSE
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
@@ -803,6 +803,17 @@ bool optimize2()
 	cplex.solve();
 	IloCplex::CplexStatus status = cplex.getCplexStatus();
 
+
+
+    // BORRAR
+    ofstream out ("a.txt", std::ios::app);
+    if (status == IloCplex::Optimal)
+        out << cplex.getObjValue() << "\t";
+    else
+        out << 100.0 * (cplex.getBestObjValue() - cplex.getObjValue()) / cplex.getObjValue() << "\t";
+    out << cplex.getNnodes() << "\t";
+    out.close();
+
 #ifdef ONLYRELAXATION
 	/* LP treatment */
 	if (status != IloCplex::Optimal) {
@@ -993,19 +1004,24 @@ int main(int argc, char **argv)
 	/* optimize using an exhaustive enmeration of stable sets */
 	optimal_coloring = new int[vertices];
 	start_t = ECOclock();
-	bool status = optimize1();
+	bool status = optimize2();
 	stop_t = ECOclock();
 	if (status) {
 #ifndef ONLYRELAXATION
 		/* show the answer on screen */
 		cout << "Coloring:" << endl;
-		for (int v = 0; v < vertices; v++) cout << "  f(" << v << ") = " << optimal_coloring[v] << endl;
+		//for (int v = 0; v < vertices; v++) cout << "  f(" << v << ") = " << optimal_coloring[v] << endl;
 		if (check_coloring(optimal_coloring)) cout << "The coloring is valid." << endl;
 #endif
 	}
 	set_color(15);
 	cout << "Time of optimization = " << stop_t - start_t << " sec." << endl;
 	set_color(7);
+
+    // BORRAR
+    ofstream out ("a.txt", std::ios::app);
+    out << stop_t - start_t << endl;
+    out.close();
 
 	/* free memory */
 	delete[] optimal_coloring;

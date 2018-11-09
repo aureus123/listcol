@@ -20,13 +20,13 @@ bool Node::operator< (const Node& n) const {
 }
 
 LP_STATE Node::solve(double root_lower_bound) {
-    return lp->optimize1(root_lower_bound);
+    return lp->optimize(root_lower_bound);
 }
 
 void Node::branch(vector<Node*>& sons) {
 
     vector<LP*> lps;
-    lp->branch2(lps);
+    lp->branch(lps);
 
     sons.reserve(lps.size());
     for (auto x: lps)
@@ -88,7 +88,6 @@ void BP<Solution>::push (Node* node) {
     // Solve the linear relaxation of the node and prune if possible
     LP_STATE state = EARLY_BRANCHING ? node->solve(root_lower_bound) : node->solve(); 
     double obj_value;
-cout << node->get_obj_value() << endl;
     switch (state) {
 
         case INFEASIBLE:

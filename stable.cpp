@@ -39,9 +39,11 @@ Sewell::Sewell (Graph& G) : Mgraph (G.colors), Minfo (G.colors) {
 				Mgraph[k].adj[col][row] = val;
 			}
 		}
+
 		build_graph(&Mgraph[k]);
 	    if (initialize_max_wstable(&Mgraph[k], &Minfo[k]) > 0) 
             bye("Failed in initialize_max_wstable");
+
     }
 
 }

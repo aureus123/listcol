@@ -13,7 +13,7 @@
 #endif
 
 //#define SHOWINSTANCE
-//#define SHOWSTATICS
+#define SHOWSTATICS
 #define VERBOSE
 
 //
@@ -71,7 +71,7 @@ int main (int argc, char **argv) {
     start_t = ECOclock();
     Node* root = new Node(new LP(G));  // Create root
     Coloring col;                      // Create solution
-    BP<Coloring> bp(col,true,true);         // Initialize B&P
+    BP<Coloring> bp(col, true);        // Initialize B&P
     bp.solve(root);                    // Solve B&P
     stop_t = ECOclock();
 
@@ -85,6 +85,11 @@ int main (int argc, char **argv) {
 
     cout << "Optimization time = " << stop_t - start_t << "s" << endl;
     cout << "Number of explored nodes = " << bp.get_processed_nodes() << endl;
+
+    // BORRAR
+    ofstream out ("a.txt", std::ios::app);
+    out << bp.get_processed_nodes() << "\t" << stop_t - start_t << endl;
+    out.close();
 
 	return 0;
 

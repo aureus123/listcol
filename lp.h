@@ -5,6 +5,7 @@
 #include <ilcplex/cplex.h>
 #include "graph.h"
 #include <vector>
+#include <list>
 #include <set>
 
 #define EPSILON 0.00001
@@ -13,10 +14,15 @@
 //#define PUREBYB
 #define NOMEMEMPHASIS
 #define FICTIONAL_COST 1000
-#define THRESHOLD 100
+#define THRESHOLD 0.1
 //#define INITIAL_HEURISTIC
 
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL};
+
+struct var {
+    vector<int> stable;
+    int color;
+};
 
 class LP {
 
@@ -25,10 +31,8 @@ class LP {
     LP(Graph* G);
     ~LP();
 
-    LP_STATE optimize1 (double goal);
-    LP_STATE optimize2 (double goal);
-    void branch1 (vector<LP*>& lps);     // Trick's branching rutine
-    void branch2 (vector<LP*>& lps);     // Alternative branching rutine
+    LP_STATE optimize (double goal);
+    void branch (vector<LP*>& lps);     // Trick's branching rutine
 
     double get_obj_value();
     void save_solution(vector<int>& sol);
@@ -36,12 +40,15 @@ class LP {
 
     private:
     
-    IloEnv Xenv;            // CPLEX environment structure
-    IloModel Xmodel;        // CPLEX model
-    IloObjective Xobj;      // CPLEX objective function
-    IloNumVarArray Xvars;   // CPLEX variables
-    IloRangeArray Xrestr;   // CPLEX constraints
-    IloNumArray solution;
+    IloEnv Xenv;                    // CPLEX environment structure
+    IloModel Xmodel;                // CPLEX model
+    IloObjective Xobj;              // CPLEX objective function
+    IloNumVarArray Xvars;           // CPLEX variables
+    IloRangeArray Xrestr;           // CPLEX constraints
+    IloNumArray values;             // Values of Xvars
+    list<var> vars;                 // User representation of the LP
+    list<var>::iterator it_branch;  // Iterator to the branching variable
+
     double obj_value;
     bool fictional;
 

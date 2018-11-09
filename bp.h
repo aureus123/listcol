@@ -13,9 +13,17 @@ class Coloring {
 
     void show() {
         cout << endl << "Optimal coloring information:" << endl;
-        for (unsigned int i = 0; i < f.size(); ++i)
-            cout << "f(" << i << ") = " << f[i] << endl;
+        //for (unsigned int i = 0; i < f.size(); ++i)
+        //    cout << "f(" << i << ") = " << f[i] << endl;
         cout << "cost = " << value << endl;
+
+
+        // BORRAR
+        ofstream out ("a.txt", std::ios::app);
+        out << value << "\t";
+        out.close();
+
+
         return;
     };
     void save(LP& lp) {
