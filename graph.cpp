@@ -218,11 +218,6 @@ void Graph::show_statics() {
 	cout << "  Behaviour of |V(Gk)| ---> prom = " << prom1 << ", sigma = " << sqrt(sigma1) << "." << endl;
 	set_color(7);
 
-    // BORRAR
-    ofstream out ("a.txt", std::ios::app);
-    out << prom << "\t" << density << "\t" << colors << "\t" << dG1 << "\t" << dG2 << "\t" << prom1 << "\t" << sqrt(sigma1) << "\t";
-    out.close();
-
     return; 
 }
 

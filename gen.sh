@@ -1,4 +1,4 @@
-for V in 50
+for V in 70
 
 do                                   
 
@@ -8,11 +8,11 @@ do
 
         ./gengraph V$V.d$d.graph $V $d
 
-        for c in 25 50 75
+        for c in 50 100 150
 
         do
 
-            for l in 5 10 15
+            for l in 25 50 75
 
             do
 

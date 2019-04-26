@@ -16,21 +16,6 @@
 #define SHOWSTATICS
 #define VERBOSE
 
-//
-// ECOclock - measure CPU's time
-//
-double ECOclock() {
-#ifndef VISUALC
-	// measure user-time: use it on single-threaded system in Linux (more accurate)
-	struct tms buf;
-	times(&buf);
-	return ((double)buf.tms_utime) / (double)sysconf(_SC_CLK_TCK);
-#else
-	// measure standard wall-clock: use it on Windows 
-	return ((double)clock()) / (double)CLOCKS_PER_SEC;
-#endif
-}
-
 int main (int argc, char **argv) {
 
 	set_color(15);
@@ -38,6 +23,7 @@ int main (int argc, char **argv) {
 	set_color(7);
     
 	// Read instance and construct graph
+    cout << "Reading instance " << argv[1] << endl;
 	double start_t = ECOclock();
     Graph *G;
     vector<int> costs_list;
@@ -75,21 +61,37 @@ int main (int argc, char **argv) {
     bp.solve(root);                    // Solve B&P
     stop_t = ECOclock();
 
-    // Show solution
-    col.show();
-
     // Check solution (G must be re-initialize because it was deleted)
-    G = new Graph(arg1,arg2,costs_list,arg3);
-    col.check(*G);
-    delete G;
+    if (bp.get_primal_bound() != 99999999) {
+        G = new Graph(arg1,arg2,costs_list,arg3);
+        col.check(*G);
+        delete G;
+    }
 
+    // Show statics in std output
     cout << "Optimization time = " << stop_t - start_t << "s" << endl;
-    cout << "Number of explored nodes = " << bp.get_processed_nodes() << endl;
+    cout << "Number of explored nodes = " << bp.get_nodes() << endl;
+    if (bp.get_primal_bound() != 99999999 && bp.get_dual_bound() != -99999999 && stop_t - start_t > MAXTIME)
+        cout << "Gap = " << bp.get_gap() << " %" << endl;
 
-    // BORRAR
-    ofstream out ("a.txt", std::ios::app);
-    out << bp.get_processed_nodes() << "\t" << stop_t - start_t << endl;
-    out.close();
+    // Write output file
+    char out[300];
+    strncpy(out,filename,300);
+    strcat(out,".out");
+    ofstream fout (out, std::ios::trunc);
+    fout << bp.get_opt_flag() << ":" << bp.get_dual_bound() << ":" << bp.get_primal_bound() << ":" << bp.get_nodes() << ":" << bp.get_time() << ":";
+    set<int> active_colors;
+    col.get_active_colors(active_colors);
+    fout << active_colors.size() << endl;
+    for (int k: active_colors)
+        fout << k << endl;
+    vector<int> coloring;
+    col.get_coloring(coloring);
+    for (int i: coloring)
+        fout << i << endl;
+
+
+    fout.close();
 
 	return 0;
 

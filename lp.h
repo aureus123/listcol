@@ -1,6 +1,7 @@
 #ifndef _LP_H_
 #define _LP_H_
 
+#define IL_STD 1 // CPLEX lo pide
 #include <ilcplex/ilocplex.h>
 #include <ilcplex/cplex.h>
 #include "graph.h"
@@ -12,12 +13,11 @@
 #define MAXTIME 7200.0
 //#define SAVELP "form.lp"
 //#define PUREBYB
-#define NOMEMEMPHASIS
 #define FICTIONAL_COST 1000
 #define THRESHOLD 0.1
 //#define INITIAL_HEURISTIC
 
-enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL};
+enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, OTHER};
 
 struct var {
     vector<int> stable;
@@ -31,11 +31,11 @@ class LP {
     LP(Graph* G);
     ~LP();
 
-    LP_STATE optimize (double goal);
+    LP_STATE optimize (double start_t, double goal);
     void branch (vector<LP*>& lps);     // Trick's branching rutine
 
     double get_obj_value();
-    void save_solution(vector<int>& sol);
+    void save_solution(vector<int>& coloring, set<int>& active_colors);
     bool check_solution(vector<int>& sol);
 
     private:

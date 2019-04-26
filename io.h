@@ -11,5 +11,6 @@ void read_cost(char *filename, vector<int>& costs_list);
 void read_list(char *filename, int vertices, int colors, vector<vector<int> >& colors_list);
 void set_color(int color);
 void bye(string str);
+double ECOclock();
 
 #endif

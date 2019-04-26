@@ -5,35 +5,34 @@
 #include "graph.h"
 #include <list>
 #include <vector>
+#include <set>
 
+#define MAXTIME 7200.0
 
 class Coloring {
 
     public:
 
-    void show() {
-        cout << endl << "Optimal coloring information:" << endl;
-        //for (unsigned int i = 0; i < f.size(); ++i)
-        //    cout << "f(" << i << ") = " << f[i] << endl;
-        cout << "cost = " << value << endl;
-
-
-        // BORRAR
-        ofstream out ("a.txt", std::ios::app);
-        out << value << "\t";
-        out.close();
-
-
-        return;
-    };
-    void save(LP& lp) {
+    void get_coloring (vector<int>& f) {
         f.clear();
-        lp.save_solution(f);
+        f.resize(coloring.size());
+        f = coloring;
+    }
+    void get_active_colors (set<int>& f) {
+        f.clear();
+        f = active_colors;
+    }
+
+    void save(LP& lp) {
+        coloring.clear();
+        active_colors.clear();
+        lp.save_solution(coloring, active_colors);
         value = lp.get_obj_value();
         return;
     };
+
     void check(Graph& g) {
-    if (g.check_coloring(f))
+    if (g.check_coloring(coloring))
         cout << "Valid coloring :)" << endl;
     else
         cout << "Invalid coloring :(" << endl;
@@ -41,8 +40,9 @@ class Coloring {
 
     private:
 
-    vector<int> f;
+    vector<int> coloring;    // coloring: V -> Nat
     double value;
+    set<int> active_colors;  // active colors (subset of C)
 
 };
 
@@ -54,7 +54,7 @@ class Node {
     ~Node();
 
     double get_obj_value() const;
-    LP_STATE solve(double root_lower_bound = -1.0);
+    LP_STATE solve(double start_t, double root_lower_bound = -1.0);
     void branch(vector<Node*>& sons);
 
     bool operator< (const Node& n) const;
@@ -76,21 +76,32 @@ class BP {
     BP(Solution&, bool DFS = false, bool EARLY_BRANCHING = false);
     void solve(Node* root);
 
-    int get_processed_nodes();
+    // Methods for getting variables' value
+    int get_nodes();
+    double get_gap();
+    double get_primal_bound();
+    double get_dual_bound(); 
+    double get_time();
+    int get_opt_flag();
 
     private:
     
     list<Node*> L;                   // Priority queue
 
     Solution& best_integer_solution; // Current best integer solution
-    double best_integer_value;       // Value of the current best integer solution
-    int processed_nodes;             // Number of processed nodes so far. A node is considered processed if its relaxation has been solved
+    double primal_bound;             // Primal bound (given by the best integer solution)
+    double dual_bound;               // Dual bound (given by the worst open relaxation)
+    int nodes;                       // Number of processed nodes so far. A node is considered processed if its relaxation has been solved
+    double start_t;                  // B&P initial execution time
+    int opt_flag;                    // Optimality flag
+    double time;                     // Total execution time
     double root_lower_bound;         // Round-up of the LP objective value at the root of the B&P. Used for early branching
 
     void push (Node* node);
-    void update_best_integer(Node& node);
     Node* top();
     void pop();
+    void update_primal_bound(Node& node);
+    double calculate_dual_bound();
     void show_stats(Node& node);
 
     // Flags

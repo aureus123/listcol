@@ -23,7 +23,7 @@ double LP::get_obj_value() {
     return obj_value;
 }
 
-LP_STATE LP::optimize (double brach_threshold) {
+LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
     //G->show_instance();
 
@@ -62,7 +62,16 @@ LP_STATE LP::optimize (double brach_threshold) {
 	while (true) {
 
         // Solve LP
+        cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME - (ECOclock() - start_t));
         cplex.solve();
+
+        // LP treatment
+        IloCplex::CplexStatus status = cplex.getCplexStatus();
+        if (status != IloCplex::Optimal) {
+            cplex.end();
+            if (status == IloCplex::Infeasible) return INFEASIBLE;
+            else return OTHER; // For example, time limit expired
+        }   
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -99,6 +108,18 @@ LP_STATE LP::optimize (double brach_threshold) {
 
             // Add column if the reduced cost is negative
             if (goal - stable_weight < -EPSILON) {
+
+                    // Maximize the stable
+                    for (unsigned int i = 0; i < Vk.size(); i++) {
+                        bool add = true;
+                        for (int s: stable_set) {
+                            if (Vk[s] == Vk[i] || G->is_edge(Vk[s],Vk[i])) {
+                                add = false;
+                                break;
+                            }
+                        }
+                        if (add) stable_set.push_back(i);
+                    }
 
                     var v;
                     v.stable.resize(stable_set.size());
@@ -144,14 +165,16 @@ LP_STATE LP::optimize (double brach_threshold) {
     // Recover LP solution
     cplex.getValues(values, Xvars);
 
-    /* LP treatment */
+    // LP treatment 
     IloCplex::CplexStatus status = cplex.getCplexStatus();
 
     if (status == IloCplex::Optimal) {
 
         obj_value = cplex.getObjValue(); 
 
-        // Check for integrality, free unused variables and save most fractional variable
+        // Check for integrality,
+        // free unused variables
+        // and save most fractional variable (for branching procedure)
         bool integral = true;
         auto it = vars.begin();
         float most_fract = 2.0;
@@ -178,12 +201,11 @@ LP_STATE LP::optimize (double brach_threshold) {
             return INTEGER;
     }
 
-    cplex.end();
-    if (status == IloCplex::Infeasible)
-        return INFEASIBLE;
-
-    bye("Error solving LP relaxation");
-    return INFEASIBLE;
+    else {
+        cplex.end();
+        if (status == IloCplex::Infeasible) return INFEASIBLE;
+        else return OTHER;
+    }
 
 }
 
@@ -291,67 +313,14 @@ void LP::select_vertices (int& i, int& j) {
             }
         }
 
-        srand(time(NULL));
         j = it_branch->stable[1 + (rand() % (it_branch->stable.size() - 1))];
         return;
 
     }
 
-/*
-
-    // Mapeo de variables a indices
-    map<IloNumVarI*,int> map;
-    for (int n = 0; n < solution.getSize(); ++n)    
-        map[Xvars[n].getImpl()] = n;
-
-    // LP to matrix
-    vector<vector<int> > matrix (G->vertices, vector<int> (solution.getSize(),0));
-    for(int m = 0; m < G->vertices; ++m)
-        for (IloExpr::LinearIterator it = Xrestr[m].getLinearIterator(); it.ok(); ++it)
-            if (it.getCoef() == 1)
-                matrix[m][map[it.getVar().getImpl()]] = 1;
-
-    double best_rank = DBL_MAX;
-
-    for (int u = 0; u < G->vertices - 1; ++u)
-        for (int v = u+1; v < G->vertices; ++v) {
-            
-            // u and v must be non-adjacent
-            if (G->is_edge(u,v))
-                continue;
-
-            // L(u) cap L(v) must be non-empty
-            if (!G->have_common_color(u,v))
-                continue;
-
-            double best_s1 = DBL_MAX; // Stable that contains both u and v
-            double best_s2 = DBL_MAX; // Stable that contains only one of {u,v}
-            for (int n = 0; n < solution.getSize(); ++n) {
-                if ((matrix[u][n] == 1) && (matrix[v][n]) == 1) {
-                    if (abs(solution[n] - 0.5) < best_s1)
-                        best_s1 = abs(solution[n] - 0.5);
-                }
-                else if (matrix[u][n] != matrix[v][n]) {
-                    if (abs(solution[n] - 0.5) < best_s2)
-                        best_s2 = abs(solution[n] - 0.5);
-                }
-            }
-            if (best_s1 + best_s2 < best_rank) {
-                best_rank = best_s1 + best_s2;
-                i = u;
-                j = v;
-            }
-        }
-
-    if ((i == j) || (G->is_edge(i,j))) bye("Branching error");
-
-    return;
-
-*/
-
 }
 
-void LP::save_solution(vector<int>& f) {
+void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
 
     // Mapping from variable to index in solution array
     map<IloNumVarI*,int> var_index;
@@ -402,9 +371,13 @@ void LP::save_solution(vector<int>& f) {
     // Rearrange temp_coloring in terms of the vertices of the original graph
     vector<int> new_vertex;
     G->get_new_vertex(new_vertex);
-    f.resize(new_vertex.size());
+    coloring.resize(new_vertex.size());
     for (unsigned int i = 0; i < new_vertex.size(); ++i)
-        f[i] = temp_coloring[new_vertex[i]];
+        coloring[i] = temp_coloring[new_vertex[i]];
+
+    // Save active colors
+    for (int k : temp_coloring)
+        active_colors.insert(k);
 
     return;
 }
@@ -422,50 +395,9 @@ void LP::set_params(IloCplex& cplex) {
 	cplex.setWarning(Xenv.getNullStream());
 #endif
 	//cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Primal);
-	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
-	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
-	cplex.setParam(IloCplex::IntParam::NodeFileInd, 0);
-	cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME);
-	cplex.setParam(IloCplex::NumParam::EpGap, 0.0);
-	cplex.setParam(IloCplex::NumParam::EpAGap, 0.0);
-	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
-#ifdef NOMEMEMPHASIS
-	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_OFF);
-#else
-	cplex.setParam(IloCplex::BoolParam::MemoryEmphasis, CPX_ON);
-#endif
-
-#ifdef PUREBYB
-	/* set Traditional B&C with pseudo costs branching strategy */
-	cplex.setParam(IloCplex::MIPSearch, 1);
-	cplex.setParam(IloCplex::VarSel, CPX_VARSEL_PSEUDO);
-
-	/* turn off other features, including presolve */
-	cplex.setParam(IloCplex::PreInd, CPX_OFF);
-	cplex.setParam(IloCplex::LBHeur, 0);
-	cplex.setParam(IloCplex::Probe, -1);
-	cplex.setParam(IloCplex::HeurFreq, -1);
-	cplex.setParam(IloCplex::RINSHeur, -1);
-	cplex.setParam(IloCplex::RepeatPresolve, 0);
-
-	/* turn off cuts */
-	cplex.setParam(IloCplex::Cliques, -1);
-	cplex.setParam(IloCplex::Covers, -1);
-	cplex.setParam(IloCplex::DisjCuts, -1);
-	cplex.setParam(IloCplex::FlowCovers, -1);
-	cplex.setParam(IloCplex::FlowPaths, -1);
-	cplex.setParam(IloCplex::FracCuts, -1);
-	cplex.setParam(IloCplex::GUBCovers, -1);
-	cplex.setParam(IloCplex::ImplBd, -1);
-	cplex.setParam(IloCplex::MIRCuts, -1);
-	cplex.setParam(IloCplex::ZeroHalfCuts, -1);
-	cplex.setParam(IloCplex::MCFCuts, -1);
-	cplex.setParam(IloCplex::LiftProjCuts, -1);
-	cplex.setParam(IloCplex::Param::MIP::Cuts::LocalImplied, -1);
-#endif
 
 	cplex.extract(Xmodel);
 #ifdef SAVELP

@@ -33,7 +33,7 @@ using namespace std;
 
 #define EPSILON 0.00001
 #define INFDIST 9999999
-#define MAXTIME 300.0
+#define MAXTIME 3600.0
 #define VERBOSE
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
@@ -686,7 +686,7 @@ bool optimize1()
 /*
 * optimize2 - use the standard vertex-color formulation
 */
-bool optimize2()
+bool optimize2(char *output_file)
 {
 	cout << "Using the standard vertex-color formulation." << endl;
 
@@ -776,7 +776,7 @@ bool optimize2()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
-	cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
+	//cplex.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Algorithm::Barrier);
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
@@ -806,13 +806,15 @@ bool optimize2()
 
 
     // BORRAR
-    ofstream out ("a.txt", std::ios::app);
+    ofstream out (output_file, std::ios::app);
+    out << cplex.getObjValue() << "\t";
     if (status == IloCplex::Optimal)
-        out << cplex.getObjValue() << "\t";
-    else
-        out << 100.0 * (cplex.getBestObjValue() - cplex.getObjValue()) / cplex.getObjValue() << "\t";
-    out << cplex.getNnodes() << "\t";
+        out << cplex.getNnodes() << "\t";
+    else {
+        out << 100.0 * (cplex.getObjValue() - cplex.getBestObjValue()) / cplex.getObjValue() << "\t";
+    }
     out.close();
+
 
 #ifdef ONLYRELAXATION
 	/* LP treatment */
@@ -1004,7 +1006,7 @@ int main(int argc, char **argv)
 	/* optimize using an exhaustive enmeration of stable sets */
 	optimal_coloring = new int[vertices];
 	start_t = ECOclock();
-	bool status = optimize2();
+	bool status = optimize2(argv[2]);
 	stop_t = ECOclock();
 	if (status) {
 #ifndef ONLYRELAXATION
@@ -1019,7 +1021,7 @@ int main(int argc, char **argv)
 	set_color(7);
 
     // BORRAR
-    ofstream out ("a.txt", std::ios::app);
+    ofstream out (argv[2], std::ios::app);
     out << stop_t - start_t << endl;
     out.close();
 
