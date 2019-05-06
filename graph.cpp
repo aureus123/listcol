@@ -46,7 +46,9 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
 
 #ifdef COLORS_DELETION
     // At first, right_hand_side = -1
-    right_hand_side.resize(colors,-1);
+    right_hand_side.resize(colors);
+    for (int &k: right_hand_side)
+        k = -1;
 #endif
 
 }
@@ -266,7 +268,6 @@ void Graph::collapse_vertices (int u, int v) {
                 j--;
 
     // Intersection of L(u) and L(v)
-
     set<int> intersection;
     for (int k: L[u])
         if (find(L[v].begin(), L[v].end(), k) != L[v].end())
@@ -309,15 +310,25 @@ void Graph::collapse_vertices (int u, int v) {
         else if (i > v)
             i--;
 
-    // If |L[v]| = 1, then that color must be erase from the list of neighbors of v
-    if (L[u].size() == 1)
-        for (int w: adj[u]) {
-            auto it = find(L[w].begin(), L[w].end(), L[u][0]);
-            if (it != L[w].end()) {
-                L[w].erase(it);
-                V[L[u][0]].erase(find(V[L[u][0]].begin(), V[L[u][0]].end(), w));
+    // If |L[v]| = 1, then that color may be erase from the list of neighbors of v
+    if (L[u].size() == 1) {
+        if (get_right_hand_side(L[u][0]) == -1) {
+            // Erase color L[u][0] from the lists of the neighbors of u
+            for (int w: adj[u]) {
+                auto it = find(L[w].begin(), L[w].end(), L[u][0]);
+                if (it != L[w].end()) {
+                    L[w].erase(it);
+                    V[L[u][0]].erase(find(V[L[u][0]].begin(), V[L[u][0]].end(), w));
+                }
             }
         }
+        // Cuando hay colores repetidos este chequeo NO DEBE HACERSE.
+        // Suponer que L[v] = {k} y k tiene "multiplicidad" 2.
+        // Luego puede pintarse a v con un estable S1 de k y
+        // alguno de sus vecinos pueden pintarse con otro estable S2 de k.
+        // Luego no se podía borrar a k de las listas de los vecinos de v.
+    }
+
 
     return;
 }
@@ -394,7 +405,7 @@ bool Graph::coloring_heuristic(vector<vector<int>>& stables_set) {
 
 #ifdef COLORS_DELETION
             if (used[k] >= abs(right_hand_side[k])) continue;
-#elif
+#else
             if (used[k] >= 1) continue;
 #endif
 
@@ -511,8 +522,8 @@ void Graph::delete_equal_colors() {
 
     for (int k1 = 0; k1 < colors-1; ++k1)
         for (int k2 = k1+1; k2 < colors; ++k2) {
-            if (right_hand_side[k2] == 0) continue;
-            if ((cost_list[k1] == cost_list[k2]) && (V[k1] == V[k2])) {
+            if (get_right_hand_side(k2) == 0) continue;
+            if ((get_cost(k1) == get_cost(k2)) && (V[k1] == V[k2])) {
 
                 // Delete k2 from every list
                 for (int v: V[k2]) {

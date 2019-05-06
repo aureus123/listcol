@@ -37,7 +37,7 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 	for (int k = 0; k < G->colors; k++) {
 #ifdef COLORS_DELETION
         Xrestr.add(IloRange(Xenv, G->get_right_hand_side(k), IloInfinity));
-#elif
+#else
         Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 #endif
     }
@@ -71,7 +71,9 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
             cplex.end();
             if (status == IloCplex::Infeasible) return INFEASIBLE;
             else return OTHER; // For example, time limit expired
-        }   
+        }
+
+        //cout << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -87,7 +89,12 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
         for (int k = 0; k < G->colors;k++) {
 
+            // Empty Gk (none stable can be found)
             if (G->get_Vk_size(k) == 0) continue;
+
+            // Right hand side of the constraint associated with color k is 0
+            // None stable in this Gk can be active in the optimal solution
+            if (G->get_right_hand_side(k) == 0) continue;
 
             // Get Vk
             vector<int> Vk;
@@ -145,7 +152,7 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
             }
         }
 
-        //cout << added_columns << " columns were added"<< endl;
+        //cout << added_columns << " columns were added" << endl;
 
         if (added_columns == 0)
                 break; // optimality reached
@@ -267,13 +274,20 @@ void LP::branch (vector<LP*>& lps) {
 
     // Create LPs
     lps.reserve(2);
+
+    // Join vertices
     Graph* G2 = new Graph(*G);      // Copy G
     G2->join_vertices(u,v);
 #ifdef COLORS_DELETION
-    G2->delete_equal_colors();
+    //G2->delete_equal_colors();
 #endif
     lps.push_back(new LP(G2));
+
+    // Collapse vertices
     G->collapse_vertices(u,v);      // Reuse G (delete_equal_colors is not needed!)
+#ifdef COLORS_DELETION
+    //G->delete_equal_colors();
+#endif
     lps.push_back(new LP(G));
     G = NULL;                       // This prevent G being deleted by the father 
 
@@ -327,11 +341,12 @@ void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
     for (int n = 0; n < values.getSize(); ++n)    
         var_index[Xvars[n].getImpl()] = n;
 
-    map<IloNumVarI*,int> sol_color; // Mapping from used variables to associated color
+    // Mapping from used variables to associated color
+    map<IloNumVarI*,int> sol_color;
 #ifdef COLORS_DELETION
     vector<int> stables_per_color (G->colors,0);
 #endif
-    for (int n = 0; n < values.getSize(); ++n)
+    for (int n = 0; n < values.getSize(); ++n) {
         if (values[var_index[Xvars[n].getImpl()]] > 0.5) {
             // Find associated color
 	        for (int k = 0; k < G->colors; k++) {
@@ -342,12 +357,22 @@ void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
 			        if (var.getImpl() == Xvars[n].getImpl() && coef < -0.5) {
 #ifdef COLORS_DELETION
                         if (abs(G->get_right_hand_side(k)) > 1) {
-				            sol_color[Xvars[n].getImpl()] = G->get_eq_colors(k,stables_per_color[k]);
+
+                            if (stables_per_color[k] == 0) {
+                                // The first stable is colored with k
+                                sol_color[Xvars[n].getImpl()] = k;
+                            }
+                            else {
+                                // The other stables are colored with the colors of eq_colors[k]
+                                sol_color[Xvars[n].getImpl()] = G->get_eq_colors(k, stables_per_color[k]-1);
+                            }
                             stables_per_color[k]++;
+
                         }
-                        else
+                        else {
                             sol_color[Xvars[n].getImpl()] = k;
-#elif
+                        }
+#else
                         sol_color[Xvars[n].getImpl()] = k;
 #endif
 				        break;
@@ -355,7 +380,8 @@ void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
 		        }
 	        }
         }
-   
+    }
+
     // Save optimal integer solution
     vector<int> temp_coloring (G->vertices);
     for (int v = 0; v < G->vertices; v++) {
@@ -434,7 +460,7 @@ LP_STATE LP::optimize2 (double brach_threshold) {
 	for (int k = 0; k < G->colors; k++) {
 #ifdef COLORS_DELETION
         Xrestr.add(IloRange(Xenv, G->get_right_hand_side(k), IloInfinity));
-#elif
+#else
         Xrestr.add(IloRange(Xenv, -1.0, IloInfinity));
 #endif
     }
