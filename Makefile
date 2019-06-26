@@ -14,7 +14,7 @@ CCFLAGS = $(CCOPT) -I$(CPLEXINCDIR) -I$(CONCERTINCDIR) -I.
 CPLEXLIBDIR   = $(CPLEXDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
-CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11
+CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread -std=c++11 -g
 
 #listcola: listcola.cpp mwis_sewell/wstable.o
 #	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)

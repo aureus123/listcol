@@ -50,7 +50,7 @@ class LP {
     list<var>::iterator it_branch;  // Iterator to the branching variable
 
     double obj_value;
-    bool fictional;
+    int fictional;
 
     Graph* G;
 

@@ -24,16 +24,24 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
     // Read list of colors
     read_list(list_filename, vertices, colors, L);
 
-    // If |L[v]| = 1, then that color must be erase from the list of neighbors of v
-    for (int v = 0; v < vertices; ++v)
-        if (L[v].size() == 1)
-            for (int u: adj[v]) {
-                auto it = find(L[u].begin(), L[u].end(), L[v][0]);
-                if (it != L[u].end())
-                    L[u].erase(it);
+    // If |L[v]| = 1, then that color must be erase from the list of neighbors of v.
+    // This is done recursively
+    bool repeat = true;
+    while (repeat) {
+        repeat = false;
+        for (int v = 0; v < vertices; ++v) {
+            if (L[v].size() == 1) {
+                for (int u: adj[v]) {
+                    auto it = find(L[u].begin(), L[u].end(), L[v][0]);
+                    if (it != L[u].end()) {
+                        L[u].erase(it);
+                        repeat = true;
+                    }
+                }
             }
+        }
+    }
     
-
     // Construct subgraphs G_k
     V.resize(colors);
     for(int v = 0; v < vertices; v++)
@@ -55,6 +63,10 @@ Graph::Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, 
 
 bool Graph::is_edge (int u, int v) {
     return (find(adj[u].begin(), adj[u].end(), v) != adj[u].end());
+}
+
+bool Graph::is_admissible(int u, int k) {
+    return (find(L[u].begin(), L[u].end(), k) != L[u].end());
 }
 
 int Graph:: get_Lv_size (int v) {
@@ -81,6 +93,11 @@ int Graph::get_cost(int k) {
     return cost_list[k];
 }
 
+void Graph::get_adjv(int v, vector<int>& adjv) {
+    adjv.resize(adj[v].size());
+    adjv = adj[v];
+    return;    
+}
 
 bool Graph::have_common_color(int u, int v) {
 
@@ -116,6 +133,25 @@ bool Graph::check_coloring(vector<int>& f) {
 		    }
 
 	return true;
+}
+
+// Maximize the stable set in Gk
+
+void Graph::maximize_stable_set(vector<int> &stable_set, int k) {
+
+    for (unsigned int i = 0; i < V[k].size(); i++) {
+        bool add = true;
+        for (int s: stable_set) {
+            if (s == V[k][i] || is_edge(s,V[k][i])) {
+                add = false;
+                break;
+            }
+        }
+        if (add) {
+            stable_set.push_back(V[k][i]);
+        }
+    }
+
 }
 
 void Graph::show_instance() 
@@ -272,8 +308,9 @@ void Graph::collapse_vertices (int u, int v) {
     for (int k: L[u])
         if (find(L[v].begin(), L[v].end(), k) != L[v].end())
             intersection.insert(k);
-    if (intersection.size() == 0)
+    if (intersection.size() == 0) {
         bye("Branching error");
+    }
 
     // Delete u from V[k] with k in L(u)/intersection
     for (int k: L[u])
@@ -311,6 +348,12 @@ void Graph::collapse_vertices (int u, int v) {
             i--;
 
     // If |L[v]| = 1, then that color may be erase from the list of neighbors of v
+    // Cuando hay colores repetidos este chequeo NO DEBE HACERSE.
+    // Suponer que L[v] = {k} y k tiene "multiplicidad" 2.
+    // Luego puede pintarse a v con un estable S1 de k y
+    // alguno de sus vecinos pueden pintarse con otro estable S2 de k.
+    // Luego no se podía borrar a k de las listas de los vecinos de v.
+    bool repeat;
     if (L[u].size() == 1) {
         if (get_right_hand_side(L[u][0]) == -1) {
             // Erase color L[u][0] from the lists of the neighbors of u
@@ -319,16 +362,30 @@ void Graph::collapse_vertices (int u, int v) {
                 if (it != L[w].end()) {
                     L[w].erase(it);
                     V[L[u][0]].erase(find(V[L[u][0]].begin(), V[L[u][0]].end(), w));
+                    repeat = true;
                 }
             }
         }
-        // Cuando hay colores repetidos este chequeo NO DEBE HACERSE.
-        // Suponer que L[v] = {k} y k tiene "multiplicidad" 2.
-        // Luego puede pintarse a v con un estable S1 de k y
-        // alguno de sus vecinos pueden pintarse con otro estable S2 de k.
-        // Luego no se podía borrar a k de las listas de los vecinos de v.
     }
-
+    // The previous is done recursively
+    while (repeat) {
+        repeat = false;
+        for (int w = 0; w < vertices; ++w) {
+            if (L[w].size() == 1) {
+                if (get_right_hand_side(L[w][0]) == -1) {
+                    // Erase color L[w][0] from the lists of the neighbors of w
+                    for (int z: adj[w]) {
+                        auto it = find(L[z].begin(), L[z].end(), L[w][0]);
+                        if (it != L[z].end()) {
+                            L[z].erase(it);
+                            V[L[w][0]].erase(find(V[L[w][0]].begin(), V[L[w][0]].end(), z));
+                            repeat = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     return;
 }

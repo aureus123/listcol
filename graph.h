@@ -18,14 +18,17 @@ class Graph {
     Graph(char *graph_filename, char *cost_filename, vector<int>& cost_list, char *list_filename);  // Constructor
 
     bool is_edge(int u, int v);
+    bool is_admissible(int u, int k);
     int get_Lv_size(int v);
     void get_Lv(int v, vector<int>& Lv);
     int get_Vk_size(int k);
     void get_Vk(int k, vector<int>& Vk);
     int get_cost(int k);
+    void get_adjv(int v, vector<int>& adjv);
     bool have_common_color(int u, int v);
     void get_new_vertex(vector<int>&);
     bool check_coloring(vector<int>& f);
+    void maximize_stable_set(vector<int> &s, int v);
 
     void show_instance();
     void show_statics();

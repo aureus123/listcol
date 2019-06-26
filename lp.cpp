@@ -8,7 +8,11 @@
 #include <algorithm>
 #include <stdlib.h>
 
-LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), values (Xenv), it_branch(vars.end()), fictional(true), G(G) {}
+LP::LP(Graph* G) : Xmodel(Xenv), Xvars(Xenv), Xrestr(Xenv), values (Xenv), it_branch(vars.end()), fictional(true), G(G) {
+
+	Xobj = IloMinimize(Xenv);
+
+}
 
 LP::~LP() {
     values.end();
@@ -29,8 +33,6 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
     // COLUMN GENERATION //
 
-	Xobj = IloMinimize(Xenv);
-
 	// We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
 	for (int v = 0; v < G->vertices; v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
@@ -43,9 +45,9 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
     }
 
     // Initial LP solution
-	initialize_LP();
 
 	Xmodel.add(Xobj);
+	initialize_LP();
 	Xmodel.add(Xrestr);
 
 	IloCplex cplex(Xmodel);
@@ -68,6 +70,11 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
         // LP treatment
         IloCplex::CplexStatus status = cplex.getCplexStatus();
         if (status != IloCplex::Optimal) {
+
+            // ABORT
+            std::cout << "LP infactible" << std::endl;
+            abort();
+
             cplex.end();
             if (status == IloCplex::Infeasible) return INFEASIBLE;
             else return OTHER; // For example, time limit expired
@@ -102,52 +109,57 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
             // Get duals values of Vk
             vector<double> pi (Vk.size());
+            double total_sum = 0.0;          // Total sum of Vk
             for (unsigned int i = 0; i < Vk.size(); i++) {
                     double d = duals[Vk[i]];
                     if (d > -EPSILON && d < 0.0) d = 0.0;
                     pi[i] = d;
+                    total_sum += d;
+            }
+
+            // Goal value
+            double goal = G->get_cost(k) + duals[G->vertices + k];
+
+            // If w(Vk) <= goal, then ignore color 
+            if (total_sum <= goal + EPSILON) {
+                continue;
             }
 
             vector<int> stable_set;
             double stable_weight = 0.0; 
-            double goal = G->get_cost(k) + duals[G->vertices + k];
             solver.solve(k, pi, goal + THRESHOLD, stable_set, stable_weight);
 
             // Add column if the reduced cost is negative
             if (goal - stable_weight < -EPSILON) {
 
-                    // Maximize the stable
-                    for (unsigned int i = 0; i < Vk.size(); i++) {
-                        bool add = true;
-                        for (int s: stable_set) {
-                            if (Vk[s] == Vk[i] || G->is_edge(Vk[s],Vk[i])) {
-                                add = false;
-                                break;
-                            }
-                        }
-                        if (add) stable_set.push_back(i);
-                    }
+                // Initialize (stable, color)
+                var v;
+                v.stable.resize(stable_set.size());
+                v.color = k;
 
-                    var v;
-                    v.stable.resize(stable_set.size());
+                // Translate stable
+                for (unsigned int i = 0; i < stable_set.size(); i++) {
+                    v.stable[i] = Vk[stable_set[i]];
+                }
 
-                    IloNumColumn column = Xobj(G->get_cost(k));
-                    // fill the column corresponding to ">= 1" constraints
-                    for (unsigned int i = 0; i < stable_set.size(); i++) {
-                        column += Xrestr[Vk[stable_set[i]]](1.0);
-                        v.stable[i] = Vk[stable_set[i]];
-                    }
-                    // and the ">= -1 constraint
-                    column += Xrestr[G->vertices + k](-1.0);
-                    v.color = k;
+                // Maximize stable set
+                G->maximize_stable_set(v.stable, k);
 
-                    // add the column as a non-negative continuos variable
-                    Xvars.add(IloNumVar(column));
-                    ++added_columns;
-                    ++total_added_columns;
+                IloNumColumn column = Xobj(G->get_cost(k));
+                // fill the column corresponding to ">= 1" constraints
+                for (auto u: v.stable) {
+                    column += Xrestr[u](1.0);
+                }
+                // and the ">= -1 constraint
+                column += Xrestr[G->vertices + k](-1.0);
 
-                    // save column as (stable,color) representation
-                    vars.push_back(v);
+                // add the column as a non-negative continuos variable
+                Xvars.add(IloNumVar(column));
+                ++added_columns;
+                ++total_added_columns;
+
+                // save column as (stable,color) representation
+                vars.push_back(v);
 
             }
         }
@@ -158,10 +170,13 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
                 break; // optimality reached
     }
 
+    //cout << total_added_columns << " columns were added" << endl;
+
     // Cut fictional columns
-    if (fictional) {
+    // WARNING: It's assumed that fictional columns are at the beginning of the matrix
+    if (fictional > 0) {
         IloExpr restr(Xenv);
-        for (int n = 0; n < G->vertices; ++n) {
+        for (int n = 0; n < fictional; ++n) {
             restr += Xvars[n];
         }
 	    Xmodel.add(restr <= 0);
@@ -202,10 +217,12 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
         cplex.end();
 
-        if (!integral)
+        if (!integral) {
             return FRACTIONAL;
-        else
+        }
+        else {
             return INTEGER;
+        }
     }
 
     else {
@@ -217,6 +234,8 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 }
 
 void LP::initialize_LP() {
+
+    fictional = 0;
 
 #ifdef INITIAL_HEURISTIC
     vector<vector<int>> stables_set;
@@ -242,25 +261,70 @@ void LP::initialize_LP() {
 
         }
 
-        fictional = false;
         return;
     }
 #endif
 
-    // Add a fictional columns
-    for (int u = 0; u < G->vertices; u++) {
-		IloNumColumn column = Xobj(FICTIONAL_COST);
-		column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
-	    Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+#ifndef INITIAL_HEURISTIC
 
-        // save column as (stable,color) representation
-        var v;
-        v.stable.reserve(1);
-        v.stable[0] = u;
-        v.color = -1;
-        vars.push_back(v);
+    if (vars.empty()) { // Root node
+
+        // Add a fictional columns for each vertex
+
+        for (int u = 0; u < G->vertices; u++) {
+            IloNumColumn column = Xobj(FICTIONAL_COST);
+            column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
+            Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+            // save column as (stable,color) representation
+            var v;
+            v.stable.resize(1);
+            v.stable[0] = u;
+            v.color = -1;
+            vars.push_back(v);
+
+            fictional++;
+
+        }
+    }
+    else { // Non-root node
+
+        //  For each var, add an initial column
+
+        for (var v: vars) {
+
+            if (v.color == -1) { // Fictional column
+
+                IloNumColumn column = Xobj(FICTIONAL_COST);
+                column += Xrestr[v.stable[0]](1.0); // fill the column corresponding to ">= 1" constraint
+                Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+                fictional++;
+
+            }
+            else { // Non-fictional column
+
+                vector<int> Vk;
+                G->get_Vk(v.color, Vk);
+
+                IloNumColumn column = Xobj(G->get_cost(v.color));
+                // fill the column corresponding to ">= 1" constraints
+                for (unsigned int i = 0; i < v.stable.size(); i++) {
+                    column += Xrestr[v.stable[i]](1.0);
+                }
+                // and the ">= -1 constraint
+                column += Xrestr[G->vertices + v.color](-1.0);
+
+                // add the column as a non-negative continuos variable
+                Xvars.add(IloNumVar(column));
+
+            }
+
+        }
 
     }
+
+#endif
 
     return;
 
@@ -272,24 +336,201 @@ void LP::branch (vector<LP*>& lps) {
     int u, v;
     select_vertices(u,v);
 
+    // Make u < v
+    if (u > v) {
+        int temp = u;
+        u = v;
+        v = temp;
+    }
+
     // Create LPs
     lps.reserve(2);
 
-    // Join vertices
+    /*****************/
+    /* Join vertices */
+    /*****************/
+
     Graph* G2 = new Graph(*G);      // Copy G
     G2->join_vertices(u,v);
 #ifdef COLORS_DELETION
     //G2->delete_equal_colors();
 #endif
-    lps.push_back(new LP(G2));
+    LP *lp2 = new LP(G2);
 
-    // Collapse vertices
+
+#ifndef INITIAL_HEURISTIC
+
+    // Initialize lp2 vars, base on the current vars
+
+    {
+
+    // First, a fictional var to cover u
+
+    var fict_s;
+    fict_s.stable.resize(1);
+    fict_s.stable[0] = u;
+    fict_s.color = -1;
+    lp2->vars.push_back(fict_s);    
+
+    }
+
+    // Then, addapt each var for the new graph G2
+
+    for (auto s: vars) {
+
+        var new_s;
+        new_s.stable = s.stable;
+        new_s.color = s.color;
+
+        auto it_u = std::find(new_s.stable.begin(), new_s.stable.end(), u);
+        auto it_v = std::find(new_s.stable.begin(), new_s.stable.end(), v);
+
+        if (it_u != new_s.stable.end()) { // u in Sk
+
+            if (it_v != new_s.stable.end()) { // v in Sk
+
+                new_s.stable.erase(it_u); // Remove u
+
+                // Maximize the stable set with neighbors of u
+                G2->maximize_stable_set (new_s.stable, new_s.color);
+
+            }
+
+        }
+
+        lp2->vars.push_back(new_s);
+
+    }
+
+#endif
+
+    /*********************/
+    /* Collapse vertices */
+    /*********************/
+
     G->collapse_vertices(u,v);      // Reuse G (delete_equal_colors is not needed!)
 #ifdef COLORS_DELETION
     //G->delete_equal_colors();
 #endif
-    lps.push_back(new LP(G));
+    LP *lp1 = new LP(G); 
     G = NULL;                       // This prevent G being deleted by the father 
+
+#ifndef INITIAL_HEURISTIC
+
+    // The row u contains the collapsed vertex and row v was deleted
+
+    // L(uv)
+    vector<int> Lu;
+    lp1->G->get_Lv(u, Lu);
+
+    // Initialize lp1 vars, base on the current vars
+
+    {
+
+    // First, a fictional var to cover u
+
+    var fict_s;
+    fict_s.stable.resize(1);
+    fict_s.color = -1;
+    fict_s.stable[0] = u;
+    lp1->vars.push_back(fict_s);
+
+    // If L(uv) = {k}
+    if (Lu.size() == 1) {
+
+        // Add a fictional var for each neighbor w of uv with k notin L(w)
+
+        vector<int> adju;
+        lp1->G->get_adjv(u, adju);
+
+        for (int w: adju) {
+            if (!lp1->G->is_admissible(w, Lu[0])) {
+                fict_s.color = -1;
+                fict_s.stable[0] = w;
+                lp1->vars.push_back(fict_s);                
+            }
+        }   
+
+    }
+
+    }
+
+    // Then, addapt each var for the new graph G
+
+    for (auto s: vars) {
+
+        bool is_v = false; // Is v in the old stable?
+
+        // Initialize the new stable
+        var new_s;
+        new_s.color = s.color;
+
+        // Translate the old stable in terms of the new vertices
+        new_s.stable.reserve(s.stable.size());
+        for (auto w: s.stable) {
+            if (w < v) {
+                new_s.stable.push_back(w);
+            }
+            else if (w == v) {
+                is_v = true;
+            }
+            else {
+                new_s.stable.push_back(w-1);
+            }
+        }
+
+        auto it_u = std::find(new_s.stable.begin(), new_s.stable.end(), u);
+
+        if (it_u != new_s.stable.end()) { // u in Sk
+
+            if (!is_v) { // v notin Sk
+
+                new_s.stable.erase(it_u); // Remove u
+
+                // Maximize the stable set with neighbors of new u
+                lp1->G->maximize_stable_set (new_s.stable, new_s.color);
+
+            }
+
+        }
+        else { // u notin Sk
+
+            if (is_v) { // v in Sk
+
+                lp1->G->maximize_stable_set (new_s.stable, new_s.color);
+
+            }
+            else { // v notin Sk
+
+                // If L(uv) = {k} and the column is (S,k), 
+                // then check if S contain a neigbor w of uv with k notin L(w) and remove it
+
+                if (Lu.size() == 1 && Lu[0] == new_s.color) {
+
+                    for (auto it = new_s.stable.begin(); it != new_s.stable.end();) { 
+                        int w = *it;
+                        if (!lp1->G->is_admissible(w, Lu[0])) {
+                            it = new_s.stable.erase(it);
+                        }
+                        else {
+                            ++it;
+                        }
+                    }
+
+                }
+
+            }
+
+        }
+
+        lp1->vars.push_back(new_s);
+
+    }
+
+#endif
+
+    lps.push_back(lp1);
+    lps.push_back(lp2);
 
     return;
 
@@ -310,7 +551,9 @@ void LP::select_vertices (int& i, int& j) {
 
     i = it_branch->stable[0];
 
-    for (auto &&v: vars) {
+    for (list<var>::iterator it = vars.begin(); it != vars.end(); ++it) {
+
+        var v = *it;
 
         if (find(v.stable.begin(), v.stable.end(), i) == v.stable.end()) continue;
 
@@ -575,8 +818,8 @@ LP_STATE LP::optimize2 (double brach_threshold) {
         IloExpr restr(Xenv);
         for (int n = 0; n < G->vertices; ++n) {
             restr += Xvars[n];
-        }
 	    Xmodel.add(restr <= 0);
+        }
         restr.end();
         cplex.solve();
     }

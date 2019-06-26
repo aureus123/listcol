@@ -62,7 +62,7 @@ void BP<Solution>::solve (Node* root) {
 
         // Pop
         Node* node = top();
-        show_stats(*node);   // First show_stats, then pop
+        //show_stats(*node);   // First show_stats, then pop
         pop();
 
         // Add sons

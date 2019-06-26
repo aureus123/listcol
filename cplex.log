@@ -1,0 +1,27 @@
+
+Log started (V12.7.0.0) Mon Jun 24 19:55:55 2019
+
+
+Problem 'form.lp' read.
+Read time = 0.02 sec. (0.00 ticks)
+Tried aggregator 1 time.
+LP Presolve eliminated 6 rows and 2 columns.
+Reduced LP has 4 rows, 4 columns, and 9 nonzeros.
+Presolve time = 0.00 sec. (0.01 ticks)
+
+Iteration log . . .
+Iteration:     1   Dual objective     =             2.000000
+
+Dual simplex - Optimal:  Objective =  3.0000000000e+00
+Solution time =    0.01 sec.  Iterations = 2 (0)
+Deterministic time = 0.01 ticks  (0.83 ticks/sec)
+
+
+Variable Name           Solution Value
+x3                            1.000000
+x4                            1.000000
+x5                            1.000000
+All other variables in the range 1-6 are 0.
+
+Log started (V12.7.0.0) Mon Jun 24 20:02:18 2019
+
