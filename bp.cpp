@@ -75,16 +75,20 @@ void BP<Solution>::solve (Node* root) {
 
     }
 
-    // Infeasibility case:
-    // TODO
-    if (primal_bound == DBL_MAX)
-        bye("\nError: Infeasible");
+    if (primal_bound == DBL_MAX) {     // Infeasibility case:
+        opt_flag = 2;
+        primal_bound = 99999999;
+        double db = calculate_dual_bound();
+        dual_bound = db == -DBL_MAX ? -99999999 : db; 
+        time = ECOclock() - start_t;
+    }
+    else {    // Optimality case:
+        opt_flag = 1;
+        dual_bound = primal_bound;
+        time = ECOclock() - start_t;
+    }
 
-    // Optimality case:
 
-    opt_flag = 1;
-    dual_bound = primal_bound;
-    time = ECOclock() - start_t;
     return;
 
 }
@@ -231,7 +235,7 @@ int BP<Solution>:: get_opt_flag() {
 template <class Solution>
 double BP<Solution>:: calculate_dual_bound() {
 
-    double _dual_bound = DBL_MAX;  // minimum objective value of unpruned nodes
+    double _dual_bound = -DBL_MAX;  // minimum objective value of unpruned nodes
     if (DFS) {
         // Traverse the list and search for the minimum objective value
         for (auto it = L.begin(); it != L.end(); ++it)

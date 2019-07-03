@@ -79,7 +79,15 @@ int main (int argc, char **argv) {
     strncpy(out,filename,300);
     strcat(out,".out");
     ofstream fout (out, std::ios::trunc);
-    fout << bp.get_opt_flag() << ":" << bp.get_dual_bound() << ":" << bp.get_primal_bound() << ":" << bp.get_nodes() << ":" << bp.get_time() << ":";
+    double dbound, pbound;
+    dbound = bp.get_dual_bound();
+    pbound = bp.get_primal_bound();
+    fout << bp.get_opt_flag() << ":";
+    if (dbound == -99999999) { fout << -99999999 << ":"; }
+    else { fout << dbound << ":"; }
+    if (pbound == 99999999) { fout << 99999999 << ":"; }
+    else { fout << pbound << ":"; }    
+    fout << bp.get_nodes() << ":" << bp.get_time() << ":";
     set<int> active_colors;
     col.get_active_colors(active_colors);
     fout << active_colors.size() << endl;
