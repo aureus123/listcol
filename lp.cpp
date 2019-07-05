@@ -235,9 +235,13 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
 void LP::initialize_LP() {
 
-    fictional = 0;
+    fictional = 0; // Number of finctional columns
 
-#ifdef INITIAL_HEURISTIC
+#ifdef INITIAL_COLUMNS_HEURISTIC
+
+    // Use an heuristic to find an initial set of columns
+    // If the heuristic fails, fictional columns are used
+
     vector<vector<int>> stables_set;
     if (G->coloring_heuristic2(stables_set)) {
 
@@ -263,15 +267,38 @@ void LP::initialize_LP() {
 
         return;
     }
-#endif
+    else {
 
-#ifndef INITIAL_HEURISTIC
+        for (int u = 0; u < G->vertices; u++) {
+
+            IloNumColumn column = Xobj(FICTIONAL_COST);
+            column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
+            Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+            // save column as (stable,color) representation
+            var v;
+            v.stable.resize(1);
+            v.stable[0] = u;
+            v.color = -1;
+            vars.push_back(v);
+
+            fictional++;
+
+        }
+
+    }
+
+#elif defined INITIAL_COLUMNS_FATHER
+
+    // Use the active columns of the father to generate the initial set of columns
+    // Except in the root node, where fictional columns are used
 
     if (vars.empty()) { // Root node
 
         // Add a fictional columns for each vertex
 
         for (int u = 0; u < G->vertices; u++) {
+
             IloNumColumn column = Xobj(FICTIONAL_COST);
             column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
             Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
@@ -289,7 +316,8 @@ void LP::initialize_LP() {
     }
     else { // Non-root node
 
-        //  For each var, add an initial column
+        // For each var (stable set), add the corresponding initial column
+        // vars was initialized during branching, according to the columns of the father
 
         for (var v: vars) {
 
@@ -321,6 +349,27 @@ void LP::initialize_LP() {
             }
 
         }
+
+    }
+
+#else
+
+    // Use fictional columns as initial columns
+
+    for (int u = 0; u < G->vertices; u++) {
+
+        IloNumColumn column = Xobj(FICTIONAL_COST);
+        column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
+        Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+        // save column as (stable,color) representation
+        var v;
+        v.stable.resize(1);
+        v.stable[0] = u;
+        v.color = -1;
+        vars.push_back(v);
+
+        fictional++;
 
     }
 
@@ -358,7 +407,7 @@ void LP::branch (vector<LP*>& lps) {
     LP *lp2 = new LP(G2);
 
 
-#ifndef INITIAL_HEURISTIC
+#ifdef INITIAL_COLUMNS_FATHER
 
     // Initialize lp2 vars, base on the current vars
 
@@ -415,7 +464,7 @@ void LP::branch (vector<LP*>& lps) {
     LP *lp1 = new LP(G); 
     G = NULL;                       // This prevent G being deleted by the father 
 
-#ifndef INITIAL_HEURISTIC
+#ifdef INITIAL_COLUMNS_FATHER
 
     // The row u contains the collapsed vertex and row v was deleted
 
