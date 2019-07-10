@@ -68,8 +68,23 @@ void BP<Solution>::solve (Node* root) {
         // Add sons
         vector<Node *> sons;
         node->branch(sons);
-        for (auto n: sons)
-            push(n);
+        for (auto n: sons) {
+            try {
+                push(n);
+            }
+            catch (...) {
+                // Time expired
+                opt_flag = 0;
+                primal_bound = primal_bound == DBL_MAX ? 99999999 : primal_bound;
+                dual_bound = calculate_dual_bound();
+                dual_bound = dual_bound == -DBL_MAX ? -99999999 : dual_bound;
+                nodes = -1;
+                time = MAXTIME;
+                L.empty();
+                delete node;
+                return;
+            }
+        }
     
         delete node;
 
@@ -99,19 +114,6 @@ void BP<Solution>::push (Node* node) {
     // Solve the linear relaxation of the node and prune if possible
     LP_STATE state = EARLY_BRANCHING ? node->solve(start_t, root_lower_bound) : node->solve(start_t); 
     
-    // Time checking (before updating the bounds)
-    if (ECOclock() - start_t > MAXTIME) {
-        // Time expired
-        opt_flag = 0;
-        primal_bound = primal_bound == DBL_MAX ? 99999999 : primal_bound;
-        dual_bound = L.empty() ? -99999999 : calculate_dual_bound();
-        nodes = -1;
-        time = MAXTIME;
-        L.empty();
-        delete node;
-        return;
-    }
-
     nodes++;    
     double obj_value;
 
@@ -138,8 +140,12 @@ void BP<Solution>::push (Node* node) {
             }
             break;
 
+        case TIME_LIMIT:
+            throw std::exception{};
+            return;
+
         case OTHER:
-            bye("Internal error");
+            bye("Unknown LP status");
             return;
 
     }
@@ -235,7 +241,7 @@ int BP<Solution>:: get_opt_flag() {
 template <class Solution>
 double BP<Solution>:: calculate_dual_bound() {
 
-    double _dual_bound = -DBL_MAX;  // minimum objective value of unpruned nodes
+    double _dual_bound = DBL_MAX;  // minimum objective value of unpruned nodes
     if (DFS) {
         // Traverse the list and search for the minimum objective value
         for (auto it = L.begin(); it != L.end(); ++it)
@@ -245,7 +251,14 @@ double BP<Solution>:: calculate_dual_bound() {
     else {
         _dual_bound = L.front()->get_obj_value();
     }
-    return _dual_bound;
+    
+
+    if (_dual_bound == DBL_MAX) {
+        return -DBL_MAX;
+    }
+    else {
+        return _dual_bound;
+    }
 
 }
 

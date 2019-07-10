@@ -7,8 +7,6 @@
 #include <vector>
 #include <set>
 
-#define MAXTIME 7200.0
-
 class Coloring {
 
     public:

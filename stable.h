@@ -6,9 +6,7 @@
 #include "graph.h"
 #include <vector>
 
-extern "C" {
 #include "mwis_sewell/mwss.h"
-}
 
 template <class SpecificMWSS>
 class MWSS {

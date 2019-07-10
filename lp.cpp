@@ -64,23 +64,27 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 	while (true) {
 
         // Solve LP
-        cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME - (ECOclock() - start_t));
+        double time_limit = MAXTIME - (ECOclock() - start_t);
+        if (time_limit < 0) {
+            return TIME_LIMIT;
+        }
+        cplex.setParam(IloCplex::NumParam::TiLim, time_limit);
         cplex.solve();
 
         // LP treatment
         IloCplex::CplexStatus status = cplex.getCplexStatus();
         if (status != IloCplex::Optimal) {
 
-            // ABORT
-            std::cout << "LP infactible" << std::endl;
-            abort();
+            if (status == IloCplex::AbortTimeLim) {
+                cplex.end();
+                return TIME_LIMIT;
+            }
+            else {
+                cplex.end();
+                return OTHER;               
+            }
 
-            cplex.end();
-            if (status == IloCplex::Infeasible) return INFEASIBLE;
-            else return OTHER; // For example, time limit expired
         }
-
-        //cout << cplex.getObjValue() << endl;
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
