@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <numeric> // iota function
 #include <climits>
 #include <math.h>
 
@@ -353,7 +354,7 @@ void Graph::collapse_vertices (int u, int v) {
     // Luego puede pintarse a v con un estable S1 de k y
     // alguno de sus vecinos pueden pintarse con otro estable S2 de k.
     // Luego no se podía borrar a k de las listas de los vecinos de v.
-    bool repeat;
+	bool repeat = false;
     if (L[u].size() == 1) {
         if (get_right_hand_side(L[u][0]) == -1) {
             // Erase color L[u][0] from the lists of the neighbors of u

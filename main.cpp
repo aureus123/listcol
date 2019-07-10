@@ -4,14 +4,6 @@
 #include "io.h"
 #include <cstring>
 
-// for linux users: do not define VISUALC
-#ifndef VISUALC
-#include <unistd.h>
-#include <sys/times.h>
-#else
-#include <windows.h>
-#endif
-
 //#define SHOWINSTANCE
 #define SHOWSTATICS
 #define VERBOSE

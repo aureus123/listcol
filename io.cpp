@@ -1,18 +1,22 @@
-#include "io.h"
-#include <stdio.h>
-#include <vector>
-#include <utility>
-#include <iostream>
-
-#define VERBOSE
-
 /* for linux users: do not define VISUALC */
 #ifndef VISUALC
 #include <unistd.h>
 #include <sys/times.h>
 #else
-#include <windows.h>
+//#include <windows.h> /* definition of LP conflicts with inner definition :( */
+#include <time.h>
 #endif
+
+
+#include "io.h"
+#include <stdio.h>
+#include <utility>
+#include <iostream>
+
+using namespace std;
+
+
+#define VERBOSE
 
 //
 // ECOclock - measure CPU's time
@@ -34,7 +38,7 @@ void set_color(int color)
 {
 #ifdef VERBOSE
 #ifdef VISUALC
-	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+//	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 #endif
 #endif
     return;

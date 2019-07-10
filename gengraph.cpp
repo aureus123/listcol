@@ -1,7 +1,6 @@
 /*
  * GENGRAPH - Generate a random graph
- * Made in 2018 by Daniel Severin and Mauro Lucci
- *
+ * Made in 2018-2019 by Daniel Severin
  */
 
 #include <stdio.h>
@@ -56,10 +55,9 @@ int main(int argc, char **argv)
 	int *edge_u = new int[clique_size];
 	int *edge_v = new int[clique_size];
 
-    srand (time(NULL)); // seed
-
 	/* generate the random graph and the number of colors */
 	int edges = 0;
+	srand(time(0));
 	for (int u = 0; u < vertices - 1; u++) {
 		for (int v = u + 1; v < vertices; v++) {
 			if (urnd(0, 1, false) <= density) {

@@ -1,7 +1,9 @@
 /*
  * GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph
- * Made in 2018 by Daniel Severin and Mauro Lucci
+ *   (with a maximum clique previously colored)
+ * Made in 2018-2019 by Daniel Severin
  *
+ * Requires IBM ILOG CPLEX 12.7
  */
 
 #include <stdio.h>
@@ -18,9 +20,6 @@ using namespace std;
 /* CONSTANTS */
 
 #define PI 3.14159265358979323846
-#define EDGES_PER_COLOR 3.14
-#define LOG_COLORS_PER_AVERAGE 0.785
-#define AVERAGES_PER_SIGMA 1.5
 #define EPSILON 0.00001
 #define MAXTIME 600.0
 
@@ -36,38 +35,12 @@ void bye(char *string)
 }
 
 /*
-* urnd - generate numbers with uniform random distribution
-*  if flag=false, the interval is [a, b]
-*  if flag=true, the interval is [a, b)
-*/
-float urnd(float a, float b, bool flag)
-{
-	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
-}
-
-/*
-* grnd - generate numbers with gaussian random distribution
-* (it uses Box-Muller algorithm)
-*/
-float grnd(float mu, float sigma)
-{
-	float z, u1, u2;
-
-	/* u1 and u2 are given from an uniform distribution of (0, 1] */
-	u1 = 1.0 - urnd(0, 1, true);
-	u2 = 1.0 - urnd(0, 1, true);
-
-	if (urnd(0, 1, 1) < 0.5) z = sqrt(-2.0 * log(u1)) * cos(2.0 * PI * u2);
-	else z = sqrt(-2.0 * log(u1)) * sin(2.0 * PI * u2);
-	return z * sigma + mu;
-}
-
-/*
  * main - Main program
  */
 int main(int argc, char **argv)
 {
 	cout << "GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph." << endl;
+	cout << "  (with a maximum clique previously colored)" << endl;
 
 	if (argc < 2) {
 		cout << "Usage: genclassicinst file" << endl;
@@ -92,14 +65,12 @@ int main(int argc, char **argv)
 
 	/* ask for memory */
 	int *degrees = new int[vertices];
-	int **adjacency = new int*[vertices];
+	bool **adjacency = new bool*[vertices];
 	for (int u = 0; u < vertices; u++) {
 		degrees[u] = 0;
-		adjacency[u] = new int[vertices];
-		for (int v = 0; v < vertices; v++) adjacency[u][v] = 0;
+		adjacency[u] = new bool[vertices];
+		for (int v = 0; v < vertices; v++) adjacency[u][v] = false;
 	}
-	//int *edge_u = new int[edges];
-	//int *edge_v = new int[edges];
 
 	/* read edges */
 	for (int e = 0; e < edges; e++) {
@@ -109,17 +80,15 @@ int main(int argc, char **argv)
 			cout << "Error reading edge " << e + 1 << "!" << endl;
 			bye("Bye!");
 		}
-		if (adjacency[u][v] != 0) {
+		if (adjacency[u][v]) {
 			cout << "A repeated edge was found: (" << u << ", " << v << ")" << endl;
 			bye("Bye!");
 		}
 		else {
 			degrees[u]++;
 			degrees[v]++;
-			//edge_u[e] = u;
-			//edge_v[e] = v;
-			adjacency[u][v] = e + 1;
-			adjacency[v][u] = e + 1;
+			adjacency[u][v] = true;
+			adjacency[v][u] = true;
 		}
 	}
 	fclose(stream);
@@ -162,7 +131,7 @@ int main(int argc, char **argv)
 	/* generate anti-adjacency constraints */
 	for (int u = 0; u < vertices - 1; u++) {
 		for (int v = u + 1; v < vertices; v++) {
-			if (adjacency[u][v] == 0) Xmodel.add(Xvars[u] + Xvars[v] <= 1);
+			if (adjacency[u][v] == false) Xmodel.add(Xvars[u] + Xvars[v] <= 1);
 		}
 	}
 
@@ -226,7 +195,7 @@ int main(int argc, char **argv)
 			int L_size = colors;
 			for (int k = 0; k < colors; k++) L_set[k] = true;
 			for (int v = 0; v < vertices; v++) {
-				if (u != v && adjacency[u][v] > 0 && clique[v] >= 0) {
+				if (u != v && adjacency[u][v] && clique[v] >= 0) {
 					L_set[clique[v]] = false;
 					L_size--;
 				}
@@ -241,8 +210,6 @@ int main(int argc, char **argv)
 	/* free memory */
 	delete[] L_set;
 	delete[] clique;
-	//delete[] edge_v;
-	//delete[] edge_u;
 	for (int v = 0; v < vertices; v++) delete[] adjacency[v];
 	delete[] adjacency;
 	delete[] degrees;

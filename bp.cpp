@@ -62,7 +62,7 @@ void BP<Solution>::solve (Node* root) {
 
         // Pop
         Node* node = top();
-        //show_stats(*node);   // First show_stats, then pop
+        show_stats(*node);   // First show_stats, then pop
         pop();
 
         // Add sons
@@ -251,7 +251,15 @@ double BP<Solution>:: calculate_dual_bound() {
 
 template <class Solution>
 void BP<Solution>::show_stats (Node& node) {
+	static double first_t = start_t;
+	static bool first_call = true;
 
+	double now_t = ECOclock();
+	if (first_call) first_call = false;
+	else {
+		if (now_t - first_t < 10.0) return;
+		first_t = now_t;
+	}
     // Calculate GAP (it is time cosuming when DFS is used)
     //double _dual_bound = calculate_dual_bound();
     //double gap = abs(_dual_bound - primal_bound) / (0.0000000001 + abs(primal_bound)) * 100;
@@ -264,6 +272,6 @@ void BP<Solution>::show_stats (Node& node) {
     else
         cout << (int) primal_bound;
     //cout << "\t Gap = " << gap << "%";
-    cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << endl;
+    cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << "\t time = " << now_t - start_t << endl;
 
 }
