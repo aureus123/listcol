@@ -66,23 +66,23 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
         // Solve LP
         double time_limit = MAXTIME - (ECOclock() - start_t);
         if (time_limit < 0) {
-            return TIME_LIMIT;
+            return TIME_OR_MEM_LIMIT;
         }
         cplex.setParam(IloCplex::NumParam::TiLim, time_limit);
         cplex.solve();
 
         // LP treatment
         IloCplex::CplexStatus status = cplex.getCplexStatus();
+
         if (status != IloCplex::Optimal) {
 
-            if (status == IloCplex::AbortTimeLim) {
-                cplex.end();
-                return TIME_LIMIT;
-            }
-            else {
-                cplex.end();
-                return OTHER;               
-            }
+            cplex.end();
+
+            if (status == IloCplex::Infeasible) {bye("ERROR: LPext is infeasible");}
+            else if (status == IloCplex::AbortTimeLim 
+                  || status == IloCplex::MemLimFeas 
+                  || status == IloCplex::MemLimInfeas) {return TIME_OR_MEM_LIMIT;}
+            else {bye("ERROR: Unknown LPext status");}
 
         }
 
@@ -172,31 +172,25 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
         if (added_columns == 0)
                 break; // optimality reached
+
     }
 
     //cout << total_added_columns << " columns were added" << endl;
 
-    // Cut fictional columns
-    // WARNING: It's assumed that fictional columns are at the beginning of the matrix
-    if (fictional > 0) {
-        IloExpr restr(Xenv);
-        for (int n = 0; n < fictional; ++n) {
-            restr += Xvars[n];
-        }
-	    Xmodel.add(restr <= 0);
-        restr.end();
-        cplex.solve();
-    }
-
-    // Recover LP solution
+    // Recover LP solution and objective value
     cplex.getValues(values, Xvars);
+    obj_value = cplex.getObjValue(); 
 
-    // LP treatment 
-    IloCplex::CplexStatus status = cplex.getCplexStatus();
+    // Check if fictional columns are active
+    // WARNING: It's assumed that fictional columns are at the beginning of the matrix
+    double fict_value = 0.0;
+    for (int n = 0; n < fictional; ++n) {
+        fict_value += values[n];
+    }    
 
-    if (status == IloCplex::Optimal) {
+    if (fict_value < EPSILON) {
 
-        obj_value = cplex.getObjValue(); 
+        // The solution of LPext is also solution of LP
 
         // Check for integrality,
         // free unused variables
@@ -227,12 +221,29 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
         else {
             return INTEGER;
         }
-    }
 
+    }
     else {
-        cplex.end();
-        if (status == IloCplex::Infeasible) return INFEASIBLE;
-        else return OTHER;
+
+        // The solution of LPext is not solution of LP
+
+        if (obj_value > (double) G->vertices + EPSILON) {
+
+            // LP is infeasible
+
+            cplex.end();
+            return INFEASIBLE;                
+
+        }
+        else {
+
+            // TODO: 2-phase LP initilization
+
+            cplex.end();
+            bye("ERROR: Failure in LPext initialization");
+
+        }
+
     }
 
 }

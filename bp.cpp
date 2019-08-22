@@ -73,13 +73,14 @@ void BP<Solution>::solve (Node* root) {
                 push(n);
             }
             catch (...) {
-                // Time expired
+                // Time or mem expired
                 opt_flag = 0;
                 primal_bound = primal_bound == DBL_MAX ? 99999999 : primal_bound;
                 dual_bound = calculate_dual_bound();
                 dual_bound = dual_bound == -DBL_MAX ? -99999999 : dual_bound;
                 nodes = -1;
-                time = MAXTIME;
+                time = ECOclock() - start_t;
+                time = time > MAXTIME ? MAXTIME : time; 
                 L.empty();
                 delete node;
                 return;
@@ -140,12 +141,8 @@ void BP<Solution>::push (Node* node) {
             }
             break;
 
-        case TIME_LIMIT:
+        case TIME_OR_MEM_LIMIT:
             throw std::exception{};
-            return;
-
-        case OTHER:
-            bye("Unknown LP status");
             return;
 
     }
