@@ -80,7 +80,13 @@ void BP<Solution>::solve (Node* root) {
                 dual_bound = dual_bound == -DBL_MAX ? -99999999 : dual_bound;
                 nodes = -1;
                 time = ECOclock() - start_t;
-                time = time > MAXTIME ? MAXTIME : time; 
+                if (time >= MAXTIME) {
+                    cout << "Time limit reached" << endl;
+                    time = MAXTIME; 
+                }
+                else {
+                    cout << "Mem limit reached" << endl;
+                }
                 L.empty();
                 delete node;
                 return;
@@ -97,11 +103,13 @@ void BP<Solution>::solve (Node* root) {
         double db = calculate_dual_bound();
         dual_bound = db == -DBL_MAX ? -99999999 : db; 
         time = ECOclock() - start_t;
+        cout << "Infeasibility proved" << endl;
     }
     else {    // Optimality case:
         opt_flag = 1;
         dual_bound = primal_bound;
         time = ECOclock() - start_t;
+        cout << "Optimality reached" << endl;
     }
 
 
@@ -114,7 +122,14 @@ void BP<Solution>::push (Node* node) {
     
     // Solve the linear relaxation of the node and prune if possible
     LP_STATE state = EARLY_BRANCHING ? node->solve(start_t, root_lower_bound) : node->solve(start_t); 
-    
+
+    #ifdef ONLY_RELAXATION
+    L.empty();
+    delete node;
+    cout << "Only initial relaxation solved" << endl;
+    return;
+    #endif
+
     nodes++;    
     double obj_value;
 

@@ -255,49 +255,47 @@ void LP::initialize_LP() {
 #ifdef INITIAL_COLUMNS_HEURISTIC
 
     // Use an heuristic to find an initial set of columns
-    // If the heuristic fails, fictional columns are used
 
-    vector<vector<int>> stables_set;
-    if (G->coloring_heuristic2(stables_set)) {
+    list<vector<int>> stable_sets;
+    G->coloring_heuristic(stable_sets);
 
-        // Add columns
-        for (auto s: stables_set) {
+    // Add columns
+    for (auto s: stable_sets) {
 
-            int k = s.back(); // color
-            s.pop_back();
+        int k = s.back(); // color
+        s.pop_back();
 
-		    IloNumColumn column = Xobj(G->get_cost(k));
+        if (k > G->colors) {
+
+            // Fictional column
+
+            IloNumColumn column = Xobj(FICTIONAL_COST);
+            column += Xrestr[s.front()](1.0); // fill the column corresponding to ">= 1" constraint
+            Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+
+            // save column as (stable,color) representation
+            var v;
+            v.stable.resize(1);
+            v.stable[0] = s.front();
+            v.color = -1;
+            vars.push_back(v);
+
+            fictional++;
+
+        }
+        else {
+                
+            IloNumColumn column = Xobj(G->get_cost(k));
             for (int v: s)
-		        column += Xrestr[v](1.0); // fill the column corresponding to ">= 1" constraint
+                column += Xrestr[v](1.0); // fill the column corresponding to ">= 1" constraint
             column += Xrestr[G->vertices+k](-1.0); // fill the column corresponding to ">= -1" constraint
-		    Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
+            Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
 
             // save column as (stable,color) representation
             var v;
             v.stable = s;
             v.color = k;
             vars.push_back(v);
-
-        }
-
-        return;
-    }
-    else {
-
-        for (int u = 0; u < G->vertices; u++) {
-
-            IloNumColumn column = Xobj(FICTIONAL_COST);
-            column += Xrestr[u](1.0); // fill the column corresponding to ">= 1" constraint
-            Xvars.add(IloNumVar(column)); // add the column as a non-negative continuos variable
-
-            // save column as (stable,color) representation
-            var v;
-            v.stable.resize(1);
-            v.stable[0] = u;
-            v.color = -1;
-            vars.push_back(v);
-
-            fictional++;
 
         }
 

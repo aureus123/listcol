@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <map>
+#include <list>
 
 #define COLORS_DELETION
 
@@ -28,7 +29,7 @@ class Graph {
     bool have_common_color(int u, int v);
     void get_new_vertex(vector<int>&);
     bool check_coloring(vector<int>& f);
-    void maximize_stable_set(vector<int> &s, int v);
+    void maximize_stable_set(vector<int> &s, int k);
 
     void show_instance();
     void show_statics();
@@ -38,8 +39,7 @@ class Graph {
     void color_vertex(int v, int k);
     void set_Lv(int v, vector<int>& Lv);
 
-    bool coloring_heuristic(vector<vector<int>>& stables_set);
-    bool coloring_heuristic2(vector<vector<int>>& stables_set);
+    void coloring_heuristic(list<vector<int>>& stables_set);
 
     private:
     vector<vector <int> > adj;    // adj[v]: open neighborhood of vertex v

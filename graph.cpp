@@ -430,146 +430,69 @@ void Graph::set_Lv(int v, vector<int>& Lv) {
     return;
 }
 
-bool Graph::coloring_heuristic(vector<vector<int>>& stables_set) {
+void Graph::coloring_heuristic(list<vector<int>>& stable_sets) {
 
-    // Initialize adjacency matrix for quick indexing
-    vector<vector<bool>> M (vertices, vector<bool>(vertices,false));
-    for (int v = 0; v < vertices; ++v)
-        for (int u: adj[v])
-            M[v][u] = true;
+    int n_colored = 0;
+    vector<bool> colored (vertices, false);
 
-    // Degrees array
-    vector<int> deg (vertices, 0);
-    for (int v = 0; v < vertices; ++v)
-        deg[v] = adj[v].size();
-    
-    vector<vector<int>> VV = V; // Copy V[k]'s
+    for (int k = 0; k < colors; ++k) {
 
-    vector<bool> colored (vertices, false); // Currently colored vertices
-    int colored_size = 0; // Currently colored vertices size
-    vector<int> used (colors,0);
+        int multiplicity = 1;
+        #ifdef COLORS_DELETION
+        multiplicity = -right_hand_side[k];
+        #endif
 
-    while (colored_size != vertices) {
-
-        // Sort each VV[k] in non-decreasing degree order
-        for (int k = 0; k < colors; ++k)
-            sort(VV[k].begin(), VV[k].end(), [deg](int u, int v) {return deg[u] < deg[v];} );
-
-        // Find a big maximal stable with uncolored vertices of some VV[k].
-        // Note: a greedy approach is used
-        vector<int> max_stable;
-        int color;
-        for (int k = 0; k < colors; ++k) {
-
-#ifdef COLORS_DELETION
-            if (used[k] >= abs(right_hand_side[k])) continue;
-#else
-            if (used[k] >= 1) continue;
-#endif
+        for (int i = 0; i < multiplicity; ++i) {
 
             vector<int> stable;
-            vector<int> candidates;
-            for (int v: VV[k])
-                if (!colored[v])
-                    candidates.push_back(v);
-            while (!candidates.empty()) {
-                int v = candidates.back();
-                stable.push_back(v);
-                candidates.pop_back();
-                // Remove N(v) from candidates
-                for (auto it = candidates.begin(); it != candidates.end();)
-                    if (M[v][*it]) it = candidates.erase(it);
-                    else ++it;
+            stable.reserve(V[k].size());
+
+            for (int v: V[k]) {
+
+                if (colored[v]) {continue;}
+
+                // Try to add v to the stable
+
+                bool ok = true;
+                for (int s: stable) {
+                    if (is_edge(v,s)) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok) {
+                    stable.push_back(v);
+                    n_colored++;
+                    colored[v] = true;
+                    if (n_colored == vertices) {break;}
+                }
+
             }
-            if (stable.size() > max_stable.size()) {
-                max_stable = stable;
-                color = k;
+
+            if (!stable.empty()) {
+                maximize_stable_set(stable, k);
+                stable.push_back(k); // Push color
+                stable_sets.push_back(stable);
             }
+
         }
-
-        if (max_stable.empty())
-            return false;
-
-        // Color vertices from max_stable
-        for (int v: max_stable) {
-            colored[v] = true;
-            colored_size++;
-        }
-
-        // Rearrange degrees
-        for (int v: max_stable)
-            for (int u = 0; u < vertices; u++)
-                if (M[v][u])
-                    deg[u]--;
-
-        max_stable.push_back(color);
-        used[color]++;
-        stables_set.push_back(max_stable);
 
     }
 
-    return true;
-
-}
-
-bool Graph::coloring_heuristic2(vector<vector<int>>& stables_set) {
-
-    // For each vertex v, find a maximal stable that covers it
-    // The stable is chosen from the larger Gk with k in L(v)
-    // The stable is constructed in a greedy fashion:
-    //   the vertices are sorted in non-decreasing degree order
+    // Fictional colors
 
     for (int v = 0; v < vertices; ++v) {
 
-        if (L[v].size() == 0) bye("Heuristic error: empty list");
+        if (!colored[v]) {
+            vector<int> stable;
+            stable.push_back(v);
+            stable.push_back(colors+1); // Push fictional color
+            stable_sets.push_front(stable); // Push front
+        } 
 
-        // Choose unused color
-        int r = rand() % L[v].size();
-        int k = L[v][r];
-
-        // Construct stable
-        vector<int> stable;
-        stable.push_back(v);
-        vector<bool> used (V[k].size(), false);
-
-        do {
-
-            // Mark N[v] as used
-            int u = stable.back();
-            for (int i = 0; i < V[k].size(); ++i)
-                if (V[k][i] == u)
-                    used[i] = true;
-            for (int w: adj[u])
-                for (int i = 0; i < V[k].size(); ++i)
-                    if (V[k][i] == w)
-                        used[i] = true;
-
-            // Choose next vertex
-            vector<int> candidates;
-            for (int i = 0; i < V[k].size(); ++i)
-                if (!used[i])
-                    candidates.push_back(V[k][i]);
-
-            if (candidates.size() == 0)
-                break;
-
-            r = rand() % candidates.size();
-            stable.push_back(candidates[r]);
-
-        }
-        while (true);
-
-        cout << "Stable: ";
-        for (int i: stable)
-            cout << " " << i;
-        cout << endl;
-
-        stable.push_back(k); // push color at back
-        stables_set.push_back(stable);
-        
     }
 
-    return true;
+    return;
 
 }
 
