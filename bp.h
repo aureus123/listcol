@@ -7,8 +7,6 @@
 #include <vector>
 #include <set>
 
-//#define ONLY_RELAXATION
-
 class Coloring {
 
     public:

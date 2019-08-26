@@ -71,19 +71,19 @@ listcolabp: main.o bp.o lp.o stable.o graph.o io.o mwis_sewell/wstable.o
 listcolabpcopy: main.o bp.o lpcopy.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcolabproot: main.o bproot.o lp.o stable.o graph.o io.o mwis_sewell/wstable.o
+listcolabproot: main.o bproot.o lproot.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcolabprootheur: main.o bproot.o lpheur.o stable.o graph.o io.o mwis_sewell/wstable.o
+listcolabprootheur: main.o bproot.o lprootheur.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 main.o: main.cpp bp.h lp.h stable.h graph.h io.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
 
-bp.o: bp.cpp bp.h
+bp.o: bp.cpp bp.h lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
 
-bproot.o: bp.cpp bp.h
+bproot.o: bp.cpp bp.h lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
 
 lp.o: lp.cpp lp.h
@@ -94,6 +94,13 @@ lpheur.o: lp.cpp lp.h
 
 lpcopy.o: lp.cpp lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_FATHER
+
+lproot.o: lp.cpp lp.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
+
+lprootheur.o: lp.cpp lp.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC -DONLY_RELAXATION
+
 
 stable.o: stable.cpp stable.h
 	$(CC) -c -o $@ $< $(CCFLAGS)

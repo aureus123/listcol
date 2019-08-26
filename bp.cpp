@@ -1,5 +1,6 @@
 #include "bp.h"
 #include "io.h"
+#include "lp.h"
 #include <iterator>
 #include <cfloat>
 #include <cmath>
@@ -54,7 +55,61 @@ best_integer_solution(sol), DFS(DFS), EARLY_BRANCHING(EARLY_BRANCHING) {
 template <class Solution>
 void BP<Solution>::solve (Node* root) {
 
-    push(root);
+    try {
+        push(root);
+    }
+    catch(...) { // Time or mem expired
+        opt_flag = 0;
+        primal_bound = 99999999;
+        dual_bound = -99999999;
+        nodes = -1;
+        time = ECOclock() - start_t;
+        if (time >= MAXTIME) {
+            cout << "Time limit reached" << endl;
+            time = MAXTIME; 
+        }
+        else {
+            cout << "Mem limit reached" << endl;
+        }
+        return;
+    }
+
+    #ifdef ONLY_RELAXATION
+    if (!L.empty()) {
+        // The initial relaxation is fractional
+        opt_flag = 0;
+        primal_bound = 99999999;
+        double db = calculate_dual_bound();
+        dual_bound = db == -DBL_MAX ? -99999999 : db; 
+        time = ECOclock() - start_t;
+        cout << "The initial relaxation is fractional" << endl;
+        cout << "Objective value: " << dual_bound << endl;
+        cout << "Time: " << time << endl;
+        return;      
+    }
+    else {
+        if (primal_bound == DBL_MAX) {
+            // The initial relaxation is infeasible
+            opt_flag = 2;
+            primal_bound = 99999999;
+            dual_bound = -99999999; 
+            time = ECOclock() - start_t;
+            cout << "The initial relaxation is infeasible" << endl;
+            cout << "Time: " << time << endl;
+            return;        
+        }
+        else {
+            // The initial relaxation is integer
+            opt_flag = 1;
+            dual_bound = primal_bound; 
+            time = ECOclock() - start_t;
+            cout << "The initial relaxation is integer" << endl;
+            cout << "Objective value: " << dual_bound << endl;
+            cout << "Time: " << time << endl;
+            return;          
+        }
+    }
+    #endif
 
     if (!L.empty()) root_lower_bound = ceil(root->get_obj_value());
 
@@ -122,13 +177,6 @@ void BP<Solution>::push (Node* node) {
     
     // Solve the linear relaxation of the node and prune if possible
     LP_STATE state = EARLY_BRANCHING ? node->solve(start_t, root_lower_bound) : node->solve(start_t); 
-
-    #ifdef ONLY_RELAXATION
-    L.empty();
-    delete node;
-    cout << "Only initial relaxation solved" << endl;
-    return;
-    #endif
 
     nodes++;    
     double obj_value;

@@ -59,6 +59,7 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
     MWSS<Sewell> solver (*G);
 
     int total_added_columns = 0;
+    int iter = 0;
 
     // Generate columns
 	while (true) {
@@ -85,6 +86,10 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
             else {bye("ERROR: Unknown LPext status");}
 
         }
+
+        #ifdef ONLY_RELAXATION
+        cout << "Iteracion: " << iter << "\tValor objetivo: " << cplex.getObjValue() << "\t Tiempo: " << ECOclock() - start_t << "\t #Columnas: " <<  vars.size() << endl;
+        #endif
 
         // Early branching
         if (cplex.getObjValue() < brach_threshold - EPSILON)
@@ -169,6 +174,8 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
         }
 
         //cout << added_columns << " columns were added" << endl;
+
+        iter++;
 
         if (added_columns == 0)
                 break; // optimality reached
@@ -300,6 +307,11 @@ void LP::initialize_LP() {
         }
 
     }
+
+    #ifdef ONLY_RELAXATION
+    cout << "Cantidad de columnas: " << vars.size() - fictional << endl;
+    cout << "Cantidad de dummmies: " << fictional << endl;
+    #endif
 
 #elif defined INITIAL_COLUMNS_FATHER
 
