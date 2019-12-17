@@ -30,6 +30,7 @@ class Graph {
     void get_new_vertex(vector<int>&);
     bool check_coloring(vector<int>& f);
     void maximize_stable_set(vector<int> &s, int k);
+    int get_Mv(int v);
 
     void show_instance();
     void show_statics();

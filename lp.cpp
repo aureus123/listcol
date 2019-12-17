@@ -234,7 +234,12 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
 
         // The solution of LPext is not solution of LP
 
-        if (obj_value > (double) G->vertices + EPSILON) {
+        double threshold = 0.0;
+        for (int v = 0; v < G->vertices; ++v) {
+            threshold += (double) G->get_Mv(v);
+        }
+
+        if (obj_value > threshold + EPSILON) {
 
             // LP is infeasible
 

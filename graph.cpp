@@ -155,6 +155,27 @@ void Graph::maximize_stable_set(vector<int> &stable_set, int k) {
 
 }
 
+// Get the weight of the weightest color in L(v) 
+
+int Graph::get_Mv(int v) {
+
+    int max = -1;
+
+    for (int k: L[v]) {
+        if (get_cost(k) > max) {
+            max = get_cost(k);
+        }
+    }
+
+    if (max == -1) {
+        std::cout << "Error in get_Mv()" << std::endl;
+        abort();
+    }
+
+    return max;
+
+}
+
 void Graph::show_instance() 
 {
 	set_color(2);
