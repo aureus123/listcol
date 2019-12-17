@@ -27,7 +27,11 @@ LP_STATE Node::solve(double start_t, double root_lower_bound) {
 void Node::branch(vector<Node*>& sons) {
 
     vector<LP*> lps;
+#ifndef DSATUR_BRANCHING_STRATEGY
     lp->branch(lps);
+#else
+    lp->branch2(lps);
+#endif
 
     sons.reserve(lps.size());
     for (auto x: lps)
@@ -119,6 +123,12 @@ void BP<Solution>::solve (Node* root) {
         Node* node = top();
         show_stats(*node);   // First show_stats, then pop
         pop();
+
+        // Re-try to prune by bound, since primal_bound could have been improved
+        if (ceil(node->get_obj_value()) >= primal_bound) {
+            delete node;
+            continue;
+        }
 
         // Add sons
         vector<Node *> sons;

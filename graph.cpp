@@ -419,7 +419,7 @@ void Graph::color_vertex(int v, int k) {
     // Color vertex v with color k
     // (this is equal to set L[v] = k and delete k from the neighbors' lists)
 
-    // Erase v from V[j] forall j in L[v] - k
+    // Erase v from V[j] forall j in L[v] - {k}
     for (int j: L[v])
         if (j != k)
             V[j].erase(find(V[j].begin(), V[j].end(), v));
@@ -427,11 +427,13 @@ void Graph::color_vertex(int v, int k) {
     L[v].clear();
     L[v].push_back(k);
 
-    for (int u: adj[v]) {
-        auto it = find(L[u].begin(), L[u].end(), k);
-        if (it != L[u].end()) {
-            L[u].erase(it);
-            V[k].erase(find(V[k].begin(), V[k].end(), u));
+    if (get_right_hand_side(L[v][0]) == -1) {
+        for (int u: adj[v]) {
+            auto it = find(L[u].begin(), L[u].end(), k);
+            if (it != L[u].end()) {
+                L[u].erase(it);
+                V[k].erase(find(V[k].begin(), V[k].end(), u));
+            }
         }
     }
 

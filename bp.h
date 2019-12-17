@@ -7,6 +7,8 @@
 #include <vector>
 #include <set>
 
+//#define DSATUR_BRANCHING_STRATEGY
+
 class Coloring {
 
     public:

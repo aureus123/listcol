@@ -38,6 +38,7 @@ class LP {
 
     LP_STATE optimize (double start_t, double goal);
     void branch (vector<LP*>& lps);     // Trick's branching rutine
+    void branch2 (vector<LP*>& lps);     // DSATUR branching rutine
 
     double get_obj_value();
     void save_solution(vector<int>& coloring, set<int>& active_colors);
@@ -62,7 +63,7 @@ class LP {
     void initialize_LP();
     void set_params(IloCplex&);
     void select_vertices (int& u, int& v);
-    void select_vertex (int& v, set<int>& colors);
+    void select_vertex (int& v, list<int>& colors);
 
 };
 

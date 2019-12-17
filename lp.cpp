@@ -656,6 +656,212 @@ void LP::select_vertices (int& i, int& j) {
 
 }
 
+
+// Dsatur branching strategy
+
+void LP::branch2 (vector<LP*>& lps) {
+
+    // Find vertex to branch
+    int v;
+    list<int> colors;
+    select_vertex(v, colors);
+
+    // Create LPs
+    vector<int> Lv;
+    G->get_Lv(v, Lv);
+
+    // Unused colors
+    vector<int> uc;
+    for (int k: Lv)
+        if (find(colors.begin(), colors.end(), k) == colors.end())
+            uc.push_back(k);
+
+    int size = colors.size() + (uc.empty() ? 0 : 1);
+    lps.resize(size);
+
+    if (uc.size() > 0) {
+        Graph *G0 = new Graph(*G); // copy graph 
+        G0->set_Lv(v,uc);
+        lps[size-1] = new LP(G0);
+
+#ifdef INITIAL_COLUMNS_FATHER
+
+        // Initialize new vars, base on the current vars
+
+        {
+
+        // First, a fictional var to cover v
+
+        var fict_s;
+        fict_s.stable.resize(1);
+        fict_s.stable[0] = v;
+        fict_s.color = -1;
+        lps[size-1]->vars.push_back(fict_s);    
+
+        }
+
+        // Then, addapt each var for the new graph
+
+        for (auto s: vars) {
+
+            var new_s;
+            new_s.stable = s.stable;
+            new_s.color = s.color;
+
+            auto it_v = std::find(new_s.stable.begin(), new_s.stable.end(), v);
+            auto it_k = std::find(uc.begin(), uc.end(), new_s.color);
+
+            if (it_v != new_s.stable.end() && it_k == uc.end()) {
+                new_s.stable.erase(it_v); // Remove v
+                G0->maximize_stable_set (new_s.stable, new_s.color);
+            }
+
+            lps[size-1]->vars.push_back(new_s);
+
+        }
+
+#endif
+
+    }
+
+    auto it = std::next(colors.begin()); 
+    int i = 1;
+    for (; it != colors.end(); ++it, ++i) {
+        Graph* G2 = new Graph(*G);  // copy graph
+        G2->color_vertex(v,*it);
+        lps[i] = new LP(G2);
+
+#ifdef INITIAL_COLUMNS_FATHER
+
+        // Initialize new vars, base on the current vars
+
+        {
+
+        // First, a fictional var to cover v
+
+        var fict_s;
+        fict_s.stable.resize(1);
+        fict_s.stable[0] = v;
+        fict_s.color = -1;
+        lps[i]->vars.push_back(fict_s);    
+
+        }
+
+        // Then, addapt each var for the new graph
+
+        for (auto s: vars) {
+
+            var new_s;
+            new_s.stable = s.stable;
+            new_s.color = s.color;
+
+            auto it_v = std::find(new_s.stable.begin(), new_s.stable.end(), v);
+
+            if (it_v != new_s.stable.end() && new_s.color != *it) {
+                new_s.stable.erase(it_v); // Remove v
+                G2->maximize_stable_set (new_s.stable, new_s.color);
+            }
+
+            lps[i]->vars.push_back(new_s);
+
+        }
+
+#endif
+
+    }
+    G->color_vertex(v,colors.front());  // Reuse G
+    lps[0] = new LP(G);
+
+#ifdef INITIAL_COLUMNS_FATHER
+
+    // Initialize new vars, base on the current vars
+
+    {
+
+    // First, a fictional var to cover v
+
+    var fict_s;
+    fict_s.stable.resize(1);
+    fict_s.stable[0] = v;
+    fict_s.color = -1;
+    lps[0]->vars.push_back(fict_s);    
+
+    }
+
+    // Then, addapt each var for the new graph
+
+    for (auto s: vars) {
+
+        var new_s;
+        new_s.stable = s.stable;
+        new_s.color = s.color;
+
+        auto it_v = std::find(new_s.stable.begin(), new_s.stable.end(), v);
+
+        if (it_v != new_s.stable.end() && new_s.color != *it) {
+            new_s.stable.erase(it_v); // Remove v
+            G->maximize_stable_set (new_s.stable, new_s.color);
+        }
+
+        lps[0]->vars.push_back(new_s);
+
+    }
+
+#endif
+
+    G = NULL;  // This prevent G being deleted by the father 
+
+    return;
+
+}
+
+// DSATUR branching variable selection strategy
+
+void LP::select_vertex (int& v, list<int>& colors) {
+
+    if (it_branch == vars.end()) {
+        bye("Branching error");
+    }    
+
+    // Find the most fractional stable S
+    // Choose v in S with smallest L(v) (and |L(v)| > 1)    
+
+    v = -1;
+
+    for (int u: it_branch->stable) {
+        if (G->get_Lv_size(u) > 1) {
+            if (v == -1) {
+                v = u;
+            }
+            else {
+                if (G->get_Lv_size(u) < G->get_Lv_size(v)) {
+                    v = u;
+                }
+            }
+        }
+    }
+
+    if (v == -1) {
+        bye("Branching error");        
+    }
+
+    colors.push_back(it_branch->color);
+
+    for (list<var>::iterator it = vars.begin(); it != vars.end(); ++it) {
+        if (find(it->stable.begin(), it->stable.end(), v) == it->stable.end()) {
+            continue;
+        }
+        if (find(colors.begin(), colors.end(), it->color) != colors.end()) {
+            continue;
+        }
+        colors.push_back(it->color);
+    }
+
+    return;
+
+}
+
+
 void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
 
     // Mapping from variable to index in solution array
@@ -935,94 +1141,6 @@ LP_STATE LP::optimize2 (double brach_threshold) {
 
     bye("Error solving LP relaxation");
     return INFEASIBLE;
-
-}
-
-// Dsatur branching strategy
-
-void LP::branch2 (vector<LP*>& lps) {
-
-    // Find vertex to branch
-    int v;
-    set<int> colors;
-    select_vertex(v, colors);
-    if (colors.size() < 2) bye("Branching error");
-
-    // Create LPs
-    vector<int> Lv;
-    G->get_Lv(v, Lv);
-
-    // Unused colors
-    vector<int> uc;
-    for (int k: Lv)
-        if (colors.find(k) == colors.end())
-            uc.push_back(k);
-
-    lps.reserve(colors.size() + uc.size());
-
-    if (uc.size() > 0) {
-        Graph *G0 = new Graph(*G); // copy graph 
-        G0->set_Lv(v,uc);
-        lps.push_back(new LP(G0));
-    }
-
-    auto it = colors.begin(); 
-    for (; it != prev(colors.end()); ++it) {
-        Graph* G2 = new Graph(*G);  // copy graph
-        G2->color_vertex(v,*it);
-        lps.push_back(new LP(G2));
-    }
-    G->color_vertex(v,*it);  // Reuse G
-    lps.push_back(new LP(G));
-    G = NULL;                                    // This prevent G being deleted by the father 
-
-    return;
-
-}
-
-// Dsatur branching variable selection strategy
-
-void LP::select_vertex (int& v, set<int>& colors) {
-
-    // Mapeo de variables a indices
-    map<IloNumVarI*,int> map;
-    for (int n = 0; n < solution.getSize(); ++n)    
-        map[Xvars[n].getImpl()] = n;
-
-    // C(v): set of colors associated to some fractional covering that covers v
-    // Find v that minimize |C(v)| > 1
-    for (int i = 0; i < G->vertices; i++) {
-        set<int> C;
-        for (IloExpr::LinearIterator it = Xrestr[i].getLinearIterator(); it.ok(); ++it) {
-            if (it.getCoef() < 1) continue;
-            double val = solution[map[it.getVar().getImpl()]];
-            if ((val > EPSILON) && (val < 1 - EPSILON))
-                // Find color
-                for (int k = 0; k < G->colors; ++k)
-		            for (IloExpr::LinearIterator it2 =  Xrestr[G->vertices + k].getLinearIterator(); it2.ok(); ++it2) {
-			            if (it.getVar().getImpl() == it2.getVar().getImpl() && it2.getCoef() < -0.5) {
-				            if (C.find(k) == C.end())
-                                C.insert(k);
-                            break;
-                        }
-                    }
-
-            if (C.size() < 2) continue;
-
-            if (colors.size() == 0) {
-                colors = C;
-                v = i;
-            }
-            else if (colors.size() > 0 && C.size() < colors.size()) {
-                colors = C;
-                v = i;
-            }
-        }        
-    }
-
-    if (colors.size() < 2) bye("Branching error");
-
-    return;
 
 }
 

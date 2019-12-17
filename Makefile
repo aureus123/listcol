@@ -5,7 +5,7 @@ SYSTEM     = x86-64_linux
 LIBFORMAT  = static_pic
 CC = g++
 
-CCOPT = -O9 -fPIC -fno-strict-aliasing -fexceptions -DNDEBUG -DIL_STD -Wall -std=c++11 -Wno-write-strings
+CCOPT = -O9 -fPIC -fno-strict-aliasing -fexceptions -DNDEBUG -DIL_STD -Wall -std=c++11 -Wno-write-strings -g
 CPLEXDIR      = /opt/ibm/ILOG/CPLEX_Studio127/cplex
 CONCERTDIR    = /opt/ibm/ILOG/CPLEX_Studio127/concert
 CONCERTINCDIR = $(CONCERTDIR)/include
