@@ -15,6 +15,7 @@
 //#define PUREBYB
 #define FICTIONAL_COST 1000
 #define THRESHOLD 0.1
+#define MAX_BRANCH 5
 
 // Initial columns
 //#define INITIAL_COLUMNS_HEURISTIC
@@ -27,6 +28,7 @@ enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, TIME_OR_MEM_LIMIT};
 struct var {
     vector<int> stable;
     int color;
+    double value;
 };
 
 class LP {

@@ -90,6 +90,15 @@ void Graph::get_Vk (int k, vector<int>& Vk) {
     return;
 }
 
+int Graph::get_degree_in_Vk(int v, int k) {
+    int i = 0;
+    for (int u: V[k]) {
+        if (u == v) {continue;}
+        if (is_edge(u,v)) {++i;}
+    } 
+    return i;    
+}
+
 int Graph::get_cost(int k) {
     return cost_list[k];
 }

@@ -210,13 +210,20 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
                 it = vars.erase(it);
             }
             else {
+                
+                it->value = values[i];
+
                 if (it->stable.size() >= 2 && abs(values[i] - 0.5) < most_fract) {
                     it_branch = it;
                     most_fract = abs(values[i] - 0.5);
                 }
-                if (values[i] < 1 - EPSILON)
+
+                if (values[i] < 1 - EPSILON) {
                     integral = false;
+                }
+
                 it++;
+            
             }
         }
 
@@ -622,11 +629,11 @@ void LP::select_vertices (int& i, int& j) {
         bye("Branching error");
     }
 
-    // Find the most fractional stable S1
-    // Find the first vertex u in S1
-    // Find another stable S2 with u in S2
-    // Find the first vertex v in S1 (symmetric difference) S2
-    // If v cant be found, choose it at random
+    // 1) Find the most fractional stable S1
+    // 2) Find the first vertex u in S1
+    // 3) Find another stable S2 with u in S2
+    // 4) Find the first vertex v in S1 (symmetric difference) S2
+    // 5) If v cant be found, choose it at random
 
     i = it_branch->stable[0];
 
@@ -679,7 +686,7 @@ void LP::branch2 (vector<LP*>& lps) {
     int size = colors.size() + (uc.empty() ? 0 : 1);
     lps.resize(size);
 
-    if (uc.size() > 0) {
+    if (!uc.empty()) {
         Graph *G0 = new Graph(*G); // copy graph 
         G0->set_Lv(v,uc);
         lps[size-1] = new LP(G0);
@@ -724,12 +731,21 @@ void LP::branch2 (vector<LP*>& lps) {
 
     }
 
-    auto it = std::next(colors.begin()); 
-    int i = 1;
-    for (; it != colors.end(); ++it, ++i) {
-        Graph* G2 = new Graph(*G);  // copy graph
+    auto it = colors.begin();
+    for (int i = 0; i < colors.size(); ++i, ++it) {
+
+        Graph* G2;
+
+        if (i == colors.size() - 1) { // Reuse G
+            G2 = G;
+        }
+        else {
+            G2 = new Graph(*G); // copy graph
+        }
+
         G2->color_vertex(v,*it);
         lps[i] = new LP(G2);
+
 
 #ifdef INITIAL_COLUMNS_FATHER
 
@@ -769,45 +785,6 @@ void LP::branch2 (vector<LP*>& lps) {
 #endif
 
     }
-    G->color_vertex(v,colors.front());  // Reuse G
-    lps[0] = new LP(G);
-
-#ifdef INITIAL_COLUMNS_FATHER
-
-    // Initialize new vars, base on the current vars
-
-    {
-
-    // First, a fictional var to cover v
-
-    var fict_s;
-    fict_s.stable.resize(1);
-    fict_s.stable[0] = v;
-    fict_s.color = -1;
-    lps[0]->vars.push_back(fict_s);    
-
-    }
-
-    // Then, addapt each var for the new graph
-
-    for (auto s: vars) {
-
-        var new_s;
-        new_s.stable = s.stable;
-        new_s.color = s.color;
-
-        auto it_v = std::find(new_s.stable.begin(), new_s.stable.end(), v);
-
-        if (it_v != new_s.stable.end() && new_s.color != *it) {
-            new_s.stable.erase(it_v); // Remove v
-            G->maximize_stable_set (new_s.stable, new_s.color);
-        }
-
-        lps[0]->vars.push_back(new_s);
-
-    }
-
-#endif
 
     G = NULL;  // This prevent G being deleted by the father 
 
@@ -815,7 +792,8 @@ void LP::branch2 (vector<LP*>& lps) {
 
 }
 
-// DSATUR branching variable selection strategy
+
+// DSATUR based branching variable selection strategy
 
 void LP::select_vertex (int& v, list<int>& colors) {
 
@@ -823,38 +801,85 @@ void LP::select_vertex (int& v, list<int>& colors) {
         bye("Branching error");
     }    
 
-    // Find the most fractional stable S
-    // Choose v in S with smallest L(v) (and |L(v)| > 1)    
+    // 1) Find the most fractional stable S
+    // 2) Choose v in S with smallest |L(v) cap {active colors for v}| and |L(v)| > 1
+    //    If |L(v)| = 1 for every v in S, choose a random v in V with |L(v)| > 1
+    // 3) Set colors = L(v) cap {active colors for v}
+    // 4) Sort colors by increasing |N(v) \cap Vk| 
+    // 5) Filter the MAX_BRANCH first colors
 
     v = -1;
 
     for (int u: it_branch->stable) {
-        if (G->get_Lv_size(u) > 1) {
-            if (v == -1) {
-                v = u;
-            }
-            else {
-                if (G->get_Lv_size(u) < G->get_Lv_size(v)) {
-                    v = u;
+
+        if (G->get_Lv_size(u) == 1) {
+            continue;
+        }
+
+        vector<int> Lv;
+        G->get_Lv(u, Lv);
+        list<int> active_colors;
+
+        for (int k: Lv) {
+            bool active = false;
+            for (auto var: vars) {
+                if (var.color == k) {
+                    if (find(var.stable.begin(), var.stable.end(), u) != var.stable.end()) {
+                        active = true;
+                        break;
+                    }
                 }
             }
+            if (active) {
+                active_colors.push_back(k);
+            }
         }
+
+        if (colors.empty()) {
+            v = u;
+            colors = active_colors;            
+        }
+        else {
+            if (active_colors.size() < colors.size()
+            || (active_colors.size() == colors.size() && G->get_Lv_size(u) < G->get_Lv_size(v))) {
+                v = u;
+                colors.clear();
+                colors = active_colors;                
+            }
+        }
+
     }
 
     if (v == -1) {
-        bye("Branching error");        
+
+        for (int u = 0; u < G->vertices; ++u) {
+            if (G->get_Lv_size(u) > 1) {
+                v = u;
+                vector<int> Lv;
+                G->get_Lv(u, Lv);
+                for (int k: Lv) {
+                    colors.push_back(k);
+                }
+                break;
+            }
+        }
+
     }
 
-    colors.push_back(it_branch->color);
+    if (v == -1) {
+        bye("Branching error");
+    }
 
-    for (list<var>::iterator it = vars.begin(); it != vars.end(); ++it) {
-        if (find(it->stable.begin(), it->stable.end(), v) == it->stable.end()) {
-            continue;
-        }
-        if (find(colors.begin(), colors.end(), it->color) != colors.end()) {
-            continue;
-        }
-        colors.push_back(it->color);
+    std::map<int,int> colorDegree;
+    for (int k: colors) {
+        int degree = G->get_degree_in_Vk(v,k);
+        colorDegree[k] = degree;
+    }
+
+    colors.sort([&colorDegree](int k1, int k2){return (colorDegree[k1] > colorDegree[k2]);});
+
+    if (colors.size() > MAX_BRANCH) {
+        colors.resize(MAX_BRANCH);
     }
 
     return;
@@ -864,62 +889,12 @@ void LP::select_vertex (int& v, list<int>& colors) {
 
 void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
 
-    // Mapping from variable to index in solution array
-    map<IloNumVarI*,int> var_index;
-    for (int n = 0; n < values.getSize(); ++n)    
-        var_index[Xvars[n].getImpl()] = n;
-
-    // Mapping from used variables to associated color
-    map<IloNumVarI*,int> sol_color;
-#ifdef COLORS_DELETION
-    vector<int> stables_per_color (G->colors,0);
-#endif
-    for (int n = 0; n < values.getSize(); ++n) {
-        if (values[var_index[Xvars[n].getImpl()]] > 0.5) {
-            // Find associated color
-	        for (int k = 0; k < G->colors; k++) {
-		        IloRange expr = Xrestr[G->vertices + k];
-		        for (IloExpr::LinearIterator it = expr.getLinearIterator(); it.ok(); ++it) {
-			        IloNumVar var = it.getVar();
-			        IloNum coef = it.getCoef();
-			        if (var.getImpl() == Xvars[n].getImpl() && coef < -0.5) {
-#ifdef COLORS_DELETION
-                        if (abs(G->get_right_hand_side(k)) > 1) {
-
-                            if (stables_per_color[k] == 0) {
-                                // The first stable is colored with k
-                                sol_color[Xvars[n].getImpl()] = k;
-                            }
-                            else {
-                                // The other stables are colored with the colors of eq_colors[k]
-                                sol_color[Xvars[n].getImpl()] = G->get_eq_colors(k, stables_per_color[k]-1);
-                            }
-                            stables_per_color[k]++;
-
-                        }
-                        else {
-                            sol_color[Xvars[n].getImpl()] = k;
-                        }
-#else
-                        sol_color[Xvars[n].getImpl()] = k;
-#endif
-				        break;
-			        }
-		        }
-	        }
-        }
-    }
-
     // Save optimal integer solution
     vector<int> temp_coloring (G->vertices);
-    for (int v = 0; v < G->vertices; v++) {
-	    IloRange expr1 = Xrestr[v];
-	    for (IloExpr::LinearIterator it1 = expr1.getLinearIterator(); it1.ok(); ++it1) {
-		    IloNumVar var1 = it1.getVar();
-		    IloNum coef1 = it1.getCoef();
-		    if (values[var_index[var1.getImpl()]] > 0.5 && coef1 > 0.5)
-                temp_coloring[v] = sol_color[var1.getImpl()];
-	    }
+    for (auto var: vars) {
+        for (int v: var.stable) {
+            temp_coloring[v] = var.color;
+        }
     }
 
     // Rearrange temp_coloring in terms of the vertices of the original graph

@@ -24,6 +24,7 @@ class Graph {
     void get_Lv(int v, vector<int>& Lv);
     int get_Vk_size(int k);
     void get_Vk(int k, vector<int>& Vk);
+    int get_degree_in_Vk(int v, int k);
     int get_cost(int k);
     void get_adjv(int v, vector<int>& adjv);
     bool have_common_color(int u, int v);
