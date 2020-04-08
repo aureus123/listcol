@@ -11,8 +11,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="listcol.cpp" />
-    <ClCompile Include="mwis_sewell\wstable.c" />
+    <ClCompile Include="bp.cpp" />
+    <ClCompile Include="graph.cpp" />
+    <ClCompile Include="io.cpp" />
+    <ClCompile Include="lp.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="mwis_sewell\wstable.c">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VISUALC;WIN64;IL_STD;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="stable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mwis_sewell\mwss.h" />
@@ -21,6 +28,8 @@
     <ProjectGuid>{AAE0C202-9684-4FD6-A045-B49E0351E797}</ProjectGuid>
     <Keyword>x64Proj</Keyword>
     <RootNamespace>admipex5</RootNamespace>
+    <ProjectName>bp</ProjectName>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

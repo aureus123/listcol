@@ -8,6 +8,10 @@
 #include <math.h>
 #include <iostream>
 
+#ifdef VISUALC
+#include <ctime>
+#endif
+
 using namespace std;
 
 /* FUNCTIONS */

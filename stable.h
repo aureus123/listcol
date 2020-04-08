@@ -6,13 +6,15 @@
 #include "graph.h"
 #include <vector>
 
-/*
+
+/* for linux users: do not define VISUALC */
+#ifndef VISUALC
+#include "mwis_sewell/mwss.h"
+#else
 extern "C" {
 #include "mwis_sewell/mwss.h"
 }
-*/
-
-#include "mwis_sewell/mwss.h"
+#endif
 
 
 template <class SpecificMWSS>

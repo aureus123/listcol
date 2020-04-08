@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "listcol", "listcol.vcxproj", "{AAE0C202-9684-4FD6-A045-B49E0351E797}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bp", "listcol.vcxproj", "{AAE0C202-9684-4FD6-A045-B49E0351E797}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "listcola", "listcola.vcxproj", "{AFACD01E-9D18-4001-B73E-153980CD36E4}"
 EndProject
@@ -12,6 +12,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "genrandominst", "genrandominst.vcxproj", "{8661237B-2364-4B44-BFE1-504BB78A4FA8}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "genclassicinst", "genclassicinst.vcxproj", "{29864486-7E13-4B5E-A7BD-DFA8463BAA70}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "genmuinst", "genmuinst.vcxproj", "{B7DAE68A-27ED-4B01-8436-D73C23967192}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "checker", "checker.vcxproj", "{E05A9A9C-021D-4923-B816-BAC308B1EF01}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +43,14 @@ Global
 		{29864486-7E13-4B5E-A7BD-DFA8463BAA70}.Debug|x64.Build.0 = Debug|x64
 		{29864486-7E13-4B5E-A7BD-DFA8463BAA70}.Release|x64.ActiveCfg = Release|x64
 		{29864486-7E13-4B5E-A7BD-DFA8463BAA70}.Release|x64.Build.0 = Release|x64
+		{B7DAE68A-27ED-4B01-8436-D73C23967192}.Debug|x64.ActiveCfg = Debug|x64
+		{B7DAE68A-27ED-4B01-8436-D73C23967192}.Debug|x64.Build.0 = Debug|x64
+		{B7DAE68A-27ED-4B01-8436-D73C23967192}.Release|x64.ActiveCfg = Release|x64
+		{B7DAE68A-27ED-4B01-8436-D73C23967192}.Release|x64.Build.0 = Release|x64
+		{E05A9A9C-021D-4923-B816-BAC308B1EF01}.Debug|x64.ActiveCfg = Debug|x64
+		{E05A9A9C-021D-4923-B816-BAC308B1EF01}.Debug|x64.Build.0 = Debug|x64
+		{E05A9A9C-021D-4923-B816-BAC308B1EF01}.Release|x64.ActiveCfg = Release|x64
+		{E05A9A9C-021D-4923-B816-BAC308B1EF01}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
