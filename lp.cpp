@@ -108,9 +108,11 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
             // Empty Gk (none stable can be found)
             if (G->get_Vk_size(k) == 0) continue;
 
+#ifdef COLORS_DELETION
             // Right hand side of the constraint associated with color k is 0
             // None stable in this Gk can be active in the optimal solution
             if (G->get_right_hand_side(k) == 0) continue;
+#endif
 
             // Get Vk
             vector<int> Vk;
@@ -202,6 +204,10 @@ LP_STATE LP::optimize (double start_t, double brach_threshold) {
         // Check for integrality,
         // free unused variables
         // and save most fractional variable (for branching procedure)
+
+        // The optimal solution satisfies 0 <= x[S][k] <= 1 for all S, k 
+        // (As long as the weights are > 0)
+
         bool integral = true;
         auto it = vars.begin();
         float most_fract = 2.0;
@@ -586,28 +592,28 @@ void LP::branch (vector<LP*>& lps) {
                 lp1->G->maximize_stable_set (new_s.stable, new_s.color);
 
             }
-            else { // v notin Sk
 
-                // If L(uv) = {k} and the column is (S,k), 
-                // then check if S contain a neigbor w of uv with k notin L(w) and remove it
+        }
 
-                if (Lu.size() == 1 && Lu[0] == new_s.color) {
 
-                    for (auto it = new_s.stable.begin(); it != new_s.stable.end();) { 
-                        int w = *it;
-                        if (!lp1->G->is_admissible(w, Lu[0])) {
-                            it = new_s.stable.erase(it);
-                        }
-                        else {
-                            ++it;
-                        }
-                    }
+        // If L(uv) = {k} and the column is (S,k), 
+        // then check if S contain a vertex w with k notin L(w) and remove it
+        // Note: w must be some neighbour of uv 
 
+        if (Lu.size() == 1 && Lu[0] == new_s.color) {
+
+            for (auto it = new_s.stable.begin(); it != new_s.stable.end();) { 
+                int w = *it;
+                if (!lp1->G->is_admissible(w, Lu[0])) {
+                    it = new_s.stable.erase(it);
                 }
-
+                else {
+                    ++it;
+                }
             }
 
         }
+
 
         lp1->vars.push_back(new_s);
 
@@ -886,14 +892,27 @@ void LP::select_vertex (int& v, list<int>& colors) {
 
 }
 
+// This function transforms an integer solution into a list coloring
+// Note: the list coloring must be express in terms of the original graph and the original colors (without multiplicity)
 
 void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
+
+#ifdef COLORS_DELETION
+    vector<int> stables_per_color (G->colors,0);
+#endif
 
     // Save optimal integer solution
     vector<int> temp_coloring (G->vertices);
     for (auto var: vars) {
+        int color = var.color;
+#ifdef COLORS_DELETION
+        if (stables_per_color[var.color] > 0) {
+            color = G->get_eq_colors(var.color, stables_per_color[var.color]-1);
+        }
+        stables_per_color[var.color]++;
+#endif
         for (int v: var.stable) {
-            temp_coloring[v] = var.color;
+            temp_coloring[v] = color;
         }
     }
 
@@ -909,6 +928,7 @@ void LP::save_solution(vector<int>& coloring, set<int>& active_colors) {
         active_colors.insert(k);
 
     return;
+
 }
 
 bool LP::check_solution(vector<int>& sol) {
