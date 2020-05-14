@@ -26,13 +26,11 @@ void bye(char *string)
 }
 
 /*
-* urnd - generate numbers with uniform random distribution
-*  if flag=false, the interval is [a, b]
-*  if flag=true, the interval is [a, b)
-*/
-float urnd(float a, float b, bool flag)
+ * urnd - generate numbers with uniform random distribution in the interval is [a, b)
+ */
+float urnd(float a, float b)
 {
-	return a + rand() * (b - a) / (float)(RAND_MAX + (flag ? 1 : 0));
+	return a + rand() * (b - a) / ((float)RAND_MAX + 1.0);
 }
 
 /*
@@ -45,15 +43,14 @@ int main(int argc, char **argv)
 	if (argc < 4) {
 		cout << "Usage: gengraph file.graph vertices density" << endl;
 		cout << "It generates a random graph with the given vertices and density (in percentage)." << endl;
-		cout << "For instances similar to transport ones, use 38.8 as density" << endl;
 		bye("Bye!");
 	}
 
 	char *filename = argv[1];
 	int vertices = atoi(argv[2]);
 	if (vertices < 4 || vertices > 10000) bye("Number of vertices out range!");
-	float density = atof(argv[3]) / 100.0;
-	if (density < 0.0 || density > 1.0) bye("Density out range!");
+	int density = atoi(argv[3]);
+	if (density < 0 || density > 100) bye("Density out range!");
 
 	int clique_size = vertices * (vertices - 1) / 2;
 	int *edge_u = new int[clique_size];
@@ -64,7 +61,7 @@ int main(int argc, char **argv)
 	srand(time(0));
 	for (int u = 0; u < vertices - 1; u++) {
 		for (int v = u + 1; v < vertices; v++) {
-			if (urnd(0, 1, false) <= density) {
+			if (urnd(0.0, 100.0) <= (float)density) {
 				edge_u[edges] = u;
 				edge_v[edges] = v;
 				edges++;

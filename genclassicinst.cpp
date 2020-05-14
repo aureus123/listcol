@@ -1,7 +1,7 @@
 /*
  * GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph
  *   (with a maximum clique previously colored)
- * Made in 2018-2019 by Daniel Severin
+ * Made in 2018-2020 by Daniel Severin
  *
  * Requires IBM ILOG CPLEX 12.7
  */
@@ -22,6 +22,7 @@ using namespace std;
 #define PI 3.14159265358979323846
 #define EPSILON 0.00001
 #define MAXTIME 600.0
+//#define COLOR_CLIQUE
 
 /* FUNCTIONS */
 
@@ -40,7 +41,9 @@ void bye(char *string)
 int main(int argc, char **argv)
 {
 	cout << "GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph." << endl;
+#ifdef COLOR_CLIQUE
 	cout << "  (with a maximum clique previously colored)" << endl;
+#endif
 
 	if (argc < 2) {
 		cout << "Usage: genclassicinst file" << endl;
@@ -115,9 +118,11 @@ int main(int argc, char **argv)
 	fprintf(stream, "\n");
 	fclose(stream);
 
+	clique_size = 0;
+	int *clique = new int[vertices];
+	for (int v = 0; v < vertices; v++) clique[v] = -1;
+#ifdef COLOR_CLIQUE
 	/* compute the clique Q of maximum size with maximum number of neighbors */
-
-	/* generate one variable per vertex */
 	IloEnv Xenv;
 	IloNumVarArray Xvars(Xenv);
 	for (int v = 0; v < vertices; v++) Xvars.add(IloNumVar(Xenv, 0.0, 1.0, ILOBOOL));
@@ -165,8 +170,6 @@ int main(int argc, char **argv)
 	}
 
 	/* save optimal solution: if clique[v]=-1 then v is not part of Q, if clique[v]=j>=0 then v is painted with j */
-	int *clique = new int[vertices];
-	clique_size = 0;
 	cout << "Max Clique = {";
 	for (int v = 0; v < vertices; v++) {
 		if (cplex.getValue(Xvars[v]) > 0.5) {
@@ -174,9 +177,9 @@ int main(int argc, char **argv)
 			clique[v] = clique_size;
 			clique_size++;
 		}
-		else clique[v] = -1;
 	}
 	cout << " }, size = " << clique_size << endl;
+#endif
 
 	/* write list files: consider that each vertex v of the clique is painted with color v */
 	strncpy(filename_extension, filename, 200);

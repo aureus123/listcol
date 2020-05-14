@@ -1,6 +1,6 @@
 /*
  * GENMUINST - Generate a random instance of the mu-coloring Problem from a graph
- * Made in 2018-2019 by Daniel Severin
+ * Made in 2018-2020 by Daniel Severin
  */
 
 #include <stdio.h>
