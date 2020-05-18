@@ -16,37 +16,19 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-#all: listcola1 listcola1t listcola2_edge listcola2 listcola2t listcola2t1 listcola2t12 listcola2t13 listcola2t13root genclassicinst genrandominst genmuinst gengraph checker listcolabproot listcolabprootheur listcolabp listcolabpcopy
+all: vc vcroot st bp bproot_dum bproot_psc bpcopy genclassicinst genrandominst genmuinst gengraph checker
 
-all: listcola1t listcola2t13 listcola2t13root genclassicinst genrandominst genmuinst gengraph checker listcolabproot listcolabprootheur listcolabp listcolabpcopy
 
-listcola1: listcola.cpp
-	$(CC) -o $@ $^ -DSTABLEMODEL $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+# Tools made by Daniel
 
-listcola1t: listcola.cpp
+st: listcola.cpp
 	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcola2_edge: listcola.cpp
-	$(CC) -o $@ $^ -DEDGEINEQ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+vc: listcola.cpp
+	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcola2: listcola.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-listcola2t: listcola.cpp
-	$(CC) -o $@ $^ -DTUNEDPARAMS $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-listcola2t1: listcola.cpp
-	$(CC) -o $@ $^ -DTUNEDPARAMS -DSYMMETRYRESTR1 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-listcola2t12: listcola.cpp
-	$(CC) -o $@ $^ -DTUNEDPARAMS -DSYMMETRYRESTR1 -DSYMMETRYRESTR2 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-listcola2t13: listcola.cpp
-	$(CC) -o $@ $^ -DTUNEDPARAMS -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-listcola2t13root: listcola.cpp
-	$(CC) -o $@ $^ -DTUNEDPARAMS -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
+vcroot: listcola.cpp
+	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 genclassicinst: genclassicinst.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
@@ -64,17 +46,18 @@ checker: checker.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) -lm
 
 
+# Code made by Mauro
 
-listcolabp: main.o bp.o lp.o stable.o graph.o io.o mwis_sewell/wstable.o
+bp: main.o bp.o lp.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcolabpcopy: main.o bp.o lpcopy.o stable.o graph.o io.o mwis_sewell/wstable.o
+bp_ccn: main.o bp.o lp_ccn.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcolabproot: main.o bproot.o lproot.o stable.o graph.o io.o mwis_sewell/wstable.o
+bproot_dum: main.o bproot.o lproot.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-listcolabprootheur: main.o bproot.o lprootheur.o stable.o graph.o io.o mwis_sewell/wstable.o
+bproot_psc: main.o bproot.o lprootheur.o stable.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 main.o: main.cpp bp.h lp.h stable.h graph.h io.h
@@ -92,7 +75,7 @@ lp.o: lp.cpp lp.h
 lpheur.o: lp.cpp lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC
 
-lpcopy.o: lp.cpp lp.h
+lp_ccn.o: lp.cpp lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_FATHER
 
 lproot.o: lp.cpp lp.h
@@ -100,7 +83,6 @@ lproot.o: lp.cpp lp.h
 
 lprootheur.o: lp.cpp lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC -DONLY_RELAXATION
-
 
 stable.o: stable.cpp stable.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
@@ -113,7 +95,6 @@ io.o: io.cpp io.h
 
 sewell:
 	$(MAKE) -C mwis_sewell
-
 
 
 .PHONY: clean

@@ -54,9 +54,9 @@ using namespace std;
 
 /* Compact Formulation: */
 //#define EDGEINEQ
-#define SYMMETRYRESTR1
+//#define SYMMETRYRESTR1
 //#define SYMMETRYRESTR2
-#define SYMMETRYRESTR3
+//#define SYMMETRYRESTR3
 
 /* GLOBAL VARIABLES */
 
