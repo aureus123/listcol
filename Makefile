@@ -102,5 +102,4 @@ sewell:
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-	rm -f listcola1 listcola1t listcola2_edge listcola2 listcola2t listcola2t1 listcola2t12 listcola2t13 listcola2t13root genclassicinst genrandominst genmuinst gengraph checker listcolabproot listcolabprootheur listcolabp listcolabpcopy
-
+	rm -f vc vcroot st bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
