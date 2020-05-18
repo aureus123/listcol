@@ -158,6 +158,10 @@ int main(int argc, char **argv)
 		}
 	}
 
+	for (int v = 0; v < vertices; v++) {
+		if (L_size[v] == 0)	bye("Error! some vertex has an empty list (try again) :(");
+	}
+
 	/* write them to list file */
 	strncpy(filename_extension, filename, 200);
 	strcat(filename_extension, ".list");
@@ -215,7 +219,7 @@ int main(int argc, char **argv)
 	}
 	fclose(stream);
 
-	if (effective_edges == 0) { bye("Error! No edges left (try with another graph) :("); }
+	if (effective_edges == 0) bye("Error! No edges left (try with another graph) :(");
 
 	/* now write to the graph */
 	stream = fopen(filename_extension, "wt");
