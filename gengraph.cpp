@@ -22,7 +22,7 @@ using namespace std;
 void bye(char *string)
 {
 	cout << string << endl;
-	exit(1);
+	exit(-1);
 }
 
 /*

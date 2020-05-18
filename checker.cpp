@@ -32,7 +32,7 @@ int **L_set; /* elements of L(v), per vertex */
 void bye(char *string)
 {
 	cout << string << endl;
-	exit(1);
+	exit(-1);
 }
 
 /*

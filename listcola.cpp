@@ -148,7 +148,7 @@ void bye(char *string)
 	cout << string << endl;
 	set_color(7);
 #endif
-	exit(1);
+	exit(-1);
 }
 
 /*

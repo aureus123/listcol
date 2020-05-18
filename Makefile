@@ -16,7 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st bp bproot_dum bproot_psc bpcopy genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
 
 
 # Tools made by Daniel

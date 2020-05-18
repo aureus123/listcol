@@ -28,7 +28,7 @@ using namespace std;
 void bye(char *string)
 {
 	cout << string << endl;
-	exit(1);
+	exit(-1);
 }
 
 /*
@@ -214,6 +214,8 @@ int main(int argc, char **argv)
 		}
 	}
 	fclose(stream);
+
+	if (effective_edges == 0) { bye("Error! No edges left (try with another graph) :("); }
 
 	/* now write to the graph */
 	stream = fopen(filename_extension, "wt");
