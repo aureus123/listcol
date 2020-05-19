@@ -17,9 +17,6 @@ ILOSTLBEGIN
 
 using namespace std;
 
-/* CONSTANTS */
-
-#define PI 3.14159265358979323846
 #define EPSILON 0.00001
 #define MAXTIME 600.0
 //#define COLOR_CLIQUE
