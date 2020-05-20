@@ -19,11 +19,17 @@ for ($n = 40; $n <= 100; $n+=20) {
 			for ($p = 25; $p <= 75; $p+=25) {
 				my $name = "Set1/R$n" . "_" . $r . "_" . $q . "_" . $p;
 
-				$result = system("listcol/gengraph $name.graph $n $p >$name.log 2>/dev/null")>>8;
-				if ($result) { die "Error in gengraph."; }
+				print "Generating $name ...\n";
 
-				$result = system("listcol/genrandominst $name $k 1 3 $r $q >>$name.log 2>/dev/null")>>8;
-				if ($result) { die "Error in genrandominst."; }
+				do {
+
+					$result = system("listcol/gengraph $name.graph $n $p >$name.log 2>/dev/null")>>8;
+					if ($result) { die "Error in gengraph."; }
+
+					$result = system("listcol/genrandominst $name $k 1 3 $r $q >>$name.log 2>/dev/null")>>8;
+					print "Res: $result\n";
+					if ($result) { print "An error has occurred. Trying again...\n"; }
+				} while ($result);
 			}
 		}
 	}
