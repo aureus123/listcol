@@ -16,13 +16,16 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st stroot bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
 
 
 # Tools made by Daniel
 
 st: listcola.cpp
 	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+stroot: listcola.cpp
+	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 vc: listcola.cpp
 	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
@@ -34,10 +37,10 @@ genclassicinst: genclassicinst.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 genrandominst: genrandominst.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) -lm
+	$(CC) -o $@ $^ $(CCFLAGS)
 
 genmuinst: genmuinst.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) -lm
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 gengraph: gengraph.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) -lm
@@ -102,4 +105,4 @@ sewell:
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-	rm -f vc vcroot st bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+	rm -f vc vcroot st stroot bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker

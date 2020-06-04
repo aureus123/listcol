@@ -44,26 +44,14 @@ for ($n = 10; $n <= 30; $n+=10) {
 					system("cp $name.graph t$thread.graph");
 					system("cp $name.list t$thread.list");
 					system("cp $name.cost t$thread.cost");
-					system("rm t$thread.sol 2>/dev/null");
-
-					my $flag2 = 0;
-					stat("$name.sol") or $flag2 = 1;
-					if ($flag2 == 0) { system("cp $name.sol t$thread.sol"); }
 
 					$result = system("listcol/$algo t$thread >t$thread.log 2>/dev/null")>>8;
 
-					$flag2 = 0;
+					my $flag2 = 0;
 					stat("t$thread.out") or $flag2 = 1;
 					if ($flag2 == 1) {
 						print "Error in resolution of $name with $algo\n";
 						system("echo 0:-99999999:99999999:-1:0:0 >t$thread.out");
-					}
-					else {
-						$result = system("listcol/checker t$thread")>>8;
-						if ($result) { die "Error in checker."; }
-						$flag2 = 0;
-						stat("t$thread.sol") or $flag2 = 1;
-						if ($flag2 == 0) { system("mv t$thread.sol $name.sol"); }
 					}
 
 					system("mv t$thread.out $galgo.out");
@@ -93,26 +81,14 @@ for ($n = 10; $n <= 30; $n+=10) {
 						system("cp $name.graph t$thread.graph");
 						system("cp $name.list t$thread.list");
 						system("cp $name.cost t$thread.cost");
-						system("rm t$thread.sol 2>/dev/null");
-
-						my $flag2 = 0;
-						stat("$name.sol") or $flag2 = 1;
-						if ($flag2 == 0) { system("cp $name.sol t$thread.sol"); }
 
 						$result = system("listcol/$algo t$thread >t$thread.log 2>/dev/null")>>8;
 
-						$flag2 = 0;
+						my $flag2 = 0;
 						stat("t$thread.out") or $flag2 = 1;
 						if ($flag2 == 1) {
 							print "Error in resolution of $name with $algo\n";
 							system("echo 0:-99999999:99999999:-1:0:0 >t$thread.out");
-						}
-						else {
-							$result = system("listcol/checker t$thread")>>8;
-							if ($result) { die "Error in checker."; }
-							$flag2 = 0;
-							stat("t$thread.sol") or $flag2 = 1;
-							if ($flag2 == 0) { system("mv t$thread.sol $name.sol"); }
 						}
 
 						system("mv t$thread.out $galgo.out");

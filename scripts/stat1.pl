@@ -50,13 +50,15 @@ for ($n = 40; $n <= 100; $n+=20) {
 					my $time = $datas[4];
 					close HANDLE;
 
-					print "$n,$r," . ($q/100) . "," . ($p/100) . ",$solved,";
+					print "$n,$r," . ($q/100) . "," . ($p/100) . ",";
 					if ($solved == 0) {
+						print "NO,";
 						if ($LB <= 0 || $UB >= 99999999) { print "-,"; }
 						else { my $gap = 100*($UB-$LB)/$UB; print "$gap,"; }
 						print "-,-\n";
 					}
-					else { print "0.0,$nodes,$time\n"; }
+					if ($solved == 1) { print "YES,0.0,$nodes,$time\n"; }
+					if ($solved == 2) { print "INF,-,-,$time\n"; }
 				}
 			}
 		}

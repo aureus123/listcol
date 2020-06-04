@@ -617,9 +617,7 @@ int optimize1()
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
 	cplex.setParam(IloCplex::IntParam::NodeFileInd, 0);
-#ifndef ONLYRELAXATION
 	cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME);
-#endif
 	cplex.setParam(IloCplex::NumParam::EpGap, 0.0);
 	cplex.setParam(IloCplex::NumParam::EpAGap, 0.0);
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
@@ -690,6 +688,7 @@ int optimize1()
 		cout << "LP relaxation solved! :)" << endl;
 		lowerbound = cplex.getObjValue();
 		cout << "  objective = " << lowerbound << endl;
+		optim_flag = 3;
 	}
 #else
 	/* MIP treatment */
@@ -1166,9 +1165,7 @@ skip_k:;
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
 	cplex.setParam(IloCplex::IntParam::NodeFileInd, 0);
-#ifndef ONLYRELAXATION
 	cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME);
-#endif
 	cplex.setParam(IloCplex::NumParam::EpGap, 0.0);
 	cplex.setParam(IloCplex::NumParam::EpAGap, 0.0);
 	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
@@ -1229,6 +1226,7 @@ skip_k:;
 		cout << "LP relaxation solved! :)" << endl;
 		lowerbound = cplex.getObjValue();
 		cout << "  objective = " << lowerbound << endl;
+		optim_flag = 3;
 	}
 #else
 	/* MIP treatment */
@@ -1302,16 +1300,16 @@ void write_sol(char *filename, int optim_flag, double time_elapsed)
 	FILE *stream = fopen(filename, "wt");
 	if (!stream) bye("Output file cannot be opened");
 #ifdef ONLYRELAXATION
-	fprintf(stream, "0:%.1f:%.1f:0:%.2f:0\n", lowerbound, upperbound, time_elapsed);
+	fprintf(stream, "%d:%.2f:%.2f:-1:%.2f:0\n", optim_flag, lowerbound, upperbound, time_elapsed);
 #else
-	if (optim_flag == 2) fprintf(stream, "2:%.1f:%.1f:-1:%.2f:0\n", lowerbound, upperbound, time_elapsed);
+	if (optim_flag == 2) fprintf(stream, "2:%.2f:%.2f:-1:%.2f:0\n", lowerbound, upperbound, time_elapsed);
 	else {
 		int col_used = 0;
 		if (upperbound < BIGNUMBER) {
 			for (int k = 0; k < colors; k++) if (colors_used[k]) col_used++;
 		}
-		if (optim_flag == 1) fprintf(stream, "1:%.1f:%.1f:%ld:%.2f:%d\n", lowerbound, upperbound, nodes_explored, time_elapsed, col_used);
-		else fprintf(stream, "0:%.1f:%.1f:-1:%.2f:%d\n", lowerbound, upperbound, MAXTIME, col_used);
+		if (optim_flag == 1) fprintf(stream, "1:%.2f:%.2f:%ld:%.2f:%d\n", lowerbound, upperbound, nodes_explored, time_elapsed, col_used);
+		else fprintf(stream, "0:%.2f:%.2f:-1:%.2f:%d\n", lowerbound, upperbound, MAXTIME, col_used);
 		if (upperbound < BIGNUMBER) {
 			for (int k = 0; k < colors; k++) if (colors_used[k]) fprintf(stream, "%d\n", k);
 			for (int v = 0; v < vertices; v++) fprintf(stream, "%d\n", optimal_coloring[v]);
