@@ -5,46 +5,51 @@
 #include <ilcplex/ilocplex.h>
 #include <ilcplex/cplex.h>
 #include "graph.h"
-#include <vector>
-#include <list>
 #include <set>
 
 #define EPSILON 0.00001
 #define MAXTIME 7200.0
 //#define SAVELP "form.lp"
-//#define PUREBYB
 #define FICTIONAL_COST 1000
 #define THRESHOLD 0.1
-#define MAX_BRANCH 5
-
-// Initial columns
-//#define INITIAL_COLUMNS_HEURISTIC
-//#define INITIAL_COLUMNS_FATHER
-
-//#define ONLY_RELAXATION
+#define INITIAL_COLUMN_STRATEGY 0 // 0: dummy columns
+                                  // 1: active father's columns
+                                  // 2: stable set covering heuristic
 
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, TIME_OR_MEM_LIMIT};
 
-struct var {
-    vector<int> stable;
+typedef struct Column {
+    bool *stable;   // stable[i] = true sii vertex i is in the stable set
+    int n_stable;   // size of the stable set
     int color;
-    double value;
-};
+    bool fictional;
+    Column (bool *stable, int n_stable, int color, bool fictional) : stable(stable), n_stable(n_stable), color(color), fictional(fictional) {} 
+} Column;
 
 class LP {
 
-    public:
+    public: 
 
-    LP(Graph* G);
+    // Constructor
+    LP(Graph *G, LP *father);
+
+    // Destructor
     ~LP();
 
-    LP_STATE optimize (double start_t, double goal);
-    void branch (vector<LP*>& lps);     // Trick's branching rutine
-    void branch2 (vector<LP*>& lps);     // DSATUR branching rutine
+    // Optimize LP
+    LP_STATE optimize(double start_t);
 
+    // Save optimal solution
+    void save_solution(std::vector<int> &coloring, std::set<int> &active_colors);
+
+    // Get objective value
     double get_obj_value();
-    void save_solution(vector<int>& coloring, set<int>& active_colors);
-    bool check_solution(vector<int>& sol);
+
+    // Get number of columns
+    int get_n_columns();
+
+    // Branch
+    void branch(std::vector<LP *> &);
 
     private:
     
@@ -53,19 +58,29 @@ class LP {
     IloObjective Xobj;              // CPLEX objective function
     IloNumVarArray Xvars;           // CPLEX variables
     IloRangeArray Xrestr;           // CPLEX constraints
-    IloNumArray values;             // Values of Xvars
-    list<var> vars;                 // User representation of the LP
-    list<var>::iterator it_branch;  // Iterator to the branching variable
+    IloArray<Column> vars;          // Internal representation of CPLEX's columns 
+    IloNumArray values;             // Value of the optimal solution
+    IloNum obj_value;               // Objective value of the optimal solution
 
-    double obj_value;
-    int fictional;
+    std::list<int> pos_vars;        // List with the indexes of the positive variables
+    int most_fract_var;             // Index of the most fractional var with at least two vertices in the stable set
 
-    Graph* G;
+    Graph *G;                        // Graph
 
-    void initialize_LP();
-    void set_params(IloCplex&);
-    void select_vertices (int& u, int& v);
-    void select_vertex (int& v, list<int>& colors);
+    // Initialize LP
+    void initialize(LP *father);
+
+    // Fill the LP with a feasible set of columns
+    void fill_initial_columns(LP *father);
+
+    // Add the column to CPLEX and to our representation
+    void add_real_column (bool *column, int size, int color);
+    void add_fictional_column (int v);
+
+    // Internal branch functions
+    void branch_on_edges(std::vector<LP *> &ret);
+    void branch_on_colors(std::vector<LP *> &ret);
+    void branch_on_indistinguishable_colors(std::vector<LP *> &ret);
 
 };
 

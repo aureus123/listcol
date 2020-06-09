@@ -20,29 +20,30 @@ bool Node::operator< (const Node& n) const {
     return (get_obj_value() < n.get_obj_value());
 }
 
-LP_STATE Node::solve(double start_t, double root_lower_bound) {
-    return lp->optimize(start_t, root_lower_bound);
+LP_STATE Node::solve(double start_t) {
+    return lp->optimize(start_t);
 }
 
-void Node::branch(vector<Node*>& sons) {
+void Node::branch(std::vector<Node*>& sons) {
 
-    vector<LP*> lps;
-#ifndef DSATUR_BRANCHING_STRATEGY
+    std::vector<LP*> lps;
     lp->branch(lps);
-#else
-    lp->branch2(lps);
-#endif
 
     sons.reserve(lps.size());
     for (auto x: lps)
         sons.push_back(new Node(x));
 
     return;
+    
 }
 
 template <class Solution>
 void Node::save(Solution& sol) {
     sol.save(*lp);
+}
+
+int Node::get_n_columns() {
+    return lp->get_n_columns();    
 }
 
 template <class Solution>
@@ -52,12 +53,13 @@ best_integer_solution(sol), DFS(DFS), EARLY_BRANCHING(EARLY_BRANCHING) {
     primal_bound = DBL_MAX;
     nodes = 0;
     root_lower_bound = -1;
-    start_t = ECOclock();
 
 }
 
 template <class Solution>
 void BP<Solution>::solve (Node* root) {
+
+    start_t = ECOclock();
 
     try {
         push(root);
@@ -69,27 +71,26 @@ void BP<Solution>::solve (Node* root) {
         nodes = -1;
         time = ECOclock() - start_t;
         if (time >= MAXTIME) {
-            cout << "Time limit reached" << endl;
+            std::cout << "Time limit reached" << std::endl;
             time = MAXTIME; 
         }
         else {
-            cout << "Mem limit reached" << endl;
+            std::cout << "Mem limit reached" << std::endl;
         }
         return;
     }
 
-    #ifdef ONLY_RELAXATION
+#ifdef ONLY_RELAXATION
     if (!L.empty()) {
         // The initial relaxation is fractional
-        opt_flag = 0;
+        opt_flag = 3;
         primal_bound = 99999999;
         double db = calculate_dual_bound();
         dual_bound = db == -DBL_MAX ? -99999999 : db; 
         time = ECOclock() - start_t;
-        cout << "The initial relaxation is fractional" << endl;
-        cout << "Objective value: " << dual_bound << endl;
-        cout << "Time: " << time << endl;
-        return;      
+        std::cout << "The initial relaxation is fractional" << std::endl;
+        std::cout << "Objective value = " << dual_bound << std::endl;
+        return;
     }
     else {
         if (primal_bound == DBL_MAX) {
@@ -98,8 +99,7 @@ void BP<Solution>::solve (Node* root) {
             primal_bound = 99999999;
             dual_bound = -99999999; 
             time = ECOclock() - start_t;
-            cout << "The initial relaxation is infeasible" << endl;
-            cout << "Time: " << time << endl;
+            std::cout << "The initial relaxation is infeasible" << std::endl;
             return;        
         }
         else {
@@ -107,13 +107,12 @@ void BP<Solution>::solve (Node* root) {
             opt_flag = 1;
             dual_bound = primal_bound; 
             time = ECOclock() - start_t;
-            cout << "The initial relaxation is integer" << endl;
-            cout << "Objective value: " << dual_bound << endl;
-            cout << "Time: " << time << endl;
+            std::cout << "The initial relaxation is integer" << std::endl;
+            std::cout << "Objective value = " << dual_bound << std::endl;
             return;          
         }
     }
-    #endif
+#endif
 
     if (!L.empty()) root_lower_bound = ceil(root->get_obj_value());
 
@@ -131,7 +130,7 @@ void BP<Solution>::solve (Node* root) {
         }
 
         // Add sons
-        vector<Node *> sons;
+        std::vector<Node *> sons;
         node->branch(sons);
         for (auto n: sons) {
             try {
@@ -146,11 +145,11 @@ void BP<Solution>::solve (Node* root) {
                 nodes = -1;
                 time = ECOclock() - start_t;
                 if (time >= MAXTIME) {
-                    cout << "Time limit reached" << endl;
+                    std::cout << "Time limit reached" << std::endl;
                     time = MAXTIME; 
                 }
                 else {
-                    cout << "Mem limit reached" << endl;
+                    std::cout << "Mem limit reached" << std::endl;
                 }
                 L.empty();
                 delete node;
@@ -168,13 +167,14 @@ void BP<Solution>::solve (Node* root) {
         double db = calculate_dual_bound();
         dual_bound = db == -DBL_MAX ? -99999999 : db; 
         time = ECOclock() - start_t;
-        cout << "Infeasibility proved" << endl;
+        std::cout << "Infeasibility proved" << std::endl;
     }
     else {    // Optimality case:
         opt_flag = 1;
         dual_bound = primal_bound;
         time = ECOclock() - start_t;
-        cout << "Optimality reached" << endl;
+        std::cout << "Optimality reached" << std::endl;
+        std::cout << "Optimal value = " << primal_bound << std::endl;
     }
 
 
@@ -186,7 +186,12 @@ template <class Solution>
 void BP<Solution>::push (Node* node) {
     
     // Solve the linear relaxation of the node and prune if possible
-    LP_STATE state = EARLY_BRANCHING ? node->solve(start_t, root_lower_bound) : node->solve(start_t); 
+    LP_STATE state = node->solve(start_t); 
+
+
+#ifdef ONLY_RELAXATION
+    std::cout << "Number of columns = " << node->get_n_columns() << std::endl;
+#endif
 
     nodes++;    
     double obj_value;
@@ -199,10 +204,10 @@ void BP<Solution>::push (Node* node) {
             return;
 
         case INTEGER:
+            // Prune by optimality
             obj_value = node->get_obj_value();
             if (obj_value < primal_bound) update_primal_bound(*node);
-            // Prune by optimality
-            // The node is deleted after being overwrited by a beter node
+            delete node;
             return;
 
         case FRACTIONAL:
@@ -215,6 +220,7 @@ void BP<Solution>::push (Node* node) {
             break;
 
         case TIME_OR_MEM_LIMIT:
+            delete node;
             throw std::exception{};
             return;
 
@@ -253,12 +259,14 @@ void BP<Solution>::update_primal_bound(Node& node) {
 
     // Update best integer solution and value
     node.save(best_integer_solution);
-    primal_bound = round(node.get_obj_value());
+    primal_bound = node.get_obj_value();
 
     // Prune if possible
     for (auto it = L.begin(); it != L.end(); ) {
-        if ((*it)->get_obj_value() >= primal_bound)
+        if ((*it)->get_obj_value() >= primal_bound) {
+            delete *it;
             it = L.erase(it);
+        }
         else
             ++it;
     }
@@ -343,18 +351,19 @@ void BP<Solution>::show_stats (Node& node) {
 		if (now_t - first_t < 10.0) return;
 		first_t = now_t;
 	}
+   
     // Calculate GAP (it is time cosuming when DFS is used)
     //double _dual_bound = calculate_dual_bound();
     //double gap = abs(_dual_bound - primal_bound) / (0.0000000001 + abs(primal_bound)) * 100;
 
-    cout << fixed << setprecision(2);
+    std::cout << std::fixed << std::setprecision(2);
 
-    cout << "Obj value = " << node.get_obj_value() << "\t Best int = ";
+    std::cout << "Obj value = " << node.get_obj_value() << "\t Best int = ";
     if (primal_bound == DBL_MAX)
-        cout << "inf";
+        std::cout << "inf";
     else
-        cout << (int) primal_bound;
+        std::cout << (int) primal_bound;
     //cout << "\t Gap = " << gap << "%";
-    cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << "\t time = " << now_t - start_t << endl;
+    std::cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << "\t time = " << now_t - start_t << std::endl;
 
 }

@@ -7,18 +7,18 @@
 #include <vector>
 #include <set>
 
-//#define DSATUR_BRANCHING_STRATEGY
+//#define ONLY_RELAXATION
 
 class Coloring {
 
     public:
 
-    void get_coloring (vector<int>& f) {
+    void get_coloring (std::vector<int>& f) {
         f.clear();
         f.resize(coloring.size());
         f = coloring;
     }
-    void get_active_colors (set<int>& f) {
+    void get_active_colors (std::set<int>& f) {
         f.clear();
         f = active_colors;
     }
@@ -33,16 +33,16 @@ class Coloring {
 
     void check(Graph& g) {
     if (g.check_coloring(coloring))
-        cout << "Valid coloring :)" << endl;
+        std::cout << "Valid coloring :)" << std::endl;
     else
-        cout << "Invalid coloring :(" << endl;
+        std::cout << "Invalid coloring :(" << std::endl;
     };
 
     private:
 
-    vector<int> coloring;    // coloring: V -> Nat
+    std::vector<int> coloring;    // coloring: V -> Nat
     double value;
-    set<int> active_colors;  // active colors (subset of C)
+    std::set<int> active_colors;  // active colors (subset of C)
 
 };
 
@@ -54,13 +54,15 @@ class Node {
     ~Node();
 
     double get_obj_value() const;
-    LP_STATE solve(double start_t, double root_lower_bound = -1.0);
-    void branch(vector<Node*>& sons);
+    LP_STATE solve(double start_t);
+    void branch(std::vector<Node*>& sons);
 
     bool operator< (const Node& n) const;
 
     template <class Solution>
     void save (Solution&);
+
+    int get_n_columns();
 
     private:
 
@@ -86,7 +88,7 @@ class BP {
 
     private:
     
-    list<Node*> L;                   // Priority queue
+    std::list<Node*> L;              // Priority queue
 
     Solution& best_integer_solution; // Current best integer solution
     double primal_bound;             // Primal bound (given by the best integer solution)

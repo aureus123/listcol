@@ -51,19 +51,19 @@ checker: checker.cpp
 
 # Code made by Mauro
 
-bp: main.o bp.o lp.o stable.o graph.o io.o mwis_sewell/wstable.o
+bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-bp_ccn: main.o bp.o lp_ccn.o stable.o graph.o io.o mwis_sewell/wstable.o
+bp_ccn: main.o bp.o lp_ccn.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-bproot_dum: main.o bproot.o lproot.o stable.o graph.o io.o mwis_sewell/wstable.o
+bproot_dum: main.o bproot.o lproot.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-bproot_psc: main.o bproot.o lprootheur.o stable.o graph.o io.o mwis_sewell/wstable.o
+bproot_psc: main.o bproot.o lprootheur.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
-main.o: main.cpp bp.h lp.h stable.h graph.h io.h
+main.o: main.cpp bp.h lp.h graph.h io.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
 
 bp.o: bp.cpp bp.h lp.h
@@ -72,23 +72,20 @@ bp.o: bp.cpp bp.h lp.h
 bproot.o: bp.cpp bp.h lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
 
-lp.o: lp.cpp lp.h
+lp.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
 
-lpheur.o: lp.cpp lp.h
+lpheur.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC
 
-lp_ccn.o: lp.cpp lp.h
+lp_ccn.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_FATHER
 
-lproot.o: lp.cpp lp.h
+lproot.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
 
-lprootheur.o: lp.cpp lp.h
+lprootheur.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC -DONLY_RELAXATION
-
-stable.o: stable.cpp stable.h
-	$(CC) -c -o $@ $< $(CCFLAGS)
 
 graph.o: graph.cpp graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
