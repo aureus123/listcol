@@ -783,6 +783,7 @@ Graph *Graph::join_vertices(int u, int v) {
 	// Build vector of contracted vertices
 	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
 
+#ifdef STABLE_POOL
 	// Build the pools
 	H->global_pool.resize(H->K.size());
 	H->local_pool.resize(H->K.size());
@@ -795,6 +796,7 @@ Graph *Graph::join_vertices(int u, int v) {
 			H->global_pool[i].emplace_back(stable, n_stable);
 		}
 	}
+#endif
 
 	return H;
 
