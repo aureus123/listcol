@@ -204,6 +204,9 @@ LP_STATE LP::optimize(double start_t) {
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
+#ifndef VISUALC
+	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
+#endif
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
 	cplex.setParam(IloCplex::IntParam::Threads, 1);
 	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);

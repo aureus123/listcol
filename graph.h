@@ -9,6 +9,15 @@ extern "C" {
 }
 #endif
 
+/* Additional structure for arrays of nodepnt */
+typedef struct nodepntArray {
+	nodepnt* list;
+	int n_list;
+	nodepntArray() {};
+	nodepntArray(nodepnt *list, int n_list) : list(list), n_list(n_list) {};
+	~nodepntArray() {};
+} nodepntArray;
+
 #include <vector>
 #include <list>
 

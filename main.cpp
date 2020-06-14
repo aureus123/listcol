@@ -13,7 +13,7 @@ int main (int argc, char **argv) {
 
 	set_color(15);
 	std::cout << "LISTCOL - Solves the Minimum Cost List Coloring Problem." << std::endl;
-	set_color(7);
+	set_color(5);
     
 	// Read instance and construct graph
     std::cout << "Reading instance " << argv[1] << std::endl;
@@ -47,7 +47,8 @@ int main (int argc, char **argv) {
 */
 
     // BRANCH AND PRICE
-    std::cout << std::endl << "Branch and Price" << std::endl;
+	set_color(7);
+	std::cout << std::endl << "Branch and Price" << std::endl;
     Graph *G = new Graph(arg1,arg2,arg3);   // Create graph
     Node* root = new Node(new LP(G, NULL));  // Create root
     Coloring col;                      // Create solution
@@ -64,6 +65,7 @@ int main (int argc, char **argv) {
 */
 
     // Show statics in std output
+	set_color(3);
     std::cout << "Optimization time = " << bp.get_time() << "s" << std::endl;
     std::cout << "Number of explored nodes = " << bp.get_nodes() << std::endl;
     if (bp.get_primal_bound() != 99999999 && bp.get_dual_bound() != -99999999 && stop_t - start_t > MAXTIME)

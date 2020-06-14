@@ -191,10 +191,10 @@ void Graph::read_lists(char *filename) {
     // Build partition
 	// The structure of the partition consists of an array and a linked-list. The linked-list is formed with
 	// header_part (points to the first) and next_part (points to the next).
-	int header_part[colors]; 	// is the first color (representative) of a given color
-	int next_part[colors];   	// is the next color in the set containing the given color, -1 if the given color is the last
-	int part_set[colors]; 		// array with the first color of each set in the partition
-	int part_card[colors]; 		// array with the cardinal of each set
+	int *header_part = new int[colors]; 	// is the first color (representative) of a given color
+	int *next_part = new int[colors];   	// is the next color in the set containing the given color, -1 if the given color is the last
+	int *part_set = new int[colors]; 		// array with the first color of each set in the partition
+	int *part_card = new int[colors]; 		// array with the cardinal of each set
 	int part_size = 0;  		// size of the array
 
 	for (int k = 0; k < colors; k++) {
@@ -260,6 +260,10 @@ void Graph::read_lists(char *filename) {
 	local_pool.resize(K.size());
 #endif
 
+	delete[] part_card;
+	delete[] part_set;
+	delete[] next_part;
+	delete[] header_part;
 	return;
 
 }

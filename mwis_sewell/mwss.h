@@ -90,14 +90,6 @@ typedef struct node {
    char     *adjacent;                 // points to the appropriate column of adjacent
 } tnode,*nodepnt;
 
-typedef struct nodepntArray {
-  nodepnt* list;
-  int n_list;
-  nodepntArray() {};
-  nodepntArray(nodepnt *list, int n_list) : list(list), n_list(n_list) {};
-  ~nodepntArray() {};
-} nodepntArray;
-
 typedef struct wstable_parameters {
    int      clique_cover;              // -k option: clique cover 1 = maximal cliques  2 = maximum cliques
    int      reorder;                   // -r option: sort active nodes by ascending degree

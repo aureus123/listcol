@@ -126,11 +126,6 @@ int main(int argc, char **argv)
 
 	IloCplex cplex(Xmodel);
 	cplex.setDefaults();
-	cplex.setOut(Xenv.getNullStream());
-	cplex.setWarning(Xenv.getNullStream());
-	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
-	cplex.setParam(IloCplex::NumParam::TreLim, 2048);
-	cplex.setParam(IloCplex::IntParam::NodeFileInd, 0);
 	cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME);
 	cplex.setParam(IloCplex::NumParam::EpGap, 0.0);
 	cplex.setParam(IloCplex::NumParam::EpAGap, 0.0);

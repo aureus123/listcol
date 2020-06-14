@@ -1,12 +1,24 @@
 #include "io.h"
 #include <iostream>
 
+/* for linux users: do not define VISUALC */
+#ifndef VISUALC
+#include <unistd.h>
+#include <sys/times.h>
+#include <conio.h>
+#else
+#include <time.h>
+#include <Windows.h>
+#endif
+
 // set_color - change color of text
 void set_color(int color)
 {
 #ifdef VERBOSE
 #ifdef VISUALC
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+#else
+	textcolor(color);
 #endif
 #endif
     return;

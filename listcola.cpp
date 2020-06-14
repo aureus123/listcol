@@ -21,6 +21,7 @@
 #ifndef VISUALC
 #include <unistd.h>
 #include <sys/times.h>
+#include <conio.h>
 #else
 #include <windows.h>
 #endif
@@ -134,6 +135,8 @@ void set_color(int color)
 #ifdef VERBOSE
 #ifdef VISUALC
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+#else
+	textcolor(color);
 #endif
 #endif
 }
@@ -612,6 +615,9 @@ int optimize1()
 #ifndef SHOWCPLEX
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
+#endif
+#ifndef VISUALC
+	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
 #endif
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
@@ -1160,6 +1166,9 @@ skip_k:;
 #ifndef SHOWCPLEX
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
+#endif
+#ifndef VISUALC
+	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
 #endif
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
 	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
