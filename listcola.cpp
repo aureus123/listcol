@@ -21,7 +21,6 @@
 #ifndef VISUALC
 #include <unistd.h>
 #include <sys/times.h>
-#include <conio.h>
 #else
 #include <windows.h>
 #endif
@@ -129,6 +128,8 @@ double ECOclock() {
 
 /*
  * set_color - change color of text
+ *     0 - Black, 1 - Blue, 2 - Green, 3 - Cyan, 4 - Red, 5 - Purple, 6 - Yellow, 7 - Gray
+ *     8-15 - Brighter colors
  */
 void set_color(int color)
 {
@@ -136,7 +137,11 @@ void set_color(int color)
 #ifdef VISUALC
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 #else
-	textcolor(color);
+	const char *codes[] = {
+	  "30", "34", "32", "36", "31", "35", "33", "37",
+	  "90", "94", "92", "96", "91", "95", "93", "97"
+	};
+	printf("\e[%sm", codes[color]);	
 #endif
 #endif
 }

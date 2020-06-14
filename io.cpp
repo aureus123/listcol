@@ -5,23 +5,29 @@
 #ifndef VISUALC
 #include <unistd.h>
 #include <sys/times.h>
-#include <conio.h>
 #else
 #include <time.h>
 #include <Windows.h>
 #endif
 
-// set_color - change color of text
+/*
+ * set_color - change color of text
+ *     0 - Black, 1 - Blue, 2 - Green, 3 - Cyan, 4 - Red, 5 - Purple, 6 - Yellow, 7 - Gray
+ *     8-15 - Brighter colors
+ */
 void set_color(int color)
 {
 #ifdef VERBOSE
 #ifdef VISUALC
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 #else
-	textcolor(color);
+	const char *codes[] = {
+	  "30", "34", "32", "36", "31", "35", "33", "37",
+	  "90", "94", "92", "96", "91", "95", "93", "97"
+	};
+	printf("\e[%sm", codes[color]);	
 #endif
 #endif
-    return;
 }
 
 // show - show message
@@ -29,7 +35,6 @@ void show(std::string str) {
 #ifdef VERBOSE
 	std::cout << str << std::endl;
 #endif
-	return;
 }
 
 // warning - show warning
@@ -39,7 +44,6 @@ void warning(std::string str) {
 	std::cout << str << std::endl;
 	set_color(7);
 #endif
-	return;
 }
 
 // bye - finish executing and show a message

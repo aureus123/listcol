@@ -32,21 +32,20 @@ LP::~LP() {
 void LP::initialize(LP *father) {
 
     // Initialize vertex and color constraints
-	// We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
-	for (int v = 0; v < G->get_n_vertices(); v++) 
+    // We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
+    for (int v = 0; v < G->get_n_vertices(); v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
-	for (int k = 0; k < G->get_n_colors(); k++)
+    for (int k = 0; k < G->get_n_colors(); k++)
         Xrestr.add(IloRange(Xenv, -1 * G->get_n_C(k), IloInfinity));
-	Xmodel.add(Xrestr);
+    Xmodel.add(Xrestr);
 
     // Initialize objective function
     Xobj = IloMinimize(Xenv);
-	Xmodel.add(Xobj);
+    Xmodel.add(Xobj);
 
     fill_initial_columns(father);
 
     return;
-
 }
 
 
@@ -54,11 +53,19 @@ void LP::fill_initial_columns (LP *father) {
 
 #if INITIAL_COLUMN_STRATEGY == 0
 
+#ifdef ONLY_RELAXATION
+    std::cout << "Dummy strategy selected\n";
+#endif
+
     // Add a fictional column for each vertex 
     for (int v = 0; v < G->get_n_vertices(); ++v)
         add_fictional_column(v);
 
 #elif INITIAL_COLUMN_STRATEGY == 1
+
+#ifdef ONLY_RELAXATION
+    std::cout << "CCN strategy selected\n";
+#endif
 
     if (father == NULL)
         // Root node: add a fictional column for each vertex 
@@ -114,7 +121,11 @@ void LP::fill_initial_columns (LP *father) {
 
 #elif INITIAL_COLUMN_STRATEGY == 2
 
-    // Apply the stable set covering heuristic
+#ifdef ONLY_RELAXATION
+    std::cout << "PSC strategy selected\n";
+#endif
+
+    	// Apply the stable set covering heuristic
     std::vector<std::list<nodepntArray>> stable_sets;
     G->coloring_heuristic(stable_sets);
 
@@ -194,31 +205,34 @@ void LP::add_fictional_column (int v) {
 
 LP_STATE LP::optimize(double start_t) {
 
-	IloCplex cplex(Xmodel);
+    IloCplex cplex(Xmodel);
 
     // Set CPLEX's parameters
 
-	cplex.setDefaults();
+    cplex.setDefaults();
 
 #ifndef SHOWCPLEX
-	cplex.setOut(Xenv.getNullStream());
-	cplex.setWarning(Xenv.getNullStream());
+    cplex.setOut(Xenv.getNullStream());
+    cplex.setWarning(Xenv.getNullStream());
 #endif
 #ifndef VISUALC
-	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
+    cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
 #endif
-	cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
-	cplex.setParam(IloCplex::IntParam::Threads, 1);
-	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
-	cplex.extract(Xmodel);
+    cplex.setParam(IloCplex::NumParam::WorkMem, 2048);
+    cplex.setParam(IloCplex::IntParam::Threads, 1);
+    cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
+    //cplex.setParam(IloCplex::IntParam::RootAlg, IloCplex::Algorithm::Barrier); /* Barrier optimizer */
+    cplex.extract(Xmodel);
 #ifdef SAVELP
-	cplex.exportModel(SAVELP);
+    cplex.exportModel(SAVELP);
     show("Linear relaxation formulation saved");
 #endif
 
     // Solve
+    double first_t = start_t;
+    int akku_added_columns = 0;
 
-	while (true) {
+    while (true) {
 
         // Set time limit
         double time_limit = MAXTIME - (ECOclock() - start_t);
@@ -242,6 +256,13 @@ LP_STATE LP::optimize(double start_t) {
         }
 
         // Save dual values
+#ifdef ONLY_RELAXATION
+	double now_t = ECOclock();
+	if (now_t - first_t >= 10.0) {
+		first_t = now_t;
+		std::cout << "  Obj value = " << cplex.getObjValue() << ", Akku added columns = " << akku_added_columns << ", time elapsed = " << now_t - start_t << "s.\n";
+	}
+#endif
         IloNumArray dual_values (Xenv, G->get_n_vertices() + G->get_n_colors());
         cplex.getDuals(dual_values, Xrestr);
         for (int i = 0; i < G->get_n_vertices(); ++i)
@@ -270,10 +291,10 @@ LP_STATE LP::optimize(double start_t) {
                 ++added_columns;
             }
         }
+	akku_added_columns += added_columns;
 
         if (added_columns == 0)
             break; // optimality reached
-
     }
 
     // Recover primal values and objective value

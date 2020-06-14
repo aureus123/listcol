@@ -16,7 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bp bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st stroot bproot_dum bproot_psc bp bp_ccn genclassicinst genrandominst genmuinst gengraph checker
 
 
 # Tools made by Daniel
@@ -73,22 +73,22 @@ bproot.o: bp.cpp bp.h lp.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
 
 lp.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS)
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0
 
 lpheur.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=2 -DBRANCHING_STRATEGY=0
 
 lp_ccn.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_FATHER
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=1 -DBRANCHING_STRATEGY=0
 
 lproot.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION
+	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION -DINITIAL_COLUMN_STRATEGY=0
 
 lprootheur.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMNS_HEURISTIC -DONLY_RELAXATION
+	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION -DINITIAL_COLUMN_STRATEGY=2
 
 graph.o: graph.cpp graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS)
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0
 
 io.o: io.cpp io.h
 	$(CC) -c -o $@ $< $(CCFLAGS)

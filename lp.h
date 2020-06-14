@@ -12,9 +12,12 @@
 //#define SAVELP "form.lp"
 #define FICTIONAL_COST 1000
 #define THRESHOLD 0.1
+
+#ifndef INITIAL_COLUMN_STRATEGY
 #define INITIAL_COLUMN_STRATEGY 0 // 0: dummy columns
                                   // 1: active father's columns
                                   // 2: stable set covering heuristic
+#endif
 
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, TIME_OR_MEM_LIMIT};
 

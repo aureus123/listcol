@@ -11,15 +11,15 @@
 
 int main (int argc, char **argv) {
 
-	set_color(15);
-	std::cout << "LISTCOL - Solves the Minimum Cost List Coloring Problem." << std::endl;
-	set_color(5);
+    set_color(15);
+    std::cout << "LISTCOL - Solves the Minimum Cost List Coloring Problem." << std::endl;
+    set_color(5);
     
-	// Read instance and construct graph
+    // Read instance and construct graph
     std::cout << "Reading instance " << argv[1] << std::endl;
-	double start_t = ECOclock();
+    double start_t = ECOclock();
     std::vector<int> costs_list;
-	char* filename = argv[1];
+    char* filename = argv[1];
     char arg1[300], arg2[300], arg3[300];
     strncpy(arg1,filename,300);
     strcat(arg1,".graph");
@@ -27,7 +27,7 @@ int main (int argc, char **argv) {
     strcat(arg2,".cost");
     strncpy(arg3,filename,300);
     strcat(arg3,".list");
-	double stop_t = ECOclock();
+    double stop_t = ECOclock();
 
 /*
 	std::cout << "Time of instance reading = " << stop_t - start_t << " sec." << endl;
@@ -47,8 +47,8 @@ int main (int argc, char **argv) {
 */
 
     // BRANCH AND PRICE
-	set_color(7);
-	std::cout << std::endl << "Branch and Price" << std::endl;
+    set_color(7);
+    std::cout << std::endl << "Branch and Price" << std::endl;
     Graph *G = new Graph(arg1,arg2,arg3);   // Create graph
     Node* root = new Node(new LP(G, NULL));  // Create root
     Coloring col;                      // Create solution
@@ -65,7 +65,7 @@ int main (int argc, char **argv) {
 */
 
     // Show statics in std output
-	set_color(3);
+    set_color(3);
     std::cout << "Optimization time = " << bp.get_time() << "s" << std::endl;
     std::cout << "Number of explored nodes = " << bp.get_nodes() << std::endl;
     if (bp.get_primal_bound() != 99999999 && bp.get_dual_bound() != -99999999 && stop_t - start_t > MAXTIME)
@@ -95,9 +95,7 @@ int main (int argc, char **argv) {
     for (int i: coloring)
         fout << i << std::endl;
 
-
     fout.close();
 
-	return 0;
-
+    return 0;
 }

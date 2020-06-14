@@ -358,7 +358,7 @@ void BP<Solution>::show_stats (Node& node) {
 
     std::cout << std::fixed << std::setprecision(2);
 
-    std::cout << "Obj value = " << node.get_obj_value() << "\t Best int = ";
+    std::cout << "  Obj value = " << node.get_obj_value() << "\t Best int = ";
     if (primal_bound == DBL_MAX)
         std::cout << "inf";
     else
