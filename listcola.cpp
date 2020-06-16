@@ -115,14 +115,14 @@ int cmpfunc(const void *a, const void *b) {
  * ECOclock - get a timestamp (in seconds)
  */
 double ECOclock() {
-#ifndef VISUALC
+#ifdef VISUALC
+	/* measure standard wall-clock: use it on Windows */
+	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+#else
 	/* measure user-time: use it on single-threaded system in Linux (more accurate) */
 	struct tms buf;
 	times(&buf);
-	return ((double)buf.tms_utime) / (double)sysconf(_SC_CLK_TCK);
-#else
-	/* measure standard wall-clock: use it on Windows */
-	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+	return ((double)(buf.tms_utime)) / (double)sysconf(_SC_CLK_TCK);
 #endif
 }
 
@@ -621,7 +621,9 @@ int optimize1()
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
-#ifndef VISUALC
+#ifdef VISUALC
+	cplex.setParam(IloCplex::IntParam::ClockType, 2); /* set wall-clock time */
+#else
 	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
 #endif
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);
@@ -1172,7 +1174,9 @@ skip_k:;
 	cplex.setOut(Xenv.getNullStream());
 	cplex.setWarning(Xenv.getNullStream());
 #endif
-#ifndef VISUALC
+#ifdef VISUALC
+	cplex.setParam(IloCplex::IntParam::ClockType, 2); /* set wall-clock time */
+#else
 	cplex.setParam(IloCplex::IntParam::ClockType, 1); /* set user time */
 #endif
 	cplex.setParam(IloCplex::IntParam::MIPDisplay, 3);

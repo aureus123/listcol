@@ -58,13 +58,14 @@ void bye(std::string str)
 }
 
 double ECOclock() {
-#ifndef VISUALC
-	// measure user-time: use it on single-threaded system in Linux (more accurate)
+#ifdef VISUALC
+	/* measure standard wall-clock: use it on Windows */
+	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+#else
+	/* measure user-time: use it on single-threaded system in Linux (more accurate) */
 	struct tms buf;
 	times(&buf);
-	return ((double)buf.tms_utime) / (double)sysconf(_SC_CLK_TCK);
-#else
-	// measure standard wall-clock: use it on Windows 
-	return ((double)clock()) / (double)CLOCKS_PER_SEC;
+	return ((double)(buf.tms_utime)) / (double)sysconf(_SC_CLK_TCK);
 #endif
 }
+

@@ -60,6 +60,8 @@ template <class Solution>
 void BP<Solution>::solve (Node* root) {
 
     start_t = ECOclock();
+    first_t = start_t;
+    first_call = true;
 
     try {
         push(root);
@@ -342,10 +344,9 @@ double BP<Solution>:: calculate_dual_bound() {
 
 template <class Solution>
 void BP<Solution>::show_stats (Node& node) {
-	static double first_t = start_t;
-	static bool first_call = true;
 
 	double now_t = ECOclock();
+
 	if (first_call) first_call = false;
 	else {
 		if (now_t - first_t < 10.0) return;
@@ -357,7 +358,7 @@ void BP<Solution>::show_stats (Node& node) {
     std::cout << std::fixed << std::setprecision(3);
 
     //std::cout << "  Obj value = " << node.get_obj_value();
-	std::cout << " Best obj value  = " << _dual_bound << "\t Best int = ";
+	std::cout << "  Best obj value  = " << _dual_bound << "\t Best int = ";
 	if (primal_bound == DBL_MAX) std::cout << "inf\t Gap = ---";
 	else std::cout << (int)(EPSILON + primal_bound) << "\t Gap = " << (primal_bound - _dual_bound) / (EPSILON + primal_bound) * 100 << "%";
     std::cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << "\t time = " << now_t - start_t << std::endl;

@@ -95,6 +95,8 @@ class BP {
     double dual_bound;               // Dual bound (given by the worst open relaxation)
     int nodes;                       // Number of processed nodes so far. A node is considered processed if its relaxation has been solved
     double start_t;                  // B&P initial execution time
+    double first_t;		     // used by log
+    bool first_call;		     // used by log
     int opt_flag;                    // Optimality flag
     double time;                     // Total execution time
     double root_lower_bound;         // Round-up of the LP objective value at the root of the B&P. Used for early branching
