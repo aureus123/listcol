@@ -31,6 +31,20 @@ LP::~LP() {
 
 void LP::initialize(LP *father) {
 
+	if (father == NULL) {
+#ifdef ONLY_RELAXATION
+		std::cout << "Only relaxation is solved\n";
+#elif BRANCHING_STRATEGY == 0
+		std::cout << "Branching on edges (EDG strategy)\n";
+#elif BRANCHING_STRATEGY == 1
+		std::cout << "Branching on colors (CLR strategy)\n";
+#elif BRANCHING_STRATEGY == 2
+		std::cout << "Branching on indistinguishable (IND strategy)\n";
+#else
+		bye("Undefined branching strategy :(");
+#endif
+	}
+
     // Initialize vertex and color constraints
     // We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
     for (int v = 0; v < G->get_n_vertices(); v++) 
@@ -53,9 +67,7 @@ void LP::fill_initial_columns (LP *father) {
 
 #if INITIAL_COLUMN_STRATEGY == 0
 
-#ifdef ONLY_RELAXATION
-    std::cout << "Dummy strategy selected\n";
-#endif
+	if (father == NULL) std::cout << "Dummy strategy selected\n";
 
     // Add a fictional column for each vertex 
     for (int v = 0; v < G->get_n_vertices(); ++v)
@@ -63,15 +75,13 @@ void LP::fill_initial_columns (LP *father) {
 
 #elif INITIAL_COLUMN_STRATEGY == 1
 
-#ifdef ONLY_RELAXATION
-    std::cout << "CCN strategy selected\n";
-#endif
+	if (father == NULL) {
+		std::cout << "CCN strategy selected\n";
 
-    if (father == NULL)
-        // Root node: add a fictional column for each vertex 
-        for (int v = 0; v < G->get_n_vertices(); ++v)
-            add_fictional_column(v);
-    
+		// Root node: add a fictional column for each vertex 
+		for (int v = 0; v < G->get_n_vertices(); ++v)
+			add_fictional_column(v);
+	}
     else {
 
 #if BRANCHING_STRATEGY == 0
@@ -121,11 +131,9 @@ void LP::fill_initial_columns (LP *father) {
 
 #elif INITIAL_COLUMN_STRATEGY == 2
 
-#ifdef ONLY_RELAXATION
-    std::cout << "PSC strategy selected\n";
-#endif
+	if (father == NULL) std::cout << "PSC strategy selected\n";
 
-    	// Apply the stable set covering heuristic
+   	// Apply the stable set covering heuristic
     std::vector<std::list<nodepntArray>> stable_sets;
     G->coloring_heuristic(stable_sets);
 
@@ -426,8 +434,6 @@ void LP::branch(std::vector<LP *> &ret) {
     branch_on_colors(ret);
 #elif BRANCHING_STRATEGY == 2
     branch_on_indistinguishable_colors(ret);
-#else
-    bye("Undefined branching strategy");
 #endif
 
     return;

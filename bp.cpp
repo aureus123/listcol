@@ -352,18 +352,13 @@ void BP<Solution>::show_stats (Node& node) {
 		first_t = now_t;
 	}
    
-    // Calculate GAP (it is time cosuming when DFS is used)
-    //double _dual_bound = calculate_dual_bound();
-    //double gap = abs(_dual_bound - primal_bound) / (0.0000000001 + abs(primal_bound)) * 100;
+    double _dual_bound = calculate_dual_bound(); // (note: it is time consuming when DFS is used)
 
-    std::cout << std::fixed << std::setprecision(2);
+    std::cout << std::fixed << std::setprecision(3);
 
-    std::cout << "  Obj value = " << node.get_obj_value() << "\t Best int = ";
-    if (primal_bound == DBL_MAX)
-        std::cout << "inf";
-    else
-        std::cout << (int) primal_bound;
-    //cout << "\t Gap = " << gap << "%";
+    //std::cout << "  Obj value = " << node.get_obj_value();
+	std::cout << " Best obj value  = " << _dual_bound << "\t Best int = ";
+	if (primal_bound == DBL_MAX) std::cout << "inf\t Gap = ---";
+	else std::cout << (int)(EPSILON + primal_bound) << "\t Gap = " << (primal_bound - _dual_bound) / (EPSILON + primal_bound) * 100 << "%";
     std::cout << "\t Nodes: processed = " << nodes << ", left = " << L.size() << "\t time = " << now_t - start_t << std::endl;
-
 }

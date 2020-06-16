@@ -16,7 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bproot_dum bproot_psc bp bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st stroot bproot_dum bproot_psc bp bp_clr bp_ind bp_ccn genclassicinst genrandominst genmuinst gengraph checker
 
 
 # Tools made by Daniel
@@ -54,6 +54,12 @@ checker: checker.cpp
 bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
+bp_clr: main.o bp.o lp_clr.o graph_clr.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+bp_ind: main.o bp.o lp_ind.o graph_ind.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
 bp_ccn: main.o bp.o lp_ccn.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
@@ -75,8 +81,11 @@ bproot.o: bp.cpp bp.h lp.h
 lp.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0
 
-lpheur.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=2 -DBRANCHING_STRATEGY=0
+lp_clr.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1
+
+lp_ind.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=2
 
 lp_ccn.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=1 -DBRANCHING_STRATEGY=0
@@ -89,6 +98,12 @@ lprootheur.o: lp.cpp lp.h graph.h
 
 graph.o: graph.cpp graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0
+
+graph_clr.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1
+
+graph_ind.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=2
 
 io.o: io.cpp io.h
 	$(CC) -c -o $@ $< $(CCFLAGS)
