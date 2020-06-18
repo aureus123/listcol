@@ -54,6 +54,12 @@ checker: checker.cpp
 bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
+bp_dum: main.o bp.o lp_dum.o graph.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+bp_psc: main.o bp.o lp_psc.o graph.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
 bp_clr: main.o bp.o lp_clr.o graph_clr.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
@@ -80,6 +86,12 @@ bproot.o: bp.cpp bp.h lp.h
 
 lp.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0
+
+lp_dum.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0
+
+lp_psc.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=2 -DBRANCHING_STRATEGY=0
 
 lp_clr.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1

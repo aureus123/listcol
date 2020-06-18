@@ -3,7 +3,7 @@ use strict;
 
 # Generate instances
 
-print "stat1 - Write statistics (over Set 1)\n\n";
+print "stat - Write statistics (over Set 0)\n\n";
 
 sub manual {
 	print "Usage: ./stat.pl algo exp\n";
@@ -19,21 +19,20 @@ my $algo = $ARGV[0];
 my $experiment = $ARGV[1];
 if ($experiment < 0 || $experiment > 5) { die "exp must be between 0 and 5."; }
 
-my $n;
+my $n = 200;
 my $k;
 my $r;
 my $q;
 my $p;
 my $result;
 
-print "n,r,q,p,solved,gap,nodes,time\n";
-for ($n = 40; $n <= 100; $n+=20) {
-	$k = $n / 2;
+print "k,r,q,p,solved,rel,time\n";
+for ($k = 50; $k <= 150; $k+=50) {
 	for ($r = 1; $r <= 5; $r+=2) {
 		for ($q = 25; $q <= 75; $q+=25) {
 			for ($p = 25; $p <= 75; $p+=25) {
-				my $graph = "R$n" . "_" . $r . "_" . $q . "_" . $p;
-				my $name = "Set1/$graph";
+				my $graph = "W$k" . "_" . $r . "_" . $q . "_" . $p;
+				my $name = "Set3/$graph";
 				my $galgo = "exp$experiment/$graph" . "." . $algo ;
 
 				my $flag = 0;
@@ -45,20 +44,16 @@ for ($n = 40; $n <= 100; $n+=20) {
 					my @datas = split ':', $_;
 					my $solved = $datas[0];
 					my $LB = $datas[1];
-					my $UB = $datas[2];
-					my $nodes = $datas[3];
 					my $time = $datas[4];
 					close HANDLE;
 
-					print "$n,$r," . ($q/100) . "," . ($p/100) . ",";
-					if ($solved == 0) {
-						print "NO,";
-						if ($LB <= 0 || $UB >= 99999999) { print "-,"; }
-						else { my $gap = 100*($UB-$LB)/$UB; print "$gap,"; }
-						print "-,-\n";
+					print "$k,$r," . ($q/100) . "," . ($p/100) . ",";
+					if ($solved == 0) { print "NO,-,-\n"; }
+					if ($solved == 2) { print "INF,-,$time\n"; }
+					if ($solved == 3) {
+						print "YES,$LB,$time\n";
+						#						system("cat $galgo.log | grep \"Number of columns\" | cut -d\" \" -f5");
 					}
-					if ($solved == 1) { print "YES,0.0,$nodes,$time\n"; }
-					if ($solved == 2) { print "INF,-,-,$time\n"; }
 				}
 			}
 		}
@@ -66,4 +61,3 @@ for ($n = 40; $n <= 100; $n+=20) {
 }
 
 exit 0;
-
