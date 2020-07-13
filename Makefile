@@ -16,7 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bproot_dum bproot_psc bp bp_clr bp_ind bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st stroot bproot_dum bproot_psc bp_dum bp_psc bp_ccn bp_poo bp_clr bp_ind genclassicinst genrandominst genmuinst gengraph checker
 
 
 # Tools made by Daniel
@@ -60,13 +60,16 @@ bp_dum: main.o bp.o lp_dum.o graph.o io.o mwis_sewell/wstable.o
 bp_psc: main.o bp.o lp_psc.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
+bp_ccn: main.o bp.o lp_ccn.o graph.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+bp_poo: main.o bp.o lp_poo.o graph_poo.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
 bp_clr: main.o bp.o lp_clr.o graph_clr.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 bp_ind: main.o bp.o lp_ind.o graph_ind.o io.o mwis_sewell/wstable.o
-	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-bp_ccn: main.o bp.o lp_ccn.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 bproot_dum: main.o bproot.o lproot.o graph.o io.o mwis_sewell/wstable.o
@@ -93,14 +96,17 @@ lp_dum.o: lp.cpp lp.h graph.h
 lp_psc.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=2 -DBRANCHING_STRATEGY=0
 
+lp_ccn.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=1 -DBRANCHING_STRATEGY=0
+
+lp_poo.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=1 -DBRANCHING_STRATEGY=0 -DSTABLE_POOL
+
 lp_clr.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1
 
 lp_ind.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=2
-
-lp_ccn.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=1 -DBRANCHING_STRATEGY=0
 
 lproot.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DONLY_RELAXATION -DINITIAL_COLUMN_STRATEGY=0
@@ -110,6 +116,9 @@ lprootheur.o: lp.cpp lp.h graph.h
 
 graph.o: graph.cpp graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0
+
+graph_poo.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0 -DSTABLE_POOL
 
 graph_clr.o: graph.cpp graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1
