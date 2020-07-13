@@ -43,6 +43,9 @@ void LP::initialize(LP *father) {
 #else
 		bye("Undefined branching strategy :(");
 #endif
+#ifdef STABLE_POOL
+		std::cout << "Pool of columns enabled\n";
+#endif
 	}
 
     // Initialize vertex and color constraints
@@ -78,11 +81,35 @@ void LP::fill_initial_columns (LP *father) {
 	if (father == NULL) {
 		std::cout << "CCN strategy selected\n";
 
-		// Root node: add a fictional column for each vertex 
-		for (int v = 0; v < G->get_n_vertices(); ++v)
-			add_fictional_column(v);
-	}
-    else {
+		// Root node: use PSC strategy
+		std::vector<std::list<nodepntArray>> stable_sets;
+		G->coloring_heuristic(stable_sets);
+
+		// Mark the colored vertices
+		std::vector<bool> colored (G->get_n_vertices(), false);
+
+		for (int i = 0; i < G->get_n_colors(); ++i) {
+		    for (auto &s: stable_sets[i]) {
+			// Build the column
+			bool *column = NULL;
+			G->stable_to_column(s.list, s.n_list, &column);
+
+			// Add the column to the son
+			add_real_column(column, s.n_list, i);
+
+			// Mark the colored vertices
+			for (int j = 0; j < G->get_n_vertices(); ++j)
+				if (column[j]) { colored[j] = true; }
+
+			// Free the stable set
+			free(s.list);
+        	    }
+                }
+
+    		// Add dummy columns for uncovered vertices
+		for (int j = 0; j < G->get_n_vertices(); ++j) if (!colored[j]) add_fictional_column(j);
+    	}
+	else {
 
 #if BRANCHING_STRATEGY == 0
         switch (G->get_branch_status())
@@ -140,7 +167,7 @@ void LP::fill_initial_columns (LP *father) {
     // Mark the colored vertices
     std::vector<bool> colored (G->get_n_vertices(), false);
 
-    for (int i = 0; i < G->get_n_colors(); ++i)
+    for (int i = 0; i < G->get_n_colors(); ++i) {
         for (auto &s: stable_sets[i]) {
             // Build the column
             bool *column = NULL;
@@ -151,13 +178,12 @@ void LP::fill_initial_columns (LP *father) {
 
             // Mark the colored vertices
             for (int j = 0; j < G->get_n_vertices(); ++j)
-                if (column[j]) {
-                    colored[j] = true;
-                }
+                if (column[j]) { colored[j] = true; }
 
             // Free the stable set
             free(s.list);
         }
+    }
 
 
     // Add dummy columns for uncovered vertices
