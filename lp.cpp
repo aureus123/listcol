@@ -635,80 +635,116 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
 
 void LP::branch_on_indistinguishable_colors(std::vector<LP *> &ret) {
 
-    bye("Not implemented yet");
+    ////////////////////////////////////////////////////////////////
 
-/*
+    // W = {v: there are 2 or more indistinguishable colors in L(v)}
+    // If |W| = 0, apply branch_on_colors
 
-    // Choose vertex v and color k to branch
-    // Let W = {v : v \in V_{k_1} \cap V_{k_2}, for some k_1 != k_2 } 
-    // 0) If W = {}, then branch on colors
-    // 1) Otherwise, find the most fractional (S,k) with |S| > 2
-    // 2) If W \cap S = {}, find the next most fractional one.
-    // 3) This process is repeated until W \cap S != {}.
-    // 4) After that, choose from W \cap S the vertex v with largest value of $|{ x^{*j}_{S'} \notin \ZZ : v \in S', j \in K}|
+    // Find the most fractional (S,k) with |S \cap W| > 0  
+    // Otherwise, apply branch_on_colors
 
-    std::vector<std::list<int>> branch_vars (G->get_n_vertices());
-    // branch_vars[v]: list of indexes i such that
-    //  *) values[i] is fractional
-    //  *) v \in vars[i].stable
-    // and the index of the most fractional variable is in the front of the list
+    // Choose (v,k) with v \in S with the greatest value of st(v,k)
 
+    ////////////////////////////////////////////////////////////////
+
+    // n_L[v] represents |L(v) \cap K| for every vertex v
+    std::vector<int> n_L;
+    G->get_n_L_indistinguishable(n_L);
+
+    // If |W| = 0, apply branch_on_colors
+    bool is_empty = true;
+    for (int j = 0; j < G->get_n_vertices(); ++j) 
+        if (n_L[j] >= 2) {
+            is_empty = false;
+            break;
+        }
+    if (is_empty) {
+        branch_on_colors(ret);
+        return;
+    }
+
+    // Find the most fractional (S,k) with |S \cap W| > 0
+    double max_value = 2;
+    int max_index = -1;
     for (int i: pos_vars)
-        if (values[i] > EPSILON && 
-            values[i] < 1 - EPSILON &&
-            vars[i].n_stable >= 2) {
-            for (int v = 0; v < G->get_n_vertices(); ++v)
-                if (vars[i].stable[v]) {
-                    if (branch_vars.empty())
-                        branch_vars[v].push_front(i);
-                    else {
-                        int front = branch_vars[v].front();
-                        if (std::abs(values[i] - 0.5) < std::abs(values[front] - 0.5))
-                            branch_vars[v].push_front(i);
-                        else
-                            branch_vars[v].push_back(i);
-                    }
-                }
+        if (values[i] > EPSILON && values[i] < 1 - EPSILON)
+            for (int j = 0; j < G->get_n_vertices(); ++j)
+                if (vars[i].stable[j])
+                    if (n_L[j] >= 2)   // Ignore vertex v with |L(v)| < 2
+                        if (abs(values[i] - 0.5) < max_value) {
+                            max_value = abs(values[i] - 0.5);
+                            max_index = i;
+                        }
 
-    // Choose the most fractional branching variable
-    double min_value = 2.0;
-    int branch_vertex;
-    int branch_color;
-    for (int v = 0; v < G->get_n_vertices(); ++v) {
-        if (branch_vars[v].size() > 1) { // Y si son todos estables asociados al mismo color?
-            int i = branch_vars[v].front();
-            if (std::abs(values[i] - 0.5) < min_value ||
-               (std::abs(values[i] - 0.5) == min_value && branch_vars[branch_vertex].size() < branch_vars[v].size())) {   
-                min_value = std::abs(values[i] - 0.5);
-                branch_vertex = v;
-                branch_color = vars[i].color;
+    // If such (S,k) does not exist, apply branch_on_colors 
+    if (max_index == -1) {
+        std::cout << "Warning: branch_on_indistinguishable_colors" << std::endl;
+        branch_on_colors(ret);
+        return;
+    }
+
+    // Set candidates
+    std::set<std::pair<int,int>> candidates; // (v,k) candidates
+    for (int j = 0; j < G->get_n_vertices(); ++j)
+        if (vars[max_index].stable[j])
+            if (n_L[j] >= 2)
+                candidates.emplace(j, vars[max_index].color);
+
+    if (candidates.empty())
+        bye("Branching error");
+
+    // Calculate st(v,k) of every candidate
+    std::vector<int> st (candidates.size(), 0);
+    for (int i: pos_vars)
+        if (values[i] > EPSILON && values[i] < 1 - EPSILON) {            
+            int c = 0; // st index
+            for (auto &t: candidates) {
+                int v = t.first;
+                int k = t.second;
+                if (vars[i].stable[v]) st[c]++;
+                else
+                    // Check if there is a neighbor of v
+                    if (k == vars[i].color && G->get_n_C(k) == 1) 
+                        for (int j = 0; j < G->get_n_vertices(); ++j)
+                            if (vars[i].stable[j] && G->is_edge(v,j)) {
+                                st[c]++;
+                                break;
+                            }
+                ++c;
             }
         }
+
+    // Choose max_v and max_k
+    int max_v = -1;
+    int max_k = -1;
+    int max = -1;
+    int c = 0; // st index
+    for (auto &t: candidates) {
+        int v = t.first;
+        int k = t.second;
+        if (st[c] > max) {
+            max = st[c];
+            max_v = v;
+            max_k = k;
+        }
+        c++;
     }
 
-    if (min_value > 1)
-        branch_on_colors(ret);
-    else {
+    // Build the graph where v is colored with k
+    Graph *G1 = G->choose_indistinguishable_color(max_v, max_k);
 
-        // Build the graph where v is colored with k
-        Graph *G1 = G->choose_indistinguishable_color(branch_vertex, branch_color);
+    // Build LP from G1
+    LP *lp1 = new LP(G1, this);
 
-        // Build LP from G1
-        LP *lp1 = new LP(G1, this);
+    // Build the graph where v cannot be colored with k
+    Graph *G2 = G->remove_indistinguishable_color(max_v, max_k);
+  
+    // Build LP from G2
+    LP *lp2 = new LP(G2, this);
 
-        // Build the graph where v cannot be colored with k
-        Graph *G2 = G->remove_indistinguishable_color(branch_vertex, branch_color);
-
-        // Build LP from G2
-        LP *lp2 = new LP(G2, this);
-
-        ret.resize(2);
-        ret[0] = lp1;   // First choose
-        ret[1] = lp2;   // Then remove
-
-    }
-
-*/
+    ret.resize(2);
+    ret[0] = lp1;   // First choose
+    ret[1] = lp2;   // Then remove
 
     return;
 

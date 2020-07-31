@@ -138,4 +138,4 @@ sewell:
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-	rm -f vc vcroot st stroot bp bp_clr bp_ind bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker
+	rm -f vc vcroot st stroot bp bp_clr bp_ind bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker bp_dum bp_poo bp_psc

@@ -330,6 +330,14 @@ void Graph::get_n_L(std::vector<int> &n_L) {
 			n_L[V[i].list[j]->name - 1] += C[i].size();
 }
 
+void Graph::get_n_L_indistinguishable(std::vector<int> &n_L) {
+	n_L.clear();
+	n_L.resize(get_n_vertices(), 0);
+	for (int i = 0; i < K.size(); ++i)
+		for (int j = 1; j <= V[i].n_list; ++j)
+			n_L[V[i].list[j]->name - 1]++;
+}
+
 bool Graph::is_edge(int u, int v) {
 	return G->adj[u+1][v+1];
 }
@@ -1057,6 +1065,156 @@ Graph* Graph::choose_color(int v, int k) {
 }
 
 Graph* Graph::remove_color(int v, int k) {
+
+	// Build a new graph
+	Graph *H = new Graph();
+
+	// Vertices start at 1
+	v = v+1;
+
+	// Reuse Sewell's graph
+	H->G = G;
+
+	// Build vector of costs
+	H->w.assign(w.begin(), w.end());
+
+	// Build vector of indistinguishable colors
+	H->K.assign(K.begin(), K.end());
+
+	// Build the partition into indistinguishable colors
+	H->C.assign(C.begin(), C.end());
+
+	// Build Vk's
+	H->V.resize(H->K.size());
+	for (int i = 0; i < H->K.size(); ++i) {
+		if (i == k) {
+			// Skip v
+			H->V[i].n_list = V[i].n_list - 1;
+			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+			int index = 1;
+			for (int j = 1; j <= V[i].n_list; ++j) {
+				int u = V[i].list[j]->name; 
+				if (u != v)
+					H->V[i].list[index++] = H->G->node_list + u;
+			}
+
+		}
+		else {
+			H->V[i].n_list = V[i].n_list;
+			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+			for (int j = 1; j <= H->V[i].n_list; ++j)
+				H->V[i].list[j] = H->G->node_list + V[i].list[j]->name;
+		}
+	}
+
+	// Set branch information
+	H->st = REMOVE;
+	H->branch_vertex_v = v;
+	H->branch_color_k = k;
+
+#ifdef STABLE_POOL
+	// Build the pools
+	H->global_pool.resize(H->K.size());
+	H->local_pool.resize(H->K.size());
+	// Copy into H->global_pool the stables from global_pool
+	for (int i = 0; i < H->K.size(); ++i) {
+		for (auto &s: global_pool[i]) {
+			nodepnt *stable = NULL;
+			int n_stable = 0;
+			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
+			H->global_pool[i].emplace_back(stable, n_stable);
+		}
+	}
+#endif
+
+	return H;
+
+}
+
+
+Graph* Graph::choose_indistinguishable_color(int v, int k) {
+
+	// Build a new graph
+	Graph *H = new Graph();
+
+	// Vertices start at 1
+	v = v+1;
+
+	// Reuse Sewell's graph
+	H->G = G;
+
+	// Build vector of costs
+	H->w.assign(w.begin(), w.end());
+
+	// Build vector of indistinguishable colors
+	H->K.assign(K.begin(), K.end());
+
+	// Build the partition into indistinguishable colors
+	H->C.assign(C.begin(), C.end());
+
+	// Build Vk's
+	H->V.resize(H->K.size());
+	for (int i = 0; i < H->K.size(); ++i) {
+		if (i == k) {
+			if (get_n_C(k) == 1) {
+				// Remove N(v)
+				int n_neighbours = get_n_neighbours(v-1, k);
+				H->V[i].n_list = V[i].n_list - n_neighbours;
+				H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+				int index = 1;
+				for (int j = 1; j <= V[i].n_list; ++j) {
+					int u = V[i].list[j]->name;
+					if (u == v || (u != v && !G->adj[u][v]))
+						H->V[i].list[index++] = H->G->node_list + u;
+				}
+			}
+			else {
+				// Copy Vk
+				H->V[i].n_list = V[i].n_list;
+				H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+				for (int j = 1; j <= V[i].n_list; ++j) {
+					int u = V[i].list[j]->name;
+					H->V[i].list[j] = H->G->node_list + u;
+				}				
+			}
+		}
+		else {
+			H->V[i].list = new nodepnt[V[i].n_list + 1];
+			H->V[i].n_list = 0;
+			for (int j = 1; j <= V[i].n_list; ++j) {
+				int u = V[i].list[j]->name;
+				if (u != v)
+					H->V[i].list[++(H->V[i].n_list)] = H->G->node_list + u;
+			}
+		}
+	}
+
+	// Set branch information
+	H->st = CHOOSE;
+	H->branch_vertex_v = v;
+	H->branch_color_k = k;
+
+#ifdef STABLE_POOL
+	// Build the pools
+	H->global_pool.resize(H->K.size());
+	H->local_pool.resize(H->K.size());
+	// Copy into H->global_pool the stables from global_pool
+	for (int i = 0; i < H->K.size(); ++i) {
+		for (auto &s: global_pool[i]) {
+			nodepnt *stable = NULL;
+			int n_stable = 0;
+			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
+			H->global_pool[i].emplace_back(stable, n_stable);
+		}
+	}
+#endif
+
+	return H;
+
+}
+
+
+Graph* Graph::remove_indistinguishable_color(int v, int k) {
 
 	// Build a new graph
 	Graph *H = new Graph();
