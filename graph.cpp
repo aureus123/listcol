@@ -432,6 +432,7 @@ bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_s
 #ifdef STABLE_POOL
 	// We try to solve the MWSSP heuristically
 	if (solve_MWSSP_heuristic(i, goal, best_stable, n_best_stable)) {
+		local_pool[i].emplace_back(*best_stable, *n_best_stable);
 		return true;
 	}
 	// Otherwise, proceed with the exact algorithm
@@ -461,13 +462,14 @@ bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_s
 bool Graph::solve_MWSSP_heuristic(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
 
 	// Try to find an stable set in the global pool with a total weight greater than goal
-	for (auto &s: global_pool[i]) {
+	for (auto it = global_pool[i].begin(); it != global_pool[i].end(); ++it) {
 		int total_weight = 0;
-		for (int j = 1; j <= s.n_list; ++j)
-			total_weight += G->weight[s.list[j]->name];
+		for (int j = 1; j <= it->n_list; ++j)
+			total_weight += G->weight[it->list[j]->name];
 		if (total_weight > (int) INTFACTOR * goal) {
-			*best_stable = s.list;
-			*n_best_stable = s.n_list;
+			*best_stable = it->list;
+			*n_best_stable = it->n_list;
+			it = global_pool[i].erase(it);
 			return true;
 		}
 	}
@@ -639,11 +641,17 @@ bool Graph::check_coloring(std::vector<int> &) {
 
 
 void Graph::update_pool() {
-	for (int i = 0; i < K.size(); ++i) 
+	for (int i = 0; i < K.size(); ++i) {
+		// Delete the current global_pool
+		for (auto &s: global_pool[i]) 
+			free(s.list);
+		global_pool[i].clear();
+		// Copy the local pool to the global pool
 		for (auto it = local_pool[i].begin(); it != local_pool[i].end();) {
 			global_pool[i].emplace_back(it->list, it->n_list);
 			it = local_pool[i].erase(it);
 		}
+	}
 }
 
 void Graph::column_to_stable (bool *column, int size, nodepnt **stable) {
