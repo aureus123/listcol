@@ -470,6 +470,8 @@ void LP::branch(std::vector<LP *> &ret) {
 
 void LP::branch_on_edges(std::vector<LP *> &ret) {
 
+    // ** Variable selection ** 
+
     // Choose vertices u and v to branch
     // 1) Find the most fractional stable (S1,k) with |S1| > 1
     // 2) Find the first vertex u in S1
@@ -509,6 +511,8 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
             break;
         }
 
+    // ** Branching rule ** 
+
     // Build the graph with an additional edge between u and v
     Graph *G1 = G->join_vertices(u, v);
 
@@ -530,6 +534,8 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
 }
 
 void LP::branch_on_colors(std::vector<LP *> &ret) {
+
+    // ** Variable selection ** 
 
     // Choose vertex v and color k to branch
     // 1) Find the pair (v,k) that maximizes the cardinality of N(v) \cap V[k] such that
@@ -614,21 +620,34 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
         }
     }
 
+    // ** Branching rule ** 
+
     // Build the graph where v is colored with k
     Graph *G1 = G->choose_color(max_v, max_k);
 
     // Build LP from G1
     LP *lp1 = new LP(G1, this);
 
-    // Build the graph where v cannot be colored with k
-    Graph *G2 = G->remove_color(max_v, max_k);
-  
-    // Build LP from G2
-    LP *lp2 = new LP(G2, this);
+    if (n_L[max_v] - G->get_n_C[max_k] > 0) { // If v is in other color classes
 
-    ret.resize(2);
-    ret[0] = lp1;   // First choose
-    ret[1] = lp2;   // Then remove
+        // Build the graph where v cannot be colored with k
+        Graph *G2 = G->remove_color(max_v, max_k);
+    
+        // Build LP from G2
+        LP *lp2 = new LP(G2, this);
+
+        ret.resize(2);
+        ret[0] = lp1;   // First choose
+        ret[1] = lp2;   // Then remove
+
+    }
+    else {
+
+        ret.resize(1);
+        ret[0] = lp1;   // First choose
+
+    }
+
     return;
 
 }
