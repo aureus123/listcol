@@ -19,6 +19,13 @@
                                   // 2: stable set covering heuristic
 #endif
 
+#if BRANCHING_STRATEGY == 2
+#ifndef BRANCH_IND_COLOR
+#define BRANCH_IND_COLOR 0 // 0: delay branching on color
+                           // 1: not delay branching on color
+#endif
+#endif
+
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, TIME_OR_MEM_LIMIT};
 
 typedef struct Column {
@@ -84,6 +91,9 @@ class LP {
     void branch_on_edges(std::vector<LP *> &ret);
     void branch_on_colors(std::vector<LP *> &ret);
     void branch_on_indistinguishable_colors(std::vector<LP *> &ret);
+
+    // Internal variable selection strategy
+    void variable_selection_color (int max_v, int max_k, std::vector<int> &W);
 
 };
 

@@ -71,10 +71,10 @@ class Graph {
   int get_n_neighbours(int v, int k);
 
   // Get |L(v)| of every vertex v
-  void get_n_L(std::vector<int> &n_L);
+  void get_W1(std::vector<int> &n_L);
 
   // Get |L(v) \cap K| of every vertex v
-  void get_n_L_indistinguishable(std::vector<int> &n_L);
+  void get_W2(std::vector<int> &n_L);
 
   // Are vertices u and v adjacent?
   bool is_edge(int u, int v);

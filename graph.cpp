@@ -322,20 +322,20 @@ int Graph::get_n_neighbours(int v, int k) {
 	return ret;
 }
 
-void Graph::get_n_L(std::vector<int> &n_L) {
-	n_L.clear();
-	n_L.resize(get_n_vertices(), 0);
+void Graph::get_W1(std::vector<int> &W) {
+	W.clear();
+	W.resize(get_n_vertices(), 0);
 	for (int i = 0; i < K.size(); ++i)
 		for (int j = 1; j <= V[i].n_list; ++j)
-			n_L[V[i].list[j]->name - 1] += C[i].size();
+			W[V[i].list[j]->name - 1] += C[i].size();
 }
 
-void Graph::get_n_L_indistinguishable(std::vector<int> &n_L) {
-	n_L.clear();
-	n_L.resize(get_n_vertices(), 0);
+void Graph::get_W2(std::vector<int> &W) {
+	W.clear();
+	W.resize(get_n_vertices(), 0);
 	for (int i = 0; i < K.size(); ++i)
 		for (int j = 1; j <= V[i].n_list; ++j)
-			n_L[V[i].list[j]->name - 1]++;
+			W[V[i].list[j]->name - 1]++;
 }
 
 bool Graph::is_edge(int u, int v) {
