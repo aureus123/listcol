@@ -70,11 +70,8 @@ class Graph {
   // Get N(v) \cap Vk
   int get_n_neighbours(int v, int k);
 
-  // Get |L(v)| of every vertex v
-  void get_W1(std::vector<int> &n_L);
-
-  // Get |L(v) \cap K| of every vertex v
-  void get_W2(std::vector<int> &n_L);
+  // Get W1 such that W1[v] = |Lv \cap K| for all v
+  void get_W1(std::vector<int> &W1);
 
   // Are vertices u and v adjacent?
   bool is_edge(int u, int v);
@@ -117,14 +114,11 @@ class Graph {
   // Build a new graph where color k is the only color in the list of v
   Graph* choose_color(int v, int k);
 
-  // Build a new graph where color k is removed from the list of v
-  Graph* remove_color(int v, int k);
-
   // Build a new graph where vertex v must be colored with the color class of color k
   Graph* choose_indistinguishable_color(int v, int k);
 
-  // Build a new graph where vertex v must not be colores with the color class of color k
-  Graph* remove_indistinguishable_color(int v, int k);
+  // Build a new graph where color k is removed from the list of v
+  Graph* remove_color(int v, int k);
 
   // Get branch status
   BRANCH_STATUS get_branch_status();

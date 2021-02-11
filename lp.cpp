@@ -461,7 +461,7 @@ void LP::branch(std::vector<LP *> &ret) {
 #elif BRANCHING_STRATEGY == 1
     branch_on_colors(ret);
 #elif BRANCHING_STRATEGY == 2
-    branch_on_indistinguishable_colors(ret);
+    branch_on_colors(ret);
 #endif
 
     return;
@@ -536,103 +536,58 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
 
 void LP::branch_on_colors(std::vector<LP *> &ret) {
 
-    // Apply variable selection strategy
-    int max_v = -1, max_k = -1;
-    std::vector<int> W;
-    G->get_W1(W);
-    variable_selection_color(max_v, max_k, W);
+    // Choose vertex v and color k to branch
     
-    // Build the graph where v is colored with k
-    Graph *G1 = G->choose_color(max_v, max_k);
+    // Define W1 = {v : v is in a single color class}
+    // Choose (v,k) such that
+    //  v is in W1
+    //  v is in some Sk with x(S,k) fractional
+    //  v maximises |N(v) \cap Vk| + rand(0,1)  (random tie break) 
+    // If such (v,k) exists, then reduce the instance
+    // Otheriwse, choose (v,k) such that
+    //  v is in some Sk with x(S,k) fractional
+    //  v maximises |N(v) \cap Vk| + rand(0,1)  (random tie break) 
+    // Such (v,k) always exists, then branch according to CLR or IND
 
-    // Build LP from G1
-    LP *lp1 = new LP(G1, this);
+    std::vector<int> W1;
+    G->get_W1(W1); // W[v] = |Lv \cap K|
 
-    if (W[max_v] - G->get_n_C(max_k) > 0) { // If v is in other color classes
+    bool empty_W1 = true;
+    double max_value = -1.0;
+    int max_v = -1;
+    int max_k = -1;
+    for (int i: pos_vars)
+        if (values[i] > EPSILON && values[i] < 1 - EPSILON) // x(S,k) is fractional
+            for (int v = 0; v < G->get_n_vertices(); ++v)
+                if (vars[i].stable[v]) { // v is in S
 
-        // Build the graph where v cannot be colored with k
-        Graph *G2 = G->remove_color(max_v, max_k);
+                    double value = G->get_n_neighbours(v, vars[i].color) + (double) rand() / RAND_MAX; 
+
+                    if (W1[v] == 1 && empty_W1) {
+                        empty_W1 = false;
+                        max_value = value;
+                        max_v = v;
+                        max_k = vars[i].color;
+                    }
+                    else if (W1[v] == 1 && !empty_W1 && value > max_value) {
+                        max_value = value;
+                        max_v = v;
+                        max_k = vars[i].color;
+                    }
+                    else if (W1[v] > 1 && empty_W1 && value > max_value) {
+                        max_value = value;
+                        max_v = v;
+                        max_k = vars[i].color;
+                    } 
+                    
+                }
+
+    if (max_v == -1 || max_k == -1)
+        bye("Branching error");
     
-        // Build LP from G2
-        LP *lp2 = new LP(G2, this);
-
-        ret.resize(2);
-        ret[0] = lp1;   // First choose
-        ret[1] = lp2;   // Then remove
-
-    }
-    else {
-
-        ret.resize(1);
-        ret[0] = lp1;   // First choose
-
-    }
-
-    return;
-
-}
-
-void LP::branch_on_indistinguishable_colors(std::vector<LP *> &ret) {
-
-#if BRANCH_IND_COLOR == 0
-
-    // If W2 is empty, then call branch_on_colors and return
-    // Otherwise, apply variable_selection_color_ind with W2 and then branch
-
-    std::vector<int> W;
-    G->get_W2(W);
-    bool is_empty = true;
-    for (int j = 0; j < G->get_n_vertices(); ++j) 
-        if (W[j] >= 2) {
-            is_empty = false;
-            break;
-        }
-
-    if (is_empty) {
-
-        branch_on_colors(ret);
-        return;
-    
-    }
-    else {
-
-        int max_v = -1, max_k = -1;
-        variable_selection_color(max_v, max_k, W);
+    if (!empty_W1) {
 
         // Build the graph where v is colored with k
-        Graph *G1 = G->choose_indistinguishable_color(max_v, max_k);
-
-        // Build LP from G1
-        LP *lp1 = new LP(G1, this);
-
-        // Build the graph where v cannot be colored with k
-        Graph *G2 = G->remove_indistinguishable_color(max_v, max_k);
-    
-        // Build LP from G2
-        LP *lp2 = new LP(G2, this);
-
-        ret.resize(2);
-        ret[0] = lp1;   // First choose
-        ret[1] = lp2;   // Then remove
-
-        return;
-
-    }
-
-#elif BRANCH_IND_COLOR == 1
-
-    // Apply variable_selection_color_ind with W1, and get (v,k)
-    // If v is in W1 \ W2 branch according to color
-    // Otherwise, branch according to color indistinguishable 
-
-    int max_v = -1, max_k = -1;
-    std::vector<int> W;
-    G->get_W1(W);
-    variable_selection_color(max_v, max_k, W);
-
-    if (W[max_v] - G->get_n_C(max_k) == 0) {
-
-       // Build the graph where v is colored with k
         Graph *G1 = G->choose_color(max_v, max_k);
 
         // Build LP from G1
@@ -641,111 +596,37 @@ void LP::branch_on_indistinguishable_colors(std::vector<LP *> &ret) {
         ret.resize(1);
         ret[0] = lp1;   // First choose
 
-        return;
-
     }
     else {
 
-        // Build the graph where v is colored with k
-        Graph *G1 = G->choose_indistinguishable_color(max_v, max_k);
+    Graph *G1, *G2;
 
-        // Build LP from G1
-        LP *lp1 = new LP(G1, this);
+#if BRANCHING_STRATEGY == 1
 
-        // Build the graph where v cannot be colored with k
-        Graph *G2 = G->remove_indistinguishable_color(max_v, max_k);
-    
-        // Build LP from G2
-        LP *lp2 = new LP(G2, this);
+    // Build the graph where v is colored with k
+    G1 = G->choose_color(max_v, max_k);
 
-        ret.resize(2);
-        ret[0] = lp1;   // First choose
-        ret[1] = lp2;   // Then remove
+#elif BRANCHING_STRATEGY == 2
 
-        return; 
-
-    }
+    // Build the graph where v is colored with k
+    G1 = G->choose_indistinguishable_color(max_v, max_k);
 
 #endif
 
-}
+    // Build LP from G1
+    LP *lp1 = new LP(G1, this);
 
-void LP::variable_selection_color (int max_v, int max_k, std::vector<int> &W) {
+    // Build the graph where v cannot be colored with k
+    G2 = G->remove_color(max_v, max_k);
 
-    // Choose vertex v and color k to branch
-    // 1) Find the pair (v,k) that maximizes the cardinality of N(v) \cap V[k] such that
-    //  -) W[v] > 1
-    //  -) Exists some stable set S with v \in S and x(S,k) is fractional
-    // 2) In case of tie, choose the one with the largest value of st(v,k) where:
-    //  -) st(v,k) = st1(v,k) + st2(v,k) + st3(v,k)     if |C[k]| = 1
-    //  -) st(v,k) = st1(v,k) + st2(v,k)                if |C[k]| > 1 
+    // Build LP from G2
+    LP *lp2 = new LP(G2, this);
 
-    // Set of candidates (a set is needed to avoid repeated elements)
-    std::set<std::pair<int,int>> candidates; // (v,k) candidates
-    int max_neighbours = -1;
-
-    for (int i: pos_vars)
-        if (values[i] > EPSILON && values[i] < 1 - EPSILON)
-            for (int j = 0; j < G->get_n_vertices(); ++j)
-                if (vars[i].stable[j]) {
-                    if (W[j] <= 1) continue;  // Ignore vertex v with W[j] = 1
-                    int v = j;
-                    int k = vars[i].color;
-                    int neighbours = G->get_n_neighbours(v, k);
-                    if (neighbours > max_neighbours) {
-                        candidates.clear();
-                        candidates.emplace(v,k);
-                        max_neighbours = neighbours;
-                    }
-                    else if (neighbours == max_neighbours)
-                        candidates.emplace(v,k);
-                }
-
-    if (candidates.empty())
-        bye("Branching error");
+    ret.resize(2);
+    ret[0] = lp1;   // First choose
+    ret[1] = lp2;   // Then remove
     
-    if (candidates.size() == 1) {
-        max_v = candidates.begin()->first;
-        max_k = candidates.begin()->second;
-
-    }
-
-    else {
-
-        // Calculate st(v,k) of every candidate
-        std::vector<int> st (candidates.size(), 0);
-        for (int i: pos_vars)
-            if (values[i] > EPSILON && values[i] < 1 - EPSILON) {            
-                int c = 0; // st index
-                for (auto &t: candidates) {
-                    int v = t.first;
-                    int k = t.second;
-                    if (vars[i].stable[v]) st[c]++; // Increase st1 or st2 by 1
-                    else
-                        // Check if there is a neighbor of v
-                        if (k == vars[i].color && G->get_n_C(k) == 1) 
-                            for (int j = 0; j < G->get_n_vertices(); ++j)
-                                if (vars[i].stable[j] && G->is_edge(v,j)) {
-                                    st[c]++; // Increase st3 by 1
-                                    break;
-                                }
-                    ++c;
-                }
-            }
-
-        // Choose max_v and max_k
-        int max = -1;
-        int c = 0; // st index
-        for (auto &t: candidates) {
-            int v = t.first;
-            int k = t.second;
-            if (st[c] > max) {
-                max = st[c];
-                max_v = v;
-                max_k = k;
-            }
-            c++;
-        }
-    }
+    return;
 
 }
+
