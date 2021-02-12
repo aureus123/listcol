@@ -587,7 +587,7 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
     
     if (!empty_W1) {
 
-        // Build the graph where v is colored with k
+        // Build the graph where v is colored with k and reduce the instance 
         Graph *G1 = G->choose_color(max_v, max_k);
 
         // Build LP from G1
@@ -599,34 +599,36 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
     }
     else {
 
-    Graph *G1, *G2;
+        Graph *G1, *G2;
 
 #if BRANCHING_STRATEGY == 1
 
-    // Build the graph where v is colored with k
-    G1 = G->choose_color(max_v, max_k);
+        // Build the graph where v is colored with k and reduce the instance
+        G1 = G->choose_color(max_v, max_k);
 
 #elif BRANCHING_STRATEGY == 2
 
-    // Build the graph where v is colored with k
-    G1 = G->choose_indistinguishable_color(max_v, max_k);
+        // Build the graph where v is colored with k, do not change the partition
+        G1 = G->choose_indistinguishable_color(max_v, max_k);
 
 #endif
 
-    // Build LP from G1
-    LP *lp1 = new LP(G1, this);
+        // Build LP from G1
+        LP *lp1 = new LP(G1, this);
 
-    // Build the graph where v cannot be colored with k
-    G2 = G->remove_color(max_v, max_k);
+        // Build the graph where v cannot be colored with k
+        G2 = G->remove_color(max_v, max_k);
 
-    // Build LP from G2
-    LP *lp2 = new LP(G2, this);
+        // Build LP from G2
+        LP *lp2 = new LP(G2, this);
 
-    ret.resize(2);
-    ret[0] = lp1;   // First choose
-    ret[1] = lp2;   // Then remove
-    
-    return;
+        ret.resize(2);
+        ret[0] = lp1;   // First choose
+        ret[1] = lp2;   // Then remove
+        
+        return;
+
+    }
 
 }
 
