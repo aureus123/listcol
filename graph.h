@@ -81,6 +81,9 @@ class Graph {
 
   // Print graph
   void print_graph();
+	
+  // Preprocess the instance
+  void preprocess_instance();
 
   // Solve the MWSSP in V[i]: ¿Does it exists a maximum stable set in V[i] with a weight greater than goal?
   //  If the answer is yes, then the result is saved in best_stable and n_best_stable
