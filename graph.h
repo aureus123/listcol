@@ -33,6 +33,8 @@ typedef struct nodepntArray {
                               // 2: Branching on indistinguishable colors
 #endif
 
+#define PREPROCESS
+
 enum BRANCH_STATUS {NONE, JOIN, COLLAPSE, CHOOSE, REMOVE};
 
 class Graph {
