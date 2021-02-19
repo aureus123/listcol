@@ -26,14 +26,13 @@ typedef struct nodepntArray {
 #define MAXTIME_MWIS 300.0
 
 //#define STABLE_POOL
+//#define PREPROCESS
 
 #ifndef BRANCHING_STRATEGY
 #define BRANCHING_STRATEGY 0  // 0: Branching on edges
                               // 1: Branching on colors
                               // 2: Branching on indistinguishable colors
 #endif
-
-#define PREPROCESS
 
 enum BRANCH_STATUS {NONE, JOIN, COLLAPSE, CHOOSE, REMOVE};
 
