@@ -259,6 +259,10 @@ void Graph::read_lists(char *filename) {
 	global_pool.resize(K.size());
 	local_pool.resize(K.size());
 #endif
+	
+#ifdef PREPROCESS
+	preprocess_instance();
+#endif
 
 	delete[] part_card;
 	delete[] part_set;
@@ -410,6 +414,88 @@ void Graph::print_graph() {
 	return;
 }
 
+// preprocess_instance - preprocess the instance:
+// For all vertex v such that k(v) = 1, v \in V_j, m(j) >= 2 and j' \in C_j\{j}
+// K'= K\cup \{j'\}
+// V'_k= V_k, w'(k)=w(k), and m'(k)=m(k), for all k \in K\{j}
+// V'_j = V_j\N_{G_j}(v), w'(j)=w(j), and m'(j)=1
+// V_{j'}=V_j\{v}, w(j')=w(j), and m(j')=m(j)-1
+void Graph::preprocess_instance() {
+	
+	// Define L[v] = {j \in K: v \in V_j}
+	std::vector<std::list<int>> L(get_n_vertices() + 1);
+	for (int j = 0; j < K.size(); ++j)
+		for (int v = 1; v <= V[j].n_list; ++v)
+			L[V[j].list[v]->name].push_back(j);
+	
+	// Define the list of candidates (v,j) with k(v) = 1, v \in V_j, m(j) >= 2
+	std::list<std::pair<int,int>> candidates;
+	for (int v = 1; v <= get_n_vertices(); ++v)
+		if (L[v].size() == 1 && get_n_C(L[v].front()) >= 2)
+			candidates.push_back(std::make_pair(v,L[v].front()));
+	
+	// Find the candidate (v,j) with the greatest N_{G_j}(v)
+	int max_neighbors = -1;
+	std::pair<int,int> max_vj (-1,-1);
+	for (auto &p: candidates) {
+		int n = get_n_neighbours(p.first - 1, p.second);
+		if (n > max_neighbors) {
+			max_neighbors = n;
+			max_vj = p;
+		}
+	}
+	
+	// If there is not any candidate, return
+	if (max_neighbors == -1)
+		return;
+	
+	// Preprocess the instance
+	
+	int v = max_vj.first;
+	int j = max_vj.second;
+
+	// Build vector of indistinguishable colors
+	K.resize(K.size() + 1);
+	K[j] = C[j][1];
+	K[K.size()-1] = C[j][0];
+
+	// Build the partition into indistinguishable colors
+	C.resize(C.size() + 1);
+	C[j].assign(C[j].begin() + 1, C[j].end());
+	C[C.size()-1].push_back(C[j][0]);
+
+	// Build Vk's
+	V.resize(V.size() + 1);
+	// Remove N_{G_j}(v) from V[V.size() - 1]
+	nodepnt *V1 = new nodepnt[V[j].n_list - max_neighbors + 1];
+	int index = 1;
+	for (int i = 1; i <= V[j].n_list; ++i) {
+		int u = V[j].list[i]->name;
+		if (u == v || (u != v && !G->adj[u][v]))
+			V1[index++] = V[j].list[i];
+	}
+	V[V.size() - 1].n_list = V[j].n_list - max_neighbors;
+	V[V.size() - 1].list = V1;
+	// Remove vertex v from V[j]
+	nodepnt *V2 = new nodepnt[V[j].n_list];
+	index = 1;
+	for (int i = 1; i <= V[j].n_list; ++i)
+		if (V[j].list[i]->name != v)
+			V2[index++] = V[j].list[i];
+	V[j].n_list--; 
+	delete[] V[j].list;
+	V[j].list = V2;
+
+#ifdef STABLE_POOL
+	bye("Stable pool is not implemented yet when preprocessing is on.\n");
+#endif	
+	
+	// Recursion
+	preprocess_instance();
+
+	return;
+
+}
 
 bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
 
