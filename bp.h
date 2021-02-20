@@ -26,8 +26,7 @@ class Coloring {
     void save(LP& lp) {
         coloring.clear();
         active_colors.clear();
-        lp.save_solution(coloring, active_colors);
-        value = lp.get_obj_value();
+        lp.save_solution(coloring, active_colors, value);
         return;
     };
 
