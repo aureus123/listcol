@@ -396,13 +396,16 @@ LP_STATE LP::optimize(double start_t) {
 
 }
 
-void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors) {
+void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors, double &value) {
 
 #if BRANCHING_STRATEGY == 0
 
-    // Build the coloring of the current graph
+ 
+    value = 0.0;
     std::vector<int> stables_per_color (G->get_n_colors(), 0);
     std::vector<int> temp_coloring (G->get_n_vertices());
+ 
+    // Build the coloring of the current graph
     for (int i: pos_vars) {
         int color = vars[i].color;
         int true_color = G->get_C(color, stables_per_color[color]);
@@ -410,13 +413,22 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors)
         for (int j = 0; j < G->get_n_vertices(); ++j)
             if (vars[i].stable[j])
                 temp_coloring[j] = true_color;
-        active_colors.insert(true_color);
     }
 
     // Build the coloring of the original graph
     coloring.resize(G->get_n_total_vertices());
-    for (int i = 0; i < G->get_n_total_vertices(); ++i)
-        coloring[i] = temp_coloring[G->get_current_vertex(i)];
+    for (int i = 0; i < G->get_n_total_vertices(); ++i) {
+	int cv = G->get_current_vertex(i);    
+	if (cv == -1)
+		coloring[i] = G->get_precoloring(i);
+	else
+	        coloring[i] = temp_coloring[cv];
+	active_colors.insert(coloring[i]);
+    }
+	
+    // Compute the cost
+    for (int k: active_colors)
+        value += G->get_color_cost(k);
 
 #else
 
@@ -432,6 +444,7 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors)
         }
         active_colors.insert(true_color);
     }
+    value = get_obj_value();
 
 #endif
 
