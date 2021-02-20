@@ -101,6 +101,8 @@ void Graph::read_graph(char *filename) {
 	precoloring.resize(get_n_vertices() + 1);
 	for (int i = 1; i <= get_n_vertices(); ++i)
 		precoloring[i] = -1;
+	
+	precoloring_value = 0.0;
 #endif
 
     return;
@@ -415,12 +417,126 @@ void Graph::print_graph() {
 }
 
 // preprocess_instance - preprocess the instance:
+// Lemma 1: Let (G,L,w) be an instance of WLCP such that L(u) = \{j\} for some $u \in V(G)$ and $j \in C$.
+//          Solving (G,L,w) is equivalent to solve WLCP for the instance (G-u, L', w') where
+//          L'(z) = L(z)\{j} 	if z \in N(u)
+//                = L(z) 	if z \in V(G)\N[u] 
+//          w'_k = w_k 		if k != j
+//	         = 0		if k = j
+// Lemma 2:
 // For all vertex v such that k(v) = 1, v \in V_j, m(j) >= 2 and j' \in C_j\{j}
 // K'= K\cup \{j'\}
 // V'_k= V_k, w'(k)=w(k), and m'(k)=m(k), for all k \in K\{j}
 // V'_j = V_j\N_{G_j}(v), w'(j)=w(j), and m'(j)=1
 // V_{j'}=V_j\{v}, w(j')=w(j), and m(j')=m(j)-1
 void Graph::preprocess_instance() {
+	
+	// Define L[v] = {j \in K: v \in V_j}
+	std::vector<std::list<int>> L(get_n_vertices() + 1);
+	for (int j = 0; j < K.size(); ++j)
+		for (int v = 1; v <= V[j].n_list; ++v)
+			L[V[j].list[v]->name].push_back(j);
+	
+	// **************** LEMMA 1 ******************* //
+	
+	// Define the list of candidates (v,j) with L(v) = {j} and m(j) = 1
+	std::list<std::pair<int,int>> l1_candidates;
+	for (int v = 1; v <= get_n_vertices(); ++v)
+		if (L[v].size() == 1 && get_n_C(L[v].front()) == 1)
+			l1_candidates.push_back(std::make_pair(v,L[v].front()));
+
+	// Find the candidate (v,j) with the greatest N_{G_j}(v)
+	int n_neighbors = -1;
+	int v = -1;
+	int j = -1;
+	for (auto &p: l1_candidates) {
+		int n = get_n_neighbours(p.first - 1, p.second);
+		if (n > n_neighbors) {
+			n_neighbors = n;
+			v = p.first;
+			j = p.second;
+		}	
+	}
+		
+	// If there is a candidate, apply lemma 1
+	if (n_neighbors > -1) {
+
+		// Build a new Sewell's graph
+		MWSSgraphpnt H = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
+		allocate_graph(H, get_n_vertices() - 1); // We have one less vertex
+		for(int i = 0; i <= H->n_nodes; i++)
+			for(int j = 0; j <= H->n_nodes; j++)
+				H->adj[i][j] = G->adj[i >= v ? i+1 : i][j >= v ? j+1 : j]; // Ignore the entry of v
+		build_graph(H);
+		// Set some information necessary to solve the MWSSP
+		for(int i = 1; i <= H->n_nodes; i++) {
+			MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes+1, nodepnt*);
+			H->node_list[i].adj_last[0] = H->adj_last[i];
+			H->node_list[i].adj2 = H->adj_last[i];
+		}
+
+		// Update every Vk
+		for (int k = 0; k < K.size(); ++k) {
+			nodepnt *V1;
+			if (k == j) {
+				V1 = new nodepnt[V[j].n_list - n_neighbors];
+				int index = 1;
+				for (int i = 1; i <= V[j].n_list; ++i) {
+					int u = V[j].list[i]->name;
+					if (u != v && !G->adj[u][v])
+						V1[index++] = H->node_list + (u < v ? u : u-1);
+				}
+				V[j].n_list = V[j].n_list - n_neighbors - 1;
+				delete[] V[j].list;
+				V[j].list = V1;
+			}
+			else {
+				V1 = new nodepnt[V[k].n_list + 1];
+				int index = 1;
+				for (int i = 1; i <= V[k].n_list; ++i) {
+					int u = V[k].list[i]->name;
+					V1[index++] = H->node_list + (u < v ? u : u-1);
+				}
+				delete[] V[k].list;
+				V[k].list = V1;			
+			}
+		}
+
+		// Update vertex mapping and precoloring
+		for (int i = 1; i <= vertex_mapping.size(); ++i) {
+			if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
+				continue;
+			else if (vertex_mapping[i] == v) {
+				vertex_mapping[i] = -1;
+				precoloring[i] = j;
+			}
+			else
+				vertex_mapping[i] = vertex_mapping[i] - 1;
+		}
+			
+		// Update precoloring value
+		precoloring_value += w[j];
+		
+		// Update Sewell graph
+		free_graph(G);
+		free(G);
+		G = H;
+
+		// Update w
+		w[j] = 0;
+		
+#ifdef STABLE_POOL
+		bye("Stable pool is not implemented yet when preproccessing is on")
+#endif
+	
+		// Recursive call
+		preprocess_instance();
+		return;
+	
+	}
+	
+	
+/*	
 	
 	// Define L[v] = {j \in K: v \in V_j}
 	std::vector<std::list<int>> L(get_n_vertices() + 1);
@@ -489,12 +605,13 @@ void Graph::preprocess_instance() {
 #ifdef STABLE_POOL
 	bye("Stable pool is not implemented yet when preprocessing is on.\n");
 #endif	
-	
+
 	// Recursion
 	preprocess_instance();
 
 	return;
-
+*/
+	
 }
 
 bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
@@ -874,9 +991,15 @@ Graph *Graph::join_vertices(int u, int v) {
 	H->branch_vertex_u = u;
 	H->branch_vertex_v = v;
 
-	// Build vector of contracted vertices
+	// Build vertex mapping
 	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
 
+	// Build precoloring
+	H->precoloring.assign(precoloring.begin(),precoloring.end());
+	
+	// Build precoloring cost
+	H->precoloring_value = precoloring_value; 	
+	
 #ifdef STABLE_POOL
 	// Build the pools
 	H->global_pool.resize(H->K.size());
@@ -983,9 +1106,9 @@ Graph *Graph::collapse_vertices(int u, int v) {
 	H->branch_vertex_u = u;
 	H->branch_vertex_v = v;
 
-	// Build vector of contracted vertices
+	// Build vertex mapping
 	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
-	for (int i = 1; i < H->vertex_mapping.size(); ++i) {
+	for (int i = 1; i <= H->vertex_mapping.size(); ++i) {
 		if (H->vertex_mapping[i] < v)
 			continue;
 		else if (H->vertex_mapping[i] == v)
@@ -993,7 +1116,13 @@ Graph *Graph::collapse_vertices(int u, int v) {
 		else
 			H->vertex_mapping[i] = H->vertex_mapping[i] - 1;
 	}
-
+	
+	// Build precoloring
+	H->precoloring.assign(precoloring.begin(),precoloring.end());
+	
+	// Build precoloring cost
+	H->precoloring_value = precoloring_value; 
+	
 #ifdef STABLE_POOL
 	// Build the pools
 	H->global_pool.resize(H->K.size());
@@ -1035,6 +1164,10 @@ int Graph::get_current_vertex(int v) {
 
 int Graph::get_precoloring(int i) {
 	return precoloring[i+1];
+}
+
+double Graph::get_precoloring_value() {
+	return precoloring_value;
 }
 
 BRANCH_STATUS Graph::get_branch_status() {
