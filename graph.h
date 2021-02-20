@@ -134,6 +134,7 @@ class Graph {
   // Get vertex information (used for branching on colors)
   int get_n_total_vertices();     // Get the number of vertices of the original graph
   int get_current_vertex(int i);  // Get the current vertex that stands for the original vertex i
+  int get_precoloring(int i);	  // Get the color of the original vertex i
 
   private:
 
