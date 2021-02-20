@@ -26,7 +26,6 @@ typedef struct nodepntArray {
 #define MAXTIME_MWIS 300.0
 
 //#define STABLE_POOL
-//#define PREPROCESS
 
 #ifndef BRANCHING_STRATEGY
 #define BRANCHING_STRATEGY 0  // 0: Branching on edges
