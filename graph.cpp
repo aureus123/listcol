@@ -56,7 +56,7 @@ void Graph::read_graph(char *filename) {
 	if (!stream) bye("Graph file cannot be opened");
 
 	// Read number of vertices and edges
-    int vertices, edges;
+	int vertices, edges;
 	fscanf(stream, "%d:%d\n", &vertices, &edges);
 
 	// Do not accept graph of less than 4 vertices or stable sets
@@ -97,6 +97,10 @@ void Graph::read_graph(char *filename) {
 	vertex_mapping.resize(get_n_vertices() + 1);
 	for (int i = 1; i <= get_n_vertices(); ++i)
 		vertex_mapping[i] = i;
+	
+	precoloring.resize(get_n_vertices() + 1);
+	for (int i = 1; i <= get_n_vertices(); ++i)
+		precoloring[i] = -1;
 #endif
 
     return;
@@ -114,13 +118,13 @@ void Graph::read_costs(char *filename) {
 	// Open file
 	FILE *stream = fopen(filename, "rt");
 	if (!stream) bye("Cost file cannot be opened");
-    int colors;
+	int colors;
 	fscanf(stream, "%d\n", &colors);
 
 	// Do not accept less than 2 colors
 	if (colors < 2) bye("Number of colors out range!");
 
-    w.resize(colors);
+	w.resize(colors);
 
 	// Read costs
 	for (int k = 0; k < colors; k++) {
@@ -188,7 +192,7 @@ void Graph::read_lists(char *filename) {
 	}
 
 
-    // Build partition
+	// Build partition
 	// The structure of the partition consists of an array and a linked-list. The linked-list is formed with
 	// header_part (points to the first) and next_part (points to the next).
 	int *header_part = new int[colors]; 	// is the first color (representative) of a given color
