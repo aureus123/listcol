@@ -153,7 +153,8 @@ class Graph {
   int branch_vertex_v;       // Vertex v
   int branch_color_k;        // Color k
   
-  std::vector<int>  vertex_mapping; // For each i (original vertex), vertex_mapping[i] is the vertex that stands for i in the current graph
+  std::vector<int>  vertex_mapping; // For each i (original vertex), vertex_mapping[i] is the vertex that stands for i in the current graph (or -1 if it was deleted)
+  std::vector<int> precoloring; // For each i (original vertex), precoloring[i] is the color of vertex i (or -1 if it is uncolored)
 
   // Read graph
   void read_graph(char *filename);
