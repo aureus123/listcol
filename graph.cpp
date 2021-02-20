@@ -259,10 +259,6 @@ void Graph::read_lists(char *filename) {
 	global_pool.resize(K.size());
 	local_pool.resize(K.size());
 #endif
-	
-#ifdef PREPROCESS
-	preprocess_instance();
-#endif
 
 	delete[] part_card;
 	delete[] part_set;
