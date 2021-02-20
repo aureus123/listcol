@@ -135,6 +135,7 @@ class Graph {
   int get_n_total_vertices();     // Get the number of vertices of the original graph
   int get_current_vertex(int i);  // Get the current vertex that stands for the original vertex i
   int get_precoloring(int i);	  // Get the color of the original vertex i
+  double get_precoloring_value(); // Get precoloring value
 
   private:
 
@@ -156,6 +157,7 @@ class Graph {
   
   std::vector<int>  vertex_mapping; // For each i (original vertex), vertex_mapping[i] is the vertex that stands for i in the current graph (or -1 if it was deleted)
   std::vector<int> precoloring; // For each i (original vertex), precoloring[i] is the color of vertex i (or -1 if it is uncolored)
+  double precoloring_value; // Precoloring value
 
   // Read graph
   void read_graph(char *filename);
