@@ -43,7 +43,7 @@ class LP {
     LP_STATE optimize(double start_t);
 
     // Save optimal solution
-    void save_solution(std::vector<int> &coloring, std::set<int> &active_colors);
+    void save_solution(std::vector<int> &coloring, std::set<int> &active_colors, double &value);
 
     // Get objective value
     double get_obj_value();
