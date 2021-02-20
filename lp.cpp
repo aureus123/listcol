@@ -427,6 +427,7 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors,
     }
 	
     // Compute the cost
+    value = G->get_precoloring_value();
     for (int k: active_colors)
         value += G->get_color_cost(k);
 
