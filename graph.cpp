@@ -1026,10 +1026,15 @@ int Graph::get_n_total_vertices() {
 }
 
 int Graph::get_current_vertex(int v) {
-	if (vertex_mapping[v+1] == -1)
+	int cv = vertex_mapping[v+1]
+	if (cv == -1)
 		return -1;
 	else
-		return vertex_mapping[v+1]-1;
+		return cv-1;
+}
+
+int Graph::get_precoloring(int i) {
+	return precoloring[i+1];
 }
 
 BRANCH_STATUS Graph::get_branch_status() {
