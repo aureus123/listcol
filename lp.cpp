@@ -48,6 +48,12 @@ void LP::initialize(LP *father) {
 #endif
 	}
 
+#if BRANCHING_STRATEGY == 0
+#ifdef PREPROCESSING
+    G->preprocess_instance();
+#endif
+#endif
+	
     // Initialize vertex and color constraints
     // We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
     for (int v = 0; v < G->get_n_vertices(); v++) 
