@@ -1026,7 +1026,10 @@ int Graph::get_n_total_vertices() {
 }
 
 int Graph::get_current_vertex(int v) {
-	return vertex_mapping[v+1]-1;
+	if (vertex_mapping[v+1] == -1)
+		return -1;
+	else
+		return vertex_mapping[v+1]-1;
 }
 
 BRANCH_STATUS Graph::get_branch_status() {
