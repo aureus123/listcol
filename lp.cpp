@@ -46,13 +46,10 @@ void LP::initialize(LP *father) {
 #ifdef STABLE_POOL
 		std::cout << "Pool of columns enabled\n";
 #endif
+
 	}
 
-#if BRANCHING_STRATEGY == 0
-#ifdef PREPROCESSING
     G->preprocess_instance();
-#endif
-#endif
 	
     // Initialize vertex and color constraints
     // We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
@@ -63,7 +60,7 @@ void LP::initialize(LP *father) {
     Xmodel.add(Xrestr);
 
     // Initialize objective function
-    Xobj = IloMinimize(Xenv);
+    Xobj = IloMinimize(Xenv, G->get_precoloring_value());
     Xmodel.add(Xobj);
 
     fill_initial_columns(father);
@@ -96,24 +93,25 @@ void LP::fill_initial_columns (LP *father) {
 
 		for (int i = 0; i < G->get_n_colors(); ++i) {
 		    for (auto &s: stable_sets[i]) {
-			// Build the column
-			bool *column = NULL;
-			G->stable_to_column(s.list, s.n_list, &column);
+                // Build the column
+                bool *column = NULL;
+                G->stable_to_column(s.list, s.n_list, &column);
 
-			// Add the column to the son
-			add_real_column(column, s.n_list, i);
+                // Add the column to the son
+                add_real_column(column, s.n_list, i);
 
-			// Mark the colored vertices
-			for (int j = 0; j < G->get_n_vertices(); ++j)
-				if (column[j]) { colored[j] = true; }
+                // Mark the colored vertices
+                for (int j = 0; j < G->get_n_vertices(); ++j)
+                    if (column[j]) { colored[j] = true; }
 
-			// Free the stable set
-			free(s.list);
-        	    }
-                }
+                // Free the stable set
+                free(s.list);
+        	}
+        }
 
     		// Add dummy columns for uncovered vertices
-		for (int j = 0; j < G->get_n_vertices(); ++j) if (!colored[j]) add_fictional_column(j);
+		for (int j = 0; j < G->get_n_vertices(); ++j) 
+            if (!colored[j]) add_fictional_column(j);
     	}
 	else {
 
@@ -407,7 +405,7 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors,
 #if BRANCHING_STRATEGY == 0
 
  
-    value = 0.0;
+    value = G->get_precoloring_value();
     std::vector<int> stables_per_color (G->get_n_colors(), 0);
     std::vector<int> temp_coloring (G->get_n_vertices());
  
@@ -416,6 +414,7 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors,
         int color = vars[i].color;
         int true_color = G->get_C(color, stables_per_color[color]);
         stables_per_color[color]++;
+        value += G->get_color_cost(color);
         for (int j = 0; j < G->get_n_vertices(); ++j)
             if (vars[i].stable[j])
                 temp_coloring[j] = true_color;
@@ -432,11 +431,6 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors,
 	active_colors.insert(coloring[i]);
     }
 	
-    // Compute the cost
-    value = G->get_precoloring_value();
-    for (int k: active_colors)
-        value += G->get_color_cost(k);
-
 #else
 
     coloring.resize(G->get_n_vertices());

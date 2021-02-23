@@ -180,6 +180,9 @@ class Graph {
   // Maximize best_stable in V[i] and update n_best_stable
   void maximize_stable_set(int i, nodepnt **best_stable, int *n_best_stable);
 
+  void preprocess_instance_1();
+  void preprocess_instance_2();
+
 };
 
 #endif

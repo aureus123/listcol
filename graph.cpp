@@ -423,27 +423,37 @@ void Graph::print_graph() {
 //                = L(z) 	if z \in V(G)\N[u] 
 //          w'_k = w_k 		if k != j
 //	         = 0		if k = j
-// Lemma 2:
+// Lemma 2: 
 // For all vertex v such that k(v) = 1, v \in V_j, m(j) >= 2 and j' \in C_j\{j}
 // K'= K\cup \{j'\}
 // V'_k= V_k, w'(k)=w(k), and m'(k)=m(k), for all k \in K\{j}
 // V'_j = V_j\N_{G_j}(v), w'(j)=w(j), and m'(j)=1
 // V_{j'}=V_j\{v}, w(j')=w(j), and m(j')=m(j)-1
 void Graph::preprocess_instance() {
-	
+
 	// Define L[v] = {j \in K: v \in V_j}
 	std::vector<std::list<int>> L(get_n_vertices() + 1);
 	for (int j = 0; j < K.size(); ++j)
 		for (int v = 1; v <= V[j].n_list; ++v)
 			L[V[j].list[v]->name].push_back(j);
 	
-	// **************** LEMMA 1 ******************* //
-	
-	// Define the list of candidates (v,j) with L(v) = {j} and m(j) = 1
-	std::list<std::pair<int,int>> l1_candidates;
+	// Define the list of candidates l1 (v,j) with L(v) = {j} and m(j) = 1
+	// Define the list of candidates l2 (v,j) with L(v) = {j} and m(j) > 1
+	std::list<std::pair<int,int>> l1_candidates, l2_candidates;
 	for (int v = 1; v <= get_n_vertices(); ++v)
-		if (L[v].size() == 1 && get_n_C(L[v].front()) == 1)
-			l1_candidates.push_back(std::make_pair(v,L[v].front()));
+		if (L[v].size() == 1)
+			if (get_n_C(L[v].front()) == 1)
+				l1_candidates.push_back(std::make_pair(v,L[v].front()));
+			else 
+				l2_candidates.push_back(std::make_pair(v,L[v].front()));
+
+	}
+
+
+
+	// **************** LEMMA 1 ******************* //
+
+
 
 	// Find the candidate (v,j) with the greatest N_{G_j}(v)
 	int n_neighbors = -1;
@@ -457,7 +467,7 @@ void Graph::preprocess_instance() {
 			j = p.second;
 		}	
 	}
-		
+
 	// If there is a candidate, apply lemma 1
 	if (n_neighbors > -1) {
 
@@ -526,9 +536,11 @@ void Graph::preprocess_instance() {
 		w[j] = 0;
 		
 #ifdef STABLE_POOL
-		bye("Stable pool is not implemented yet when preproccessing is on")
+		bye("Stable pool is not implemented yet when preproccessing is on");
 #endif
 	
+		std::cout << "se proproceso " << v << " " << j << std::endl;
+
 		// Recursive call
 		preprocess_instance();
 		return;

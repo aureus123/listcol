@@ -17,7 +17,7 @@
 #define INITIAL_COLUMN_STRATEGY 0 // 0: dummy columns
                                   // 1: active father's columns
                                   // 2: stable set covering heuristic
-//#define PREPROCESSING
+#define PREPROCESSING
 
 #endif
 
