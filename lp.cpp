@@ -32,6 +32,7 @@ LP::~LP() {
 void LP::initialize(LP *father) {
 
 	if (father == NULL) {
+
 #ifdef ONLY_RELAXATION
 		std::cout << "Only relaxation is solved\n";
 #elif BRANCHING_STRATEGY == 0
@@ -46,11 +47,10 @@ void LP::initialize(LP *father) {
 #ifdef STABLE_POOL
 		std::cout << "Pool of columns enabled\n";
 #endif
-
 	}
 
     G->preprocess_instance();
-	
+
     // Initialize vertex and color constraints
     // We will have "vertices" constraints with r.h.s >= 1 and "colors" constraints with r.h.s >= -1
     for (int v = 0; v < G->get_n_vertices(); v++) 
@@ -402,17 +402,14 @@ LP_STATE LP::optimize(double start_t) {
 
 void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors, double &value) {
 
-#if BRANCHING_STRATEGY == 0
-
- 
     value = G->get_precoloring_value();
     std::vector<int> stables_per_color (G->get_n_colors(), 0);
     std::vector<int> temp_coloring (G->get_n_vertices());
- 
+
     // Build the coloring of the current graph
     for (int i: pos_vars) {
         int color = vars[i].color;
-        int true_color = G->get_C(color, stables_per_color[color]);
+        int true_color = G->get_C(color, stables_per_color[color]);    
         stables_per_color[color]++;
         value += G->get_color_cost(color);
         for (int j = 0; j < G->get_n_vertices(); ++j)
@@ -423,32 +420,14 @@ void LP::save_solution(std::vector<int> &coloring, std::set<int> &active_colors,
     // Build the coloring of the original graph
     coloring.resize(G->get_n_total_vertices());
     for (int i = 0; i < G->get_n_total_vertices(); ++i) {
-	int cv = G->get_current_vertex(i);    
-	if (cv == -1)
-		coloring[i] = G->get_precoloring(i);
-	else
-	        coloring[i] = temp_coloring[cv];
-	active_colors.insert(coloring[i]);
+        int cv = G->get_current_vertex(i);    
+        if (cv == -1)
+            coloring[i] = G->get_precoloring(i);
+        else
+            coloring[i] = temp_coloring[cv];
+        active_colors.insert(coloring[i]);
     }
 	
-#else
-
-    coloring.resize(G->get_n_vertices());
-    std::vector<int> stables_per_color (G->get_n_colors(), 0);
-    for (int i: pos_vars) {
-        int color = vars[i].color;
-        int true_color = G->get_C(color, stables_per_color[color]);
-        stables_per_color[color]++;
-        for (int j = 0; j < G->get_n_vertices(); ++j) {
-            if (vars[i].stable[j])
-                coloring[j] = true_color;
-        }
-        active_colors.insert(true_color);
-    }
-    value = get_obj_value();
-
-#endif
-
     return;
 }
 

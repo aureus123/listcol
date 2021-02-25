@@ -33,6 +33,13 @@ typedef struct nodepntArray {
                               // 2: Branching on indistinguishable colors
 #endif
 
+#ifndef PREPROCESSING
+#define PREPROCESSING 0 // 0: never
+                        // 1: preprocess and do not change G
+                        // 2: preprocess and change G
+
+#endif
+
 enum BRANCH_STATUS {NONE, JOIN, COLLAPSE, CHOOSE, REMOVE};
 
 class Graph {
@@ -180,8 +187,11 @@ class Graph {
   // Maximize best_stable in V[i] and update n_best_stable
   void maximize_stable_set(int i, nodepnt **best_stable, int *n_best_stable);
 
-  void preprocess_instance_1();
-  void preprocess_instance_2();
+  // Internal preprocessor functions
+  // preprocess_set_color: set a color for a vertex
+  // preprocess_remove_vertex: remove a precolored vertex from the graph and save its color
+  void preprocess_set_color(int v, int j);
+  void preprocess_remove_vertex(int v, int j);
 
 };
 

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <set>
+#include <queue>
 
 // Constructor
 
@@ -93,7 +94,8 @@ void Graph::read_graph(char *filename) {
 		G->node_list[i].adj2 = G->adj_last[i];
 	}
 
-#if BRANCHING_STRATEGY == 0
+	// Set preprocessing information
+
 	vertex_mapping.resize(get_n_vertices() + 1);
 	for (int i = 1; i <= get_n_vertices(); ++i)
 		vertex_mapping[i] = i;
@@ -103,7 +105,6 @@ void Graph::read_graph(char *filename) {
 		precoloring[i] = -1;
 	
 	precoloring_value = 0.0;
-#endif
 
     return;
 
@@ -416,215 +417,281 @@ void Graph::print_graph() {
 	return;
 }
 
-// preprocess_instance - preprocess the instance:
-// Lemma 1: Let (G,L,w) be an instance of WLCP such that L(u) = \{j\} for some $u \in V(G)$ and $j \in C$.
-//          Solving (G,L,w) is equivalent to solve WLCP for the instance (G-u, L', w') where
-//          L'(z) = L(z)\{j} 	if z \in N(u)
-//                = L(z) 	if z \in V(G)\N[u] 
-//          w'_k = w_k 		if k != j
-//	         = 0		if k = j
-// Lemma 2: 
-// For all vertex v such that k(v) = 1, v \in V_j, m(j) >= 2 and j' \in C_j\{j}
-// K'= K\cup \{j'\}
-// V'_k= V_k, w'(k)=w(k), and m'(k)=m(k), for all k \in K\{j}
-// V'_j = V_j\N_{G_j}(v), w'(j)=w(j), and m'(j)=1
-// V_{j'}=V_j\{v}, w(j')=w(j), and m(j')=m(j)-1
+// preprocess_instance - preprocess the instance
 void Graph::preprocess_instance() {
 
-	// Define L[v] = {j \in K: v \in V_j}
-	std::vector<std::list<int>> L(get_n_vertices() + 1);
-	for (int j = 0; j < K.size(); ++j)
-		for (int v = 1; v <= V[j].n_list; ++v)
-			L[V[j].list[v]->name].push_back(j);
-	
-	// Define the list of candidates l1 (v,j) with L(v) = {j} and m(j) = 1
-	// Define the list of candidates l2 (v,j) with L(v) = {j} and m(j) > 1
-	std::list<std::pair<int,int>> l1_candidates, l2_candidates;
-	for (int v = 1; v <= get_n_vertices(); ++v)
-		if (L[v].size() == 1)
-			if (get_n_C(L[v].front()) == 1)
-				l1_candidates.push_back(std::make_pair(v,L[v].front()));
-			else 
-				l2_candidates.push_back(std::make_pair(v,L[v].front()));
+#if PREPROCESSING == 0
+	return;
+#endif
 
-	}
-
-
-
-	// **************** LEMMA 1 ******************* //
-
-
-
-	// Find the candidate (v,j) with the greatest N_{G_j}(v)
-	int n_neighbors = -1;
-	int v = -1;
-	int j = -1;
-	for (auto &p: l1_candidates) {
-		int n = get_n_neighbours(p.first - 1, p.second);
-		if (n > n_neighbors) {
-			n_neighbors = n;
-			v = p.first;
-			j = p.second;
-		}	
-	}
-
-	// If there is a candidate, apply lemma 1
-	if (n_neighbors > -1) {
-
-		// Build a new Sewell's graph
-		MWSSgraphpnt H = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
-		allocate_graph(H, get_n_vertices() - 1); // We have one less vertex
-		for(int i = 0; i <= H->n_nodes; i++)
-			for(int j = 0; j <= H->n_nodes; j++)
-				H->adj[i][j] = G->adj[i >= v ? i+1 : i][j >= v ? j+1 : j]; // Ignore the entry of v
-		build_graph(H);
-		// Set some information necessary to solve the MWSSP
-		for(int i = 1; i <= H->n_nodes; i++) {
-			MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes+1, nodepnt*);
-			H->node_list[i].adj_last[0] = H->adj_last[i];
-			H->node_list[i].adj2 = H->adj_last[i];
-		}
-
-		// Update every Vk
-		for (int k = 0; k < K.size(); ++k) {
-			nodepnt *V1;
-			if (k == j) {
-				V1 = new nodepnt[V[j].n_list - n_neighbors];
-				int index = 1;
-				for (int i = 1; i <= V[j].n_list; ++i) {
-					int u = V[j].list[i]->name;
-					if (u != v && !G->adj[u][v])
-						V1[index++] = H->node_list + (u < v ? u : u-1);
-				}
-				V[j].n_list = V[j].n_list - n_neighbors - 1;
-				delete[] V[j].list;
-				V[j].list = V1;
-			}
-			else {
-				V1 = new nodepnt[V[k].n_list + 1];
-				int index = 1;
-				for (int i = 1; i <= V[k].n_list; ++i) {
-					int u = V[k].list[i]->name;
-					V1[index++] = H->node_list + (u < v ? u : u-1);
-				}
-				delete[] V[k].list;
-				V[k].list = V1;			
-			}
-		}
-
-		// Update vertex mapping and precoloring
-		for (int i = 1; i <= vertex_mapping.size(); ++i) {
-			if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
-				continue;
-			else if (vertex_mapping[i] == v) {
-				vertex_mapping[i] = -1;
-				precoloring[i] = j;
-			}
-			else
-				vertex_mapping[i] = vertex_mapping[i] - 1;
-		}
-			
-		// Update precoloring value
-		precoloring_value += w[j];
-		
-		// Update Sewell graph
-		free_graph(G);
-		free(G);
-		G = H;
-
-		// Update w
-		w[j] = 0;
-		
 #ifdef STABLE_POOL
 		bye("Stable pool is not implemented yet when preproccessing is on");
 #endif
-	
-		std::cout << "se proproceso " << v << " " << j << std::endl;
 
-		// Recursive call
-		preprocess_instance();
-		return;
-	
-	}
-	
-	
-/*	
-	
+#if INITIAL_COLUMN_STRATEGY == 1
+		bye("Copying columns from the father is not implemented yet when preproccessing is on");
+#endif
+
 	// Define L[v] = {j \in K: v \in V_j}
 	std::vector<std::list<int>> L(get_n_vertices() + 1);
 	for (int j = 0; j < K.size(); ++j)
 		for (int v = 1; v <= V[j].n_list; ++v)
 			L[V[j].list[v]->name].push_back(j);
-	
-	// Define the list of candidates (v,j) with k(v) = 1, v \in V_j, m(j) >= 2
-	std::list<std::pair<int,int>> candidates;
-	for (int v = 1; v <= get_n_vertices(); ++v)
-		if (L[v].size() == 1 && get_n_C(L[v].front()) >= 2)
-			candidates.push_back(std::make_pair(v,L[v].front()));
-	
-	// Find the candidate (v,j) with the greatest N_{G_j}(v)
-	int max_neighbors = -1;
-	std::pair<int,int> max_vj (-1,-1);
-	for (auto &p: candidates) {
-		int n = get_n_neighbours(p.first - 1, p.second);
-		if (n > max_neighbors) {
-			max_neighbors = n;
-			max_vj = p;
+
+	// Define the priority queue q1 with (n,v) such that L[v] = {j}, m(j) = 1 and n = N_{V_j}(v) > 0
+	// Define the priority queue q2 with (n,v) such that L[v] = {j}, m(j) > 1 and n = N_{V_j}(v) > 0
+	std::priority_queue<std::pair<int,int>> q1, q2;
+	for (int v = 1; v <= get_n_vertices(); ++v) {
+		if (L[v].size() == 1) { // if k(v) = 1
+			int k = L[v].front();
+			int n = get_n_neighbours(v-1,k);
+			if (n > 0) { // if v is not an isolated vertex
+				if (get_n_C(k) == 1)
+					q1.push(std::make_pair(n,v));
+				else 
+					q2.push(std::make_pair(n,v));
+			}
 		}
 	}
-	
-	// If there is not any candidate, return
-	if (max_neighbors == -1)
-		return;
-	
-	// Preprocess the instance
-	
-	int v = max_vj.first;
-	int j = max_vj.second;
 
-	// Build vector of indistinguishable colors
-	K.resize(K.size() + 1);
-	K[j] = C[j][1];
-	K[K.size()-1] = C[j][0];
+	while (!q1.empty() || !q2.empty()) {
 
-	// Build the partition into indistinguishable colors
-	C.resize(C.size() + 1);
-	C[j].assign(C[j].begin() + 1, C[j].end());
-	C[C.size()-1].push_back(C[j][0]);
+		if (!q1.empty()) {
 
-	// Build Vk's
-	V.resize(V.size() + 1);
-	// Remove N_{G_j}(v) from V[V.size() - 1]
-	nodepnt *V1 = new nodepnt[V[j].n_list - max_neighbors + 1];
-	int index = 1;
-	for (int i = 1; i <= V[j].n_list; ++i) {
-		int u = V[j].list[i]->name;
-		if (u == v || (u != v && !G->adj[u][v]))
-			V1[index++] = V[j].list[i];
+			std::pair<int,int> p = q1.top();
+			q1.pop();
+			int v = p.second;
+			int j = L[v].front();
+
+			for (int i = 1; i <= V[j].n_list; ++i) {
+				int w = V[j].list[i]->name;
+				if (w != v && G->adj[w][v]) { // w is a neighbour of v
+					L[w].remove(j); // Update L[w]
+					if (L[w].size() == 0) {
+						warning("The preprocessor detected that the node is infeasible");
+						return;
+					}
+					else if (L[w].size() == 1) {
+						q1.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
+					}
+				}
+			}
+
+			preprocess_set_color(v,j);
+			continue;
+
+		}
+
+		if (!q2.empty()) {
+
+			std::pair<int,int> p = q2.top();
+			q2.pop();
+			int v = p.second;
+			int j = L[v].front();
+
+			if (L[v].size() > 1) // Note: beware if v should not be in q2 nor in q1
+				continue;
+
+			if (get_n_C(j) == 1) { // Note: beware if v should be in q1 instead of q2
+				q1.push(std::make_pair(get_n_neighbours(v-1,j), v));
+				continue;
+			}
+			else { 	
+				for (int i = 1; i <= V[j].n_list; ++i) {
+					int w = V[j].list[i]->name;
+					if (w != v && !G->adj[w][v] ) {
+						L[w].push_back(C.size()); // The new color is the last color
+					}
+				}
+			}
+
+			// Update L[v]
+			L[v].remove(j);
+			L[v].push_back(C.size());
+
+			preprocess_set_color(v, j); // Assign the new color to v
+
+		}
+
 	}
-	V[V.size() - 1].n_list = V[j].n_list - max_neighbors;
-	V[V.size() - 1].list = V1;
-	// Remove vertex v from V[j]
-	nodepnt *V2 = new nodepnt[V[j].n_list];
-	index = 1;
-	for (int i = 1; i <= V[j].n_list; ++i)
-		if (V[j].list[i]->name != v)
-			V2[index++] = V[j].list[i];
-	V[j].n_list--; 
-	delete[] V[j].list;
-	V[j].list = V2;
 
-#ifdef STABLE_POOL
-	bye("Stable pool is not implemented yet when preprocessing is on.\n");
-#endif	
+#if PREPROCESSING == 2 
 
-	// Recursion
-	preprocess_instance();
+	// Remove vertices with L[v] = {j} and m(j) = 1
+	int count = 0; // count the number of removed verteces to correctly reference the remaining vertices
+	for (int v = 1; v < L.size(); ++v) { // Use L.size() since the number of vertices will change
+		if (L[v].size() == 1) {
+			int j = L[v].front();
+			if (get_n_C(j) == 1) {
+				preprocess_remove_vertex(v - count, j);
+				count++;
+			}
+		}
+	}
+
+#endif
 
 	return;
-*/
-	
+
 }
+
+// preprocess_set_color:
+// Let G=(V,E), a family {V_k : k \in K} of subsets of V, and two vectors m,w defining an instance I of the WLCP.  
+// Let v \in V such that k(v) = 1 and v \in V_j, with j \in K . 
+// Then, to solve the instance I is equivalent to solve the instance I' defined on G, by:
+// If m(j) = 1
+// 		V'_k = V_k, w'(k) = w(k), and m'(k) = m(k), for all k \in K\{j}
+// 		V'_j = V_j \ N_{G_j}(v), w'(j)=w(j)
+// Else if m(j) > 1. Let j' \in C_j\{j}
+// 		K' = K \cup {j'}
+// 		V'_k = V_k, w'(k) = w(k), and m'(k) = m(k), for all k \in K\{j}
+// 		V'_j = V_j \ N_{G_j}(v), w'(j) = w(j), and m'(j) = 1
+// 		V_{j'} = V_j\{v}, w(j') = w(j), and m(j') = m(j)-1 
+void Graph::preprocess_set_color(int v, int j) {
+
+	if (get_n_C(j) == 1) {
+
+		// Update V[j]
+		int n = get_n_neighbours(v-1,j);
+		nodepnt *V1 = new nodepnt[V[j].n_list - n + 1];
+		int index = 1;
+		for (int i = 1; i <= V[j].n_list; ++i) {
+			int u = V[j].list[i]->name;
+			if (u == v || (u != v && !G->adj[u][v])) {
+				V1[index++] = V[j].list[i];
+			}
+		}
+		V[j].n_list = V[j].n_list - n;
+		delete[] V[j].list;
+		V[j].list = V1;
+
+//		std::cout << "Preprocessor colored vertex " << v << " with color " << j << std::endl; 
+
+	}
+
+	else {
+
+		// Build vector of indistinguishable colors
+		K.resize(K.size() + 1);
+		K[j] = C[j][1];
+		K[K.size()-1] = C[j][0];
+
+		// Build the partition into indistinguishable colors
+		C.resize(C.size() + 1);
+		C[C.size()-1].push_back(C[j][0]);
+		C[j].assign(C[j].begin() + 1, C[j].end());
+
+		// Update V_k's
+		V.resize(V.size() + 1);
+		nodepnt *V1 = new nodepnt[V[j].n_list];
+		int index = 1;
+		for (int i = 1; i <= V[j].n_list; ++i) {
+			int u = V[j].list[i]->name;
+			if (u != v)
+				V1[index++] = V[j].list[i];
+		}
+		int n = get_n_neighbours(v-1,j);
+		nodepnt *V2 = new nodepnt[V[j].n_list - n + 1];
+		index = 1;
+		for (int i = 1; i <= V[j].n_list; ++i) {
+			int u = V[j].list[i]->name;
+			if (u == v || (u != v && !G->adj[u][v]))
+				V2[index++] = V[j].list[i];
+		}
+		V[V.size() - 1].list = V2;
+		V[V.size() - 1].n_list = V[j].n_list - n;
+		delete[] V[j].list;
+		V[j].list = V1;
+		V[j].n_list--;
+
+//		std::cout << "Preprocessor colored vertex " << v << " with color " << C.size()-1 << std::endl; 
+
+	}
+
+	return;
+
+}
+
+
+// preprocess_remove_vertex
+// Lemma : Let (G,L,w) be an instance of WLCP such that L(u) = \{j\} for some $u \in V(G)$ and $j \in C$.
+//         Solving (G,L,w) is equivalent to solve WLCP for the instance (G-u, L', w') where
+//         L'(z) = L(z)\{j} 	if z \in N(u)
+//               = L(z) 		if z \in V(G)\N[u] 
+//         w'_k = w_k 			if k != j
+//	            = 0				if k = j
+void Graph::preprocess_remove_vertex(int v, int j) {
+
+	// Build a new Sewell's graph
+	MWSSgraphpnt H = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
+	allocate_graph(H, get_n_vertices() - 1); // We have one less vertex
+	for(int i = 0; i <= H->n_nodes; i++)
+		for(int j = 0; j <= H->n_nodes; j++)
+			H->adj[i][j] = G->adj[i >= v ? i+1 : i][j >= v ? j+1 : j]; // Ignore the entry of v
+	build_graph(H);
+	// Set some information necessary to solve the MWSSP
+	for(int i = 1; i <= H->n_nodes; i++) {
+		MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes+1, nodepnt*);
+		H->node_list[i].adj_last[0] = H->adj_last[i];
+		H->node_list[i].adj2 = H->adj_last[i];
+	}
+
+	// Update every Vk
+	for (int k = 0; k < K.size(); ++k) {
+		nodepnt *V1;
+		if (k == j) {
+			V1 = new nodepnt[V[j].n_list];
+			int index = 1;
+			for (int i = 1; i <= V[j].n_list; ++i) {
+				int u = V[j].list[i]->name;
+				if (u != v)
+					V1[index++] = H->node_list + (u < v ? u : u-1);
+			}
+			V[j].n_list = V[j].n_list - 1;
+			delete[] V[j].list;
+			V[j].list = V1;
+		}
+		else {
+			V1 = new nodepnt[V[k].n_list + 1];
+			int index = 1;
+			for (int i = 1; i <= V[k].n_list; ++i) {
+				int u = V[k].list[i]->name;
+				V1[index++] = H->node_list + (u < v ? u : u-1);
+			}
+			delete[] V[k].list;
+			V[k].list = V1;			
+		}
+	}
+
+	// Update vertex mapping and precoloring
+	for (int i = 1; i <= vertex_mapping.size(); ++i) {
+		if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
+			continue;
+		else if (vertex_mapping[i] == v) {
+			vertex_mapping[i] = -1;
+			precoloring[i] = K[j];
+		}
+		else
+			vertex_mapping[i] = vertex_mapping[i] - 1;
+	}
+		
+	// Update precoloring value
+	precoloring_value += w[K[j]];
+	
+	// Update Sewell graph
+	free_graph(G);
+	free(G);
+	G = H;
+
+	// Update w
+	w[K[j]] = 0;
+
+//	std::cout << "Preprocessor removed vertex " << v << " " << j << std::endl; 
+
+	return;
+
+}
+
 
 bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
 
