@@ -34,13 +34,13 @@ class LP {
     public: 
 
     // Constructor
-    LP(Graph *G, LP *father);
+    LP(Graph *G, LP *father, double start_t);
 
     // Destructor
     ~LP();
 
     // Optimize LP
-    LP_STATE optimize(double start_t);
+    LP_STATE optimize();
 
     // Save optimal solution
     void save_solution(std::vector<int> &coloring, std::set<int> &active_colors, double &value);
@@ -56,6 +56,7 @@ class LP {
 
     private:
     
+    double start_t;                 // Starting time of b&P
     IloEnv Xenv;                    // CPLEX environment structure
     IloModel Xmodel;                // CPLEX model
     IloObjective Xobj;              // CPLEX objective function
@@ -69,6 +70,9 @@ class LP {
     int most_fract_var;             // Index of the most fractional var with at least two vertices in the stable set
 
     Graph *G;                        // Graph
+
+    // Reset and initialize LP
+    void reset();
 
     // Initialize LP
     void initialize(LP *father);

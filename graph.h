@@ -91,6 +91,7 @@ class Graph {
 	
   // Preprocess the instance
   void preprocess_instance();
+  void preprocess_instance(int v, int j);
 
   // Solve the MWSSP in V[i]: ¿Does it exists a maximum stable set in V[i] with a weight greater than goal?
   //  If the answer is yes, then the result is saved in best_stable and n_best_stable
@@ -121,11 +122,8 @@ class Graph {
   // Build a new graph by collapsing the vertices u and v
   Graph *collapse_vertices(int u, int v);
 
-  // Build a new graph where color k is the only color in the list of v
-  Graph* choose_color(int v, int k);
-
   // Build a new graph where vertex v must be colored with the color class of color k
-  Graph* choose_indistinguishable_color(int v, int k);
+  Graph* choose_color(int v, int k);
 
   // Build a new graph where color k is removed from the list of v
   Graph* remove_color(int v, int k);
@@ -137,7 +135,6 @@ class Graph {
   int get_vertex_u();
   int get_vertex_v();
 
-  // Get vertex information (used for branching on colors)
   int get_n_total_vertices();     // Get the number of vertices of the original graph
   int get_current_vertex(int i);  // Get the current vertex that stands for the original vertex i
   int get_precoloring(int i);	  // Get the color of the original vertex i

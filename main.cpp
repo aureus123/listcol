@@ -50,7 +50,7 @@ int main (int argc, char **argv) {
     set_color(7);
     std::cout << std::endl << "Branch and Price" << std::endl;
     Graph *G = new Graph(arg1,arg2,arg3);   // Create graph
-    Node* root = new Node(new LP(G, NULL));  // Create root
+    Node* root = new Node(new LP(G, NULL, ECOclock()));  // Create root
     Coloring col;                      // Create solution
     BP<Coloring> bp(col, true);        // Initialize B&P
     bp.solve(root);                    // Solve B&P

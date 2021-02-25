@@ -20,8 +20,8 @@ bool Node::operator< (const Node& n) const {
     return (get_obj_value() < n.get_obj_value());
 }
 
-LP_STATE Node::solve(double start_t) {
-    return lp->optimize(start_t);
+LP_STATE Node::solve() {
+    return lp->optimize();
 }
 
 void Node::branch(std::vector<Node*>& sons) {
@@ -188,7 +188,7 @@ template <class Solution>
 void BP<Solution>::push (Node* node) {
     
     // Solve the linear relaxation of the node and prune if possible
-    LP_STATE state = node->solve(start_t); 
+    LP_STATE state = node->solve(); 
 
 
 #ifdef ONLY_RELAXATION

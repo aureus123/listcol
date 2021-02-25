@@ -3,8 +3,9 @@
 #include "io.h"
 #include <cmath>
 
-LP::LP(Graph *G, LP *father) : 
+LP::LP(Graph *G, LP *father, double start_t) : 
 
+    start_t(start_t),
     Xmodel(Xenv), 
     Xvars(Xenv), 
     Xrestr(Xenv),
@@ -28,6 +29,31 @@ LP::~LP() {
     delete G;
 }
 
+void LP::reset() {
+
+    // Clear LP
+    values.end();
+    for (int i = 0; i < vars.getSize(); ++i)
+        delete[] vars[i].stable;
+    vars.end();
+    Xrestr.end();
+    Xvars.end();
+    Xobj.end();
+    Xmodel.end();
+    Xenv.end();
+
+    // Reset LP
+    Xenv = IloEnv();
+    Xmodel = IloModel(Xenv);
+    Xvars = IloNumVarArray(Xenv);
+    Xrestr = IloRangeArray(Xenv);
+    vars = IloArray<Column>(Xenv);
+    pos_vars.clear();
+
+    // Initialize LP
+    initialize(this);
+
+}
 
 void LP::initialize(LP *father) {
 
@@ -39,8 +65,6 @@ void LP::initialize(LP *father) {
 		std::cout << "Branching on edges (EDG strategy)\n";
 #elif BRANCHING_STRATEGY == 1
 		std::cout << "Branching on colors (CLR strategy)\n";
-#elif BRANCHING_STRATEGY == 2
-		std::cout << "Branching on indistinguishable (IND strategy)\n";
 #else
 		bye("Undefined branching strategy :(");
 #endif
@@ -82,6 +106,7 @@ void LP::fill_initial_columns (LP *father) {
 #elif INITIAL_COLUMN_STRATEGY == 1
 
 	if (father == NULL) {
+
 		std::cout << "CCN strategy selected\n";
 
 		// Root node: use PSC strategy
@@ -241,7 +266,7 @@ void LP::add_fictional_column (int v) {
 }
 
 
-LP_STATE LP::optimize(double start_t) {
+LP_STATE LP::optimize() {
 
     IloCplex cplex(Xmodel);
 
@@ -453,8 +478,6 @@ void LP::branch(std::vector<LP *> &ret) {
     branch_on_edges(ret);
 #elif BRANCHING_STRATEGY == 1
     branch_on_colors(ret);
-#elif BRANCHING_STRATEGY == 2
-    branch_on_colors(ret);
 #endif
 
     return;
@@ -510,13 +533,13 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
     Graph *G1 = G->join_vertices(u, v);
 
     // Build LP from G1
-    LP *lp1 = new LP(G1, this);
+    LP *lp1 = new LP(G1, this, start_t);
   
     // Build the graph by collapsing the vertices u and v
     Graph *G2 = G->collapse_vertices(u, v);
 
     // Build LP from G2
-    LP *lp2 = new LP(G2, this);
+    LP *lp2 = new LP(G2, this, start_t);
 
     ret.resize(2);
     ret[0] = lp2;   // First collapse
@@ -529,99 +552,104 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
 
 void LP::branch_on_colors(std::vector<LP *> &ret) {
 
-    // Choose vertex v and color k to branch
-    
-    // Define W1 = {v : v is in a single color class}
-    // Choose (v,k) such that
-    //  v is in W1
-    //  v is in some Sk with x(S,k) fractional
-    //  v maximises |N(v) \cap Vk| + rand(0,1)  (random tie break) 
-    // If such (v,k) exists, then reduce the instance
-    // Otheriwse, choose (v,k) such that
-    //  v is in some Sk with x(S,k) fractional
-    //  v maximises |N(v) \cap Vk| + rand(0,1)  (random tie break) 
-    // Such (v,k) always exists, then branch according to CLR or IND
+    // Choose vertex v and color j to branch with k(v) >= 2
 
-    std::vector<int> W1;
-    G->get_W1(W1); // W[v] = |Lv \cap K|
+    // Choose v and j with:
+    //      there is some fractional variable (S,j) with v \in S
+    //      v maximises |N_{Gj}(v)|
+    //      First tie breaking rule: lowest multiplicity
+    //      Second tie breaking rule: lowest index of color
+    //      Third tie breaking rule: lowest index of vertex
+    // If k(v) = 1 and m(j) = 1
+    //      Report an error
+    // Else if k(v) = 1 and m(j) > 1 (this can only happens when the preprocessor is not activated)
+    //      Preprocess (v,j) and apply again the variable selection strategy
 
-    bool empty_W1 = true;
-    double max_value = -1.0;
-    int max_v = -1;
-    int max_k = -1;
-    for (int i: pos_vars)
-        if (values[i] > EPSILON && values[i] < 1 - EPSILON) // x(S,k) is fractional
-            for (int v = 0; v < G->get_n_vertices(); ++v)
-                if (vars[i].stable[v]) { // v is in S
-
-                    double value = G->get_n_neighbours(v, vars[i].color) + (double) rand() / RAND_MAX; 
-
-                    if (W1[v] == 1 && empty_W1) {
-                        empty_W1 = false;
-                        max_value = value;
-                        max_v = v;
-                        max_k = vars[i].color;
+    bool done = false;
+    while (!done) {
+        std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
+        int d = -1; // Delta
+        int j = -1;
+        int m = -1; // multiplicity
+        int v = -1;
+        for (int i: pos_vars) {
+            if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
+                int color = vars[i].color;
+                for (int u = 0; u < G->get_n_vertices(); ++u) {
+                    if (vars[i].stable[u]) { // u is in S
+                        if (!repeated[u][color]) {
+                            repeated[u][color] = true;
+                            int delta = G->get_n_neighbours(u, color);
+                            if (delta > d) {
+                                d = delta;
+                                j = color;
+                                m = G->get_n_C(color);
+                                v = u;
+                            }
+                            else if (delta == d) {
+                                if (G->get_n_C(color) < m) { // First tie breaking rule
+                                    j = color;
+                                    m = G->get_n_C(color);
+                                    v = u;                                 
+                                }
+                                else if (G->get_n_C(color) == m && color < j) { // Second tie breaking rule
+                                    j = color;
+                                    v = u;
+                                }
+                                else if (G->get_n_C(color) == m && color == j && u < v) { // Third tie breaking rule
+                                    v = u;
+                                } 
+                            }
+                        }
                     }
-                    else if (W1[v] == 1 && !empty_W1 && value > max_value) {
-                        max_value = value;
-                        max_v = v;
-                        max_k = vars[i].color;
-                    }
-                    else if (W1[v] > 1 && empty_W1 && value > max_value) {
-                        max_value = value;
-                        max_v = v;
-                        max_k = vars[i].color;
-                    } 
-                    
                 }
+            }
+        }
 
-    if (max_v == -1 || max_k == -1)
-        bye("Branching error");
-    
-    if (!empty_W1) {
+        std::vector<int> W1;
+        G->get_W1(W1); // W[v] = k(v) = |L[v] \cap K|
 
-        // Build the graph where v is colored with k and reduce the instance 
-        Graph *G1 = G->choose_color(max_v, max_k);
+        if (W1[v] == 1 && d == 0) { // An isolated vertex was selected
+            bye("Branching on color: an isolated vertex was selected");
+        }
+        else if (W1[v] == 1 && d > 0) {
 
-        // Build LP from G1
-        LP *lp1 = new LP(G1, this);
+#if PREPROCESSING > 0
+            bye("Branching on color: internal error");
+#else
 
-        ret.resize(1);
-        ret[0] = lp1;   // First choose
+            G->preprocess_instance(v,j);
 
-    }
-    else {
-
-        Graph *G1, *G2;
-
-#if BRANCHING_STRATEGY == 1
-
-        // Build the graph where v is colored with k and reduce the instance
-        G1 = G->choose_color(max_v, max_k);
-
-#elif BRANCHING_STRATEGY == 2
-
-        // Build the graph where v is colored with k, do not change the partition
-        G1 = G->choose_indistinguishable_color(max_v, max_k);
+            reset();
+            optimize();
 
 #endif
 
-        // Build LP from G1
-        LP *lp1 = new LP(G1, this);
+        }
+        else {
+            
+            done = true;
 
-        // Build the graph where v cannot be colored with k
-        G2 = G->remove_color(max_v, max_k);
+            Graph *G1, *G2;
 
-        // Build LP from G2
-        LP *lp2 = new LP(G2, this);
+            // Build the graph where v is colored with some color of C[j]
+            G1 = G->choose_color(v, j);
+            // Build LP from G1
+            LP *lp1 = new LP(G1, this, start_t);
 
-        ret.resize(2);
-        ret[0] = lp1;   // First choose
-        ret[1] = lp2;   // Then remove
-        
-        return;
+            // Build the graph where v cannot be colored with any color of C[j]
+            G2 = G->remove_color(v, j);
+            // Build LP from G2
+            LP *lp2 = new LP(G2, this, start_t);
 
-    }
+            ret.resize(2);
+            ret[0] = lp1;   // First choose
+            ret[1] = lp2;   // Then remove
+
+        }
+    }            
+
+    return;
 
 }
 

@@ -18,12 +18,10 @@ Graph::Graph(char *filename_graph, char *filename_costs, char *filename_lists) {
 
 
 Graph::~Graph() {
-
 #if BRANCHING_STRATEGY == 0
 	free_graph(G);
 	free(G);
 #endif
-
 	for (int i = 0; i < K.size(); ++i) 
 		delete[] V[i].list;
 
@@ -472,7 +470,10 @@ void Graph::preprocess_instance() {
 						return;
 					}
 					else if (L[w].size() == 1) {
-						q1.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
+						if (get_n_C(L[w].front()) == 1)
+							q1.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
+						else
+							q2.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
 					}
 				}
 			}
@@ -535,6 +536,11 @@ void Graph::preprocess_instance() {
 
 }
 
+void Graph::preprocess_instance(int v, int j) {
+	preprocess_set_color(v+1,j);
+	return;
+}
+
 // preprocess_set_color:
 // Let G=(V,E), a family {V_k : k \in K} of subsets of V, and two vectors m,w defining an instance I of the WLCP.  
 // Let v \in V such that k(v) = 1 and v \in V_j, with j \in K . 
@@ -565,7 +571,7 @@ void Graph::preprocess_set_color(int v, int j) {
 		delete[] V[j].list;
 		V[j].list = V1;
 
-//		std::cout << "Preprocessor colored vertex " << v << " with color " << j << std::endl; 
+//		std::cout << "Preprocessor colored vertex " << v << " with color " << j << " (case 1)" << std::endl; 
 
 	}
 
@@ -604,7 +610,7 @@ void Graph::preprocess_set_color(int v, int j) {
 		V[j].list = V1;
 		V[j].n_list--;
 
-//		std::cout << "Preprocessor colored vertex " << v << " with color " << C.size()-1 << std::endl; 
+//		std::cout << "Preprocessor colored vertex " << v << " with color " << C.size()-1 << " (case 2)" << std::endl; 
 
 	}
 
@@ -664,7 +670,7 @@ void Graph::preprocess_remove_vertex(int v, int j) {
 	}
 
 	// Update vertex mapping and precoloring
-	for (int i = 1; i <= vertex_mapping.size(); ++i) {
+	for (int i = 1; i < vertex_mapping.size(); ++i) {
 		if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
 			continue;
 		else if (vertex_mapping[i] == v) {
@@ -679,8 +685,10 @@ void Graph::preprocess_remove_vertex(int v, int j) {
 	precoloring_value += w[K[j]];
 	
 	// Update Sewell graph
+#if BRANCHING_STRATEGY == 0
 	free_graph(G);
 	free(G);
+#endif
 	G = H;
 
 	// Update w
@@ -1187,7 +1195,7 @@ Graph *Graph::collapse_vertices(int u, int v) {
 
 	// Build vertex mapping
 	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
-	for (int i = 1; i <= H->vertex_mapping.size(); ++i) {
+	for (int i = 1; i < H->vertex_mapping.size(); ++i) {
 		if (H->vertex_mapping[i] < v)
 			continue;
 		else if (H->vertex_mapping[i] == v)
@@ -1253,123 +1261,6 @@ BRANCH_STATUS Graph::get_branch_status() {
 	return st;
 }
 
-Graph* Graph::choose_color(int v, int k) {
-
-	// Build a new graph
-	Graph *H = new Graph();
-
-	// Vertices start at 1
-	v = v+1;
-
-	// Reuse Sewell's graph
-	H->G = G;
-
-	// Build vector of costs
-	H->w.assign(w.begin(), w.end());
-
-	if (get_n_C(k) == 1) {
-
-		// Build vector of indistinguishable colors
-		H->K.assign(K.begin(), K.end());
-
-		// Build the partition into indistinguishable colors
-		H->C.assign(C.begin(), C.end());
-
-		// Build Vk's
-		H->V.resize(H->K.size());
-		for (int i = 0; i < H->K.size(); ++i) {
-			if (i == k) {
-				// Remove N(v)
-				int n_neighbours = get_n_neighbours(v-1, k);
-				H->V[i].n_list = V[i].n_list - n_neighbours;
-				H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-				int index = 1;
-				for (int j = 1; j <= V[i].n_list; ++j) {
-					int u = V[i].list[j]->name;
-					if (u == v || (u != v && !G->adj[u][v]))
-						H->V[i].list[index++] = H->G->node_list + u;
-				}
-			}
-			else {
-				H->V[i].list = new nodepnt[V[i].n_list + 1];
-				H->V[i].n_list = 0;
-				for (int j = 1; j <= V[i].n_list; ++j) {
-					int u = V[i].list[j]->name;
-					if (u != v)
-						H->V[i].list[++(H->V[i].n_list)] = H->G->node_list + u;
-				}
-			}
-		}
-	}
-	else {
-
-		// Build vector of indistinguishable colors
-		H->K.resize(K.size() + 1);
-		for (int i = 0; i < K.size(); ++i) {
-			if (i == k)
-				H->K[i] = C[k][1]; // Skip C[k][0] 
-			else
-				H->K[i] = K[i];
-		}
-		H->K[K.size()] = C[k][0];
-
-		// Build the partition into indistinguishable colors
-		H->C.resize(C.size() + 1);
-		for (int i = 0; i < K.size(); ++i) {
-			if (i == k)
-				H->C[i].assign(C[i].begin() + 1, C[i].end());
-			else
-				H->C[i].assign(C[i].begin(), C[i].end());
-		}
-		H->C[C.size()].push_back(C[k][0]);
-
-		// Build Vk's
-		H->V.resize(V.size() + 1);
-		for (int i = 0; i < V.size(); ++i) {
-			H->V[i].list = new nodepnt[V[i].n_list + 1];
-			H->V[i].n_list = 0;
-			for (int j = 1; j <= V[i].n_list; ++j) {
-				int u = V[i].list[j]->name;
-				if (u != v)
-					H->V[i].list[++(H->V[i].n_list)] = H->G->node_list + u;
-			}
-		}
-		int n_neighbours = get_n_neighbours(v-1, k);
-		H->V[V.size()].n_list = V[k].n_list - n_neighbours;
-		H->V[V.size()].list = new nodepnt[H->V[V.size()].n_list + 1];
-		int index = 1;
-		for (int j = 1; j <= V[k].n_list; ++j) {
-			int u = V[k].list[j]->name;
-			if (u == v || (u != v && !G->adj[u][v]))
-				H->V[V.size()].list[index++] = H->G->node_list + u;
-		}
-
-	}
-
-	// Set branch information
-	H->st = CHOOSE;
-	H->branch_vertex_v = v;
-	H->branch_color_k = k;
-
-#ifdef STABLE_POOL
-	// Build the pools
-	H->global_pool.resize(H->K.size());
-	H->local_pool.resize(H->K.size());
-	// Copy into H->global_pool the stables from global_pool
-	for (int i = 0; i < H->K.size(); ++i) {
-		for (auto &s: global_pool[i]) {
-			nodepnt *stable = NULL;
-			int n_stable = 0;
-			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
-			H->global_pool[i].emplace_back(stable, n_stable);
-		}
-	}
-#endif
-
-	return H;
-
-}
-
 Graph* Graph::remove_color(int v, int k) {
 
 	// Build a new graph
@@ -1413,6 +1304,15 @@ Graph* Graph::remove_color(int v, int k) {
 		}
 	}
 
+	// Build vertex mapping
+	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+
+	// Build precoloring
+	H->precoloring.assign(precoloring.begin(),precoloring.end());
+	
+	// Build precoloring cost
+	H->precoloring_value = precoloring_value; 	
+
 	// Set branch information
 	H->st = REMOVE;
 	H->branch_vertex_v = v;
@@ -1438,7 +1338,7 @@ Graph* Graph::remove_color(int v, int k) {
 }
 
 
-Graph* Graph::choose_indistinguishable_color(int v, int k) {
+Graph* Graph::choose_color(int v, int k) {
 
 	// Build a new graph
 	Graph *H = new Graph();
@@ -1462,26 +1362,12 @@ Graph* Graph::choose_indistinguishable_color(int v, int k) {
 	H->V.resize(H->K.size());
 	for (int i = 0; i < H->K.size(); ++i) {
 		if (i == k) {
-			if (get_n_C(k) == 1) {
-				// Remove N(v)
-				int n_neighbours = get_n_neighbours(v-1, k);
-				H->V[i].n_list = V[i].n_list - n_neighbours;
-				H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-				int index = 1;
-				for (int j = 1; j <= V[i].n_list; ++j) {
-					int u = V[i].list[j]->name;
-					if (u == v || (u != v && !G->adj[u][v]))
-						H->V[i].list[index++] = H->G->node_list + u;
-				}
-			}
-			else {
-				// Copy Vk
-				H->V[i].n_list = V[i].n_list;
-				H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-				for (int j = 1; j <= V[i].n_list; ++j) {
-					int u = V[i].list[j]->name;
-					H->V[i].list[j] = H->G->node_list + u;
-				}				
+			// Copy Vk
+			H->V[i].n_list = V[i].n_list;
+			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+			for (int j = 1; j <= V[i].n_list; ++j) {
+				int u = V[i].list[j]->name;
+				H->V[i].list[j] = H->G->node_list + u;
 			}
 		}
 		else {
@@ -1494,6 +1380,15 @@ Graph* Graph::choose_indistinguishable_color(int v, int k) {
 			}
 		}
 	}
+
+	// Build vertex mapping
+	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+
+	// Build precoloring
+	H->precoloring.assign(precoloring.begin(),precoloring.end());
+	
+	// Build precoloring cost
+	H->precoloring_value = precoloring_value; 	
 
 	// Set branch information
 	H->st = CHOOSE;

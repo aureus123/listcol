@@ -53,7 +53,7 @@ class Node {
     ~Node();
 
     double get_obj_value() const;
-    LP_STATE solve(double start_t);
+    LP_STATE solve();
     void branch(std::vector<Node*>& sons);
 
     bool operator< (const Node& n) const;
