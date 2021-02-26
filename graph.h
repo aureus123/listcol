@@ -20,6 +20,7 @@ typedef struct nodepntArray {
 
 #include <vector>
 #include <list>
+#include <set>
 
 #define INTFACTOR 1000.0
 #define THRESHOLD 0.1
@@ -122,11 +123,11 @@ class Graph {
   // Build a new graph by collapsing the vertices u and v
   Graph *collapse_vertices(int u, int v);
 
-  // Build a new graph where vertex v must be colored with the color class of color k
+  // Build a new graph where vertex v has L'[v] = C[k]
   Graph* choose_color(int v, int k);
 
-  // Build a new graph where color k is removed from the list of v
-  Graph* remove_color(int v, int k);
+  // Build a new graph where vertex v has L'[v] = L[v] \ {C[k] : k \in colors}
+  Graph* remove_color(int v, std::set<int> &colors);
 
   // Get branch status
   BRANCH_STATUS get_branch_status();
@@ -156,7 +157,6 @@ class Graph {
 
   int branch_vertex_u;       // Vertex u
   int branch_vertex_v;       // Vertex v
-  int branch_color_k;        // Color k
   
   std::vector<int>  vertex_mapping; // For each i (original vertex), vertex_mapping[i] is the vertex that stands for i in the current graph (or -1 if it was deleted)
   std::vector<int> precoloring; // For each i (original vertex), precoloring[i] is the color of vertex i (or -1 if it is uncolored)

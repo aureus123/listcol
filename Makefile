@@ -16,8 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bproot_dum bproot_psc bp_dum bp_psc bp_ccn bp_poo bp_clr bp_ind genclassicinst genrandominst genmuinst gengraph checker bp_mauro
-
+all: vc vcroot st stroot bproot_dum bproot_psc bp_dum bp_psc bp_ccn bp_poo bp_clr bp_ind genclassicinst genrandominst genmuinst gengraph checker
 
 # Tools made by Daniel
 
@@ -52,9 +51,6 @@ checker: checker.cpp
 # Code made by Mauro
 
 bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o
-	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-bp_mauro: main.o bp.o lp_mauro.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 bp_dum: main.o bp.o lp_dum.o graph.o io.o mwis_sewell/wstable.o
@@ -92,9 +88,6 @@ bproot.o: bp.cpp bp.h lp.h
 
 lp.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0
-
-lp_mauro.o: lp.cpp lp.h graph.h
-	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING
 
 lp_dum.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0

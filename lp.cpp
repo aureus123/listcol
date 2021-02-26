@@ -61,16 +61,57 @@ void LP::initialize(LP *father) {
 
 #ifdef ONLY_RELAXATION
 		std::cout << "Only relaxation is solved\n";
-#elif BRANCHING_STRATEGY == 0
-		std::cout << "Branching on edges (EDG strategy)\n";
-#elif BRANCHING_STRATEGY == 1
-		std::cout << "Branching on colors (CLR strategy)\n";
-#else
-		bye("Undefined branching strategy :(");
 #endif
+
+        // Preprocessor
+        if (PREPROCESSING == 0)
+            std::cout << "Preprocessing is turned off" << std::endl;
+        else if (PREPROCESSING == 1)
+            std::cout << "Preprocessing is enabled - Level 1 (the graph is not modified)" << std::endl;
+        else if (PREPROCESSING == 2)
+            std::cout << "Preprocessing is enabled - Level 2 (the graph is modified)" << std::endl;
+        else
+            bye("Undefined preprocessing level");
+
+        // LP initialization strategy:
+        if (INITIAL_COLUMN_STRATEGY == 0)
+            std::cout << "Dummy strategy selected\n";
+        else if (INITIAL_COLUMN_STRATEGY == 1) {
+            if (PREPROCESSING > 0)
+                bye("CNN strategy is not implemented yet when preprocessing is enabled");    
+            std::cout << "CCN strategy selected\n";
+        }
+        else if (INITIAL_COLUMN_STRATEGY == 2)
+            std::cout << "PSC strategy selected\n";
+        else
+            bye("Undefined initial column strategy");
+
+#ifndef ONLY_RELAXATION
+
+        // Branching rule information
+        if (BRANCHING_STRATEGY == 0)
+            std::cout << "Branching on edges (EDG strategy)\n";
+        else if (BRANCHING_STRATEGY == 1) {
+            if (INITIAL_COLUMN_STRATEGY == 1)
+                bye("Branching on colors is not implemented yet when CNN strategy is selected");
+            if (N_BRANCHS < 2)
+                bye("Undefined number of branchs");
+            std::cout << "Branching on colors (CLR strategy)\n";
+            std::cout << "Number of branchs: " << N_BRANCHS << std::endl;        
+        }
+        else 
+            bye("Undefined branching strategy :(");
+
 #ifdef STABLE_POOL
-		std::cout << "Pool of columns enabled\n";
+        if (BRANCHING_STRATEGY == 1)
+            bye("Pool of columns is not implemented yet when branching on colors is selected");
+        if (PREPROCESSING > 0)
+            bye("Pool of columns is not implemented yet when preprocessing is enabled");
+        std::cout << "Pool of columns enables\n";
 #endif
+
+#endif
+
 	}
 
     G->preprocess_instance();
@@ -95,73 +136,76 @@ void LP::initialize(LP *father) {
 
 void LP::fill_initial_columns (LP *father) {
 
-#if INITIAL_COLUMN_STRATEGY == 0
+    if (INITIAL_COLUMN_STRATEGY == 0) {
 
-	if (father == NULL) std::cout << "Dummy strategy selected\n";
+        // Add a fictional column for each vertex 
+        for (int v = 0; v < G->get_n_vertices(); ++v)
+            add_fictional_column(v);
 
-    // Add a fictional column for each vertex 
-    for (int v = 0; v < G->get_n_vertices(); ++v)
-        add_fictional_column(v);
+    }
 
-#elif INITIAL_COLUMN_STRATEGY == 1
+    else if (INITIAL_COLUMN_STRATEGY == 1) {
 
-	if (father == NULL) {
+        if (father == NULL) {
 
-		std::cout << "CCN strategy selected\n";
+            // Root node: use PSC strategy
+            std::vector<std::list<nodepntArray>> stable_sets;
+            G->coloring_heuristic(stable_sets);
 
-		// Root node: use PSC strategy
-		std::vector<std::list<nodepntArray>> stable_sets;
-		G->coloring_heuristic(stable_sets);
+            // Mark the colored vertices
+            std::vector<bool> colored (G->get_n_vertices(), false);
 
-		// Mark the colored vertices
-		std::vector<bool> colored (G->get_n_vertices(), false);
+            for (int i = 0; i < G->get_n_colors(); ++i) {
+                for (auto &s: stable_sets[i]) {
+                    // Build the column
+                    bool *column = NULL;
+                    G->stable_to_column(s.list, s.n_list, &column);
 
-		for (int i = 0; i < G->get_n_colors(); ++i) {
-		    for (auto &s: stable_sets[i]) {
-                // Build the column
-                bool *column = NULL;
-                G->stable_to_column(s.list, s.n_list, &column);
+                    // Add the column to the son
+                    add_real_column(column, s.n_list, i);
 
-                // Add the column to the son
-                add_real_column(column, s.n_list, i);
+                    // Mark the colored vertices
+                    for (int j = 0; j < G->get_n_vertices(); ++j)
+                        if (column[j]) { colored[j] = true; }
 
-                // Mark the colored vertices
-                for (int j = 0; j < G->get_n_vertices(); ++j)
-                    if (column[j]) { colored[j] = true; }
+                    // Free the stable set
+                    free(s.list);
+                }
+            }
 
-                // Free the stable set
-                free(s.list);
-        	}
+                // Add dummy columns for uncovered vertices
+            for (int j = 0; j < G->get_n_vertices(); ++j) 
+                if (!colored[j]) add_fictional_column(j);
+
         }
 
-    		// Add dummy columns for uncovered vertices
-		for (int j = 0; j < G->get_n_vertices(); ++j) 
-            if (!colored[j]) add_fictional_column(j);
-    	}
-	else {
+        else {
 
-#if BRANCHING_STRATEGY == 0
-        switch (G->get_branch_status())
-        {
-        case JOIN:
-            // Fictional columns to cover u and v
-            add_fictional_column(G->get_vertex_u());
-            add_fictional_column(G->get_vertex_v());
-            break;    
-        case COLLAPSE:
-            // Fictional column to cover u
-            add_fictional_column(G->get_vertex_u());
-            break;
-        default:
-            bye("Undefined branching status");
-            break;
-        }
-#else
-        bye("Undefined fill_initial_columns() for the current branching strategy");
-#endif
+            if (BRANCHING_STRATEGY == 0) {
 
-        // Add the active columns from the father
-        for (int i: father->pos_vars) {
+                switch (G->get_branch_status())
+                {
+                case JOIN:
+                    // Fictional columns to cover u and v
+                    add_fictional_column(G->get_vertex_u());
+                    add_fictional_column(G->get_vertex_v());
+                    break;    
+                case COLLAPSE:
+                    // Fictional column to cover u
+                    add_fictional_column(G->get_vertex_u());
+                    break;
+                default:
+                    bye("Undefined branching status");
+                    break;
+                }
+            }
+
+            else {
+                bye("Undefined fill_initial_columns() for the current branching strategy");
+            }
+
+            // Add the active columns from the father
+            for (int i: father->pos_vars) {
 
                 // Build the stable set of the father
                 nodepnt *stable_father = NULL;
@@ -183,46 +227,44 @@ void LP::fill_initial_columns (LP *father) {
                 free(stable_son);
 
             }
-    }
-
-#elif INITIAL_COLUMN_STRATEGY == 2
-
-	if (father == NULL) std::cout << "PSC strategy selected\n";
-
-   	// Apply the stable set covering heuristic
-    std::vector<std::list<nodepntArray>> stable_sets;
-    G->coloring_heuristic(stable_sets);
-
-    // Mark the colored vertices
-    std::vector<bool> colored (G->get_n_vertices(), false);
-
-    for (int i = 0; i < G->get_n_colors(); ++i) {
-        for (auto &s: stable_sets[i]) {
-            // Build the column
-            bool *column = NULL;
-            G->stable_to_column(s.list, s.n_list, &column);
-
-            // Add the column to the son
-            add_real_column(column, s.n_list, i);
-
-            // Mark the colored vertices
-            for (int j = 0; j < G->get_n_vertices(); ++j)
-                if (column[j]) { colored[j] = true; }
-
-            // Free the stable set
-            free(s.list);
         }
+
     }
 
+    else if (INITIAL_COLUMN_STRATEGY == 2) {
 
-    // Add dummy columns for uncovered vertices
-    for (int j = 0; j < G->get_n_vertices(); ++j)
-        if (!colored[j])
-            add_fictional_column(j);
+        // Apply the stable set covering heuristic
+        std::vector<std::list<nodepntArray>> stable_sets;
+        G->coloring_heuristic(stable_sets);
 
-#else
-    bye("Undefined initial column strategy");
-#endif
+        // Mark the colored vertices
+        std::vector<bool> colored (G->get_n_vertices(), false);
+
+        for (int i = 0; i < G->get_n_colors(); ++i) {
+            for (auto &s: stable_sets[i]) {
+                // Build the column
+                bool *column = NULL;
+                G->stable_to_column(s.list, s.n_list, &column);
+
+                // Add the column to the son
+                add_real_column(column, s.n_list, i);
+
+                // Mark the colored vertices
+                for (int j = 0; j < G->get_n_vertices(); ++j)
+                    if (column[j]) { colored[j] = true; }
+
+                // Free the stable set
+                free(s.list);
+            }
+        }
+
+
+        // Add dummy columns for uncovered vertices
+        for (int j = 0; j < G->get_n_vertices(); ++j)
+            if (!colored[j])
+                add_fictional_column(j);
+
+    }
 
 }
 
@@ -474,11 +516,10 @@ void LP::branch(std::vector<LP *> &ret) {
     G->update_pool();
 #endif
 
-#if BRANCHING_STRATEGY == 0
-    branch_on_edges(ret);
-#elif BRANCHING_STRATEGY == 1
-    branch_on_colors(ret);
-#endif
+    if (BRANCHING_STRATEGY == 0)
+        branch_on_edges(ret);
+    else if (BRANCHING_STRATEGY == 1)
+        branch_on_colors(ret);
 
     return;
 
@@ -550,6 +591,26 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
 }
 
 
+bool is_better (std::tuple<int,int,int> &t1, std::tuple<int,int,int> &t2) {
+    int d1, d2, j1, j2, m1, m2;
+    std::tie(d1, j1, m1) = t1;
+    std::tie(d2, j2, m2) = t2;
+    if (d1 > d2)
+        return true;
+    else if (d1 < d2)
+        return false;
+    else if (m1 < m2)
+        return true;
+    else if (m1 > m2)
+        return false;
+    else if (j1 < j2)
+        return true;
+    else if (j1 > j2)
+        return false;
+    return false;
+};
+
+
 void LP::branch_on_colors(std::vector<LP *> &ret) {
 
     // Choose vertex v and color j to branch with k(v) >= 2
@@ -568,38 +629,37 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
     bool done = false;
     while (!done) {
         std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
-        int d = -1; // Delta
-        int j = -1;
-        int m = -1; // multiplicity
-        int v = -1;
+        int d = -1, j = -1, m = -1, v = -1;
         for (int i: pos_vars) {
             if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
                 int color = vars[i].color;
                 for (int u = 0; u < G->get_n_vertices(); ++u) {
                     if (vars[i].stable[u]) { // u is in S
                         if (!repeated[u][color]) {
+
                             repeated[u][color] = true;
                             int delta = G->get_n_neighbours(u, color);
+                            int mult = G->get_n_C(color);
+
                             if (delta > d) {
                                 d = delta;
                                 j = color;
-                                m = G->get_n_C(color);
+                                m = mult;
                                 v = u;
                             }
-                            else if (delta == d) {
-                                if (G->get_n_C(color) < m) { // First tie breaking rule
-                                    j = color;
-                                    m = G->get_n_C(color);
-                                    v = u;                                 
-                                }
-                                else if (G->get_n_C(color) == m && color < j) { // Second tie breaking rule
-                                    j = color;
-                                    v = u;
-                                }
-                                else if (G->get_n_C(color) == m && color == j && u < v) { // Third tie breaking rule
-                                    v = u;
-                                } 
+                            else if (delta == d && mult < m) { // First tie breaking rule
+                                j = color;
+                                m = mult;
+                                v = u;                                 
                             }
+                            else if (delta == d && mult == m && color < j) { // Second tie breaking rule
+                                j = color;
+                                v = u;
+                            }
+                            else if (delta == d && mult == m && color == j && u < v) { // Third tie breaking rule
+                                v = u; 
+                            }
+
                         }
                     }
                 }
@@ -614,42 +674,99 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
         }
         else if (W1[v] == 1 && d > 0) {
 
-#if PREPROCESSING > 0
-            bye("Branching on color: internal error");
-#else
+            if (PREPROCESSING > 0)
+                bye("Branching on color: internal error");
 
             G->preprocess_instance(v,j);
 
             reset();
             optimize();
 
-#endif
-
         }
         else {
-            
+
             done = true;
 
-            Graph *G1, *G2;
+            std::list<std::tuple<int,int,int>> candidates;
+            candidates.push_back(std::make_tuple(d,j,m)); 
 
-            // Build the graph where v is colored with some color of C[j]
-            G1 = G->choose_color(v, j);
+            if (N_BRANCHS > 2) {
+
+                // Find colors k != j such that
+                //      v \in S for some x(S,k) fractional
+                //      v maximises |N_{G_k}(v)|
+
+                std::vector<bool> repeated (G->get_n_colors(), false);
+                repeated[j] = true;
+                for (int i: pos_vars) {
+                    if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,k) is fractional
+                        int k = vars[i].color;
+                        if (!repeated[k] && vars[i].stable[v]) { // v \in S
+
+                            repeated[k] = true;
+                            int delta = G->get_n_neighbours(v,k);
+                            int mult = G->get_n_C(k);
+                            std::tuple<int,int,int> t = std::make_tuple(delta, k, mult);
+
+                            if (candidates.size() == N_BRANCHS - 1 && is_better(candidates.back(), t)) {
+                                // If the list is full and the new candidate is worse than the last element, then continue
+                                continue;
+                            }
+                            else {
+                                // Traverse the list and find the right position to add the candidate
+                                // The list is sorted from best to worst candidates
+                                bool added = false;
+                                for (auto it = candidates.begin(); it != candidates.end(); ++it)
+                                    if (is_better(t,*it)) {
+                                        candidates.insert(it,t);
+                                        added = true;
+                                        break;
+                                    }
+                                if (!added) {
+                                    // Add the element at the back of the list
+                                    candidates.push_back(t);
+                                }
+                                if (candidates.size() == N_BRANCHS) {
+                                    // Remove the worst candidate
+                                    candidates.pop_back();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            ret.resize(candidates.size() + 1);
+            std::set<int> colors;
+            int i = 0;
+
+            for (auto it = candidates.begin(); it != candidates.end(); ++it) {
+
+                int k = std::get<1>(*it);
+ 
+                Graph *G1;
+                // Build the graph where v is colored with some color of C[j]
+                G1 = G->choose_color(v, k);
+                // Build LP from G1
+                LP *lp1 = new LP(G1, this, start_t);
+
+                ret[i++] = lp1;
+                colors.insert(k);
+
+            }
+
+            Graph *G2;
+            // Build the graph where v is not colored with any color of C[k] with k \in colors
+            G2 = G->remove_color(v, colors);
             // Build LP from G1
-            LP *lp1 = new LP(G1, this, start_t);
-
-            // Build the graph where v cannot be colored with any color of C[j]
-            G2 = G->remove_color(v, j);
-            // Build LP from G2
             LP *lp2 = new LP(G2, this, start_t);
 
-            ret.resize(2);
-            ret[0] = lp1;   // First choose
-            ret[1] = lp2;   // Then remove
+            ret[i] = lp2;
 
         }
-    }            
+
+    }
 
     return;
 
 }
-

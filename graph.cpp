@@ -18,10 +18,10 @@ Graph::Graph(char *filename_graph, char *filename_costs, char *filename_lists) {
 
 
 Graph::~Graph() {
-#if BRANCHING_STRATEGY == 0
-	free_graph(G);
-	free(G);
-#endif
+	if (BRANCHING_STRATEGY == 0) {
+		free_graph(G);
+		free(G);
+	}	
 	for (int i = 0; i < K.size(); ++i) 
 		delete[] V[i].list;
 
@@ -418,17 +418,8 @@ void Graph::print_graph() {
 // preprocess_instance - preprocess the instance
 void Graph::preprocess_instance() {
 
-#if PREPROCESSING == 0
-	return;
-#endif
-
-#ifdef STABLE_POOL
-		bye("Stable pool is not implemented yet when preproccessing is on");
-#endif
-
-#if INITIAL_COLUMN_STRATEGY == 1
-		bye("Copying columns from the father is not implemented yet when preproccessing is on");
-#endif
+	if (PREPROCESSING == 0)
+		return;
 
 	// Define L[v] = {j \in K: v \in V_j}
 	std::vector<std::list<int>> L(get_n_vertices() + 1);
@@ -516,22 +507,21 @@ void Graph::preprocess_instance() {
 
 	}
 
-#if PREPROCESSING == 2 
+	if (PREPROCESSING == 2) {
 
-	// Remove vertices with L[v] = {j} and m(j) = 1
-	int count = 0; // count the number of removed verteces to correctly reference the remaining vertices
-	for (int v = 1; v < L.size(); ++v) { // Use L.size() since the number of vertices will change
-		if (L[v].size() == 1) {
-			int j = L[v].front();
-			if (get_n_C(j) == 1) {
-				preprocess_remove_vertex(v - count, j);
-				count++;
+		// Remove vertices with L[v] = {j} and m(j) = 1
+		int count = 0; // count the number of removed verteces to correctly reference the remaining vertices
+		for (int v = 1; v < L.size(); ++v) { // Use L.size() since the number of vertices will change
+			if (L[v].size() == 1) {
+				int j = L[v].front();
+				if (get_n_C(j) == 1) {
+					preprocess_remove_vertex(v - count, j);
+					count++;
+				}
 			}
 		}
 	}
-
-#endif
-
+	
 	return;
 
 }
@@ -685,10 +675,10 @@ void Graph::preprocess_remove_vertex(int v, int j) {
 	precoloring_value += w[K[j]];
 	
 	// Update Sewell graph
-#if BRANCHING_STRATEGY == 0
-	free_graph(G);
-	free(G);
-#endif
+	if (BRANCHING_STRATEGY == 0) {
+		free_graph(G);
+		free(G);
+	}
 	G = H;
 
 	// Update w
@@ -957,74 +947,75 @@ void Graph::stable_to_column (nodepnt *stable, int size, bool **column) {
 
 void Graph::translate_stable_set (int color, nodepnt *stable_father, int n_stable_father, nodepnt **stable_son, int *n_stable_son) {
 
-#if BRANCHING_STRATEGY == 0
+	if (BRANCHING_STRATEGY == 0) {
 
-	// Allocate memory for the son's stable set
-	MWIS_MALLOC(*stable_son, V[color].n_list + 1, nodepnt);
-	*n_stable_son = 0;
+		// Allocate memory for the son's stable set
+		MWIS_MALLOC(*stable_son, V[color].n_list + 1, nodepnt);
+		*n_stable_son = 0;
 
-	if (st == JOIN) {
-		bool is_u = false, is_v = false;
-		for (int j = 1; j <= n_stable_father; ++j) {
-			int w = stable_father[j]->name;
-			if (w == branch_vertex_u) {
-				is_u = true;
-				if (is_v) continue;
-			}
-			else if (w == branch_vertex_v) {
-				is_v = true;
-				if (is_u) continue;
-			}
-			(*n_stable_son)++;
-			(*stable_son)[*n_stable_son] = G->node_list + w;
-		}
-		if (is_u && is_v)
-			maximize_stable_set(color, stable_son, n_stable_son);
-
-		return;	
-	}
-
-	else if (st == COLLAPSE) {
-		bool is_u = false, is_v = false;
-		for (int j = 1; j <= n_stable_father; ++j) {
-			int w = stable_father[j]->name;
-			if (w < branch_vertex_u) {
-				(*n_stable_son)++;
-				(*stable_son)[*n_stable_son] = G->node_list + w;				
-			}
-			else if (w == branch_vertex_u) {
-				is_u = true;
-				continue;
-			}
-			else if (w < branch_vertex_v) {
+		if (st == JOIN) {
+			bool is_u = false, is_v = false;
+			for (int j = 1; j <= n_stable_father; ++j) {
+				int w = stable_father[j]->name;
+				if (w == branch_vertex_u) {
+					is_u = true;
+					if (is_v) continue;
+				}
+				else if (w == branch_vertex_v) {
+					is_v = true;
+					if (is_u) continue;
+				}
 				(*n_stable_son)++;
 				(*stable_son)[*n_stable_son] = G->node_list + w;
 			}
-			else if (w == branch_vertex_v) {
-				is_v = true;
-				continue;
+			if (is_u && is_v)
+				maximize_stable_set(color, stable_son, n_stable_son);
+
+			return;	
+		}
+
+		else if (st == COLLAPSE) {
+			bool is_u = false, is_v = false;
+			for (int j = 1; j <= n_stable_father; ++j) {
+				int w = stable_father[j]->name;
+				if (w < branch_vertex_u) {
+					(*n_stable_son)++;
+					(*stable_son)[*n_stable_son] = G->node_list + w;				
+				}
+				else if (w == branch_vertex_u) {
+					is_u = true;
+					continue;
+				}
+				else if (w < branch_vertex_v) {
+					(*n_stable_son)++;
+					(*stable_son)[*n_stable_son] = G->node_list + w;
+				}
+				else if (w == branch_vertex_v) {
+					is_v = true;
+					continue;
+				}
+				else {
+					(*n_stable_son)++;
+					(*stable_son)[*n_stable_son] = G->node_list + (w-1);
+				}
 			}
-			else {
+			if (is_u && is_v) {
 				(*n_stable_son)++;
-				(*stable_son)[*n_stable_son] = G->node_list + (w-1);
+				(*stable_son)[*n_stable_son] = G->node_list + branch_vertex_u;
 			}
-		}
-		if (is_u && is_v) {
-			(*n_stable_son)++;
-			(*stable_son)[*n_stable_son] = G->node_list + branch_vertex_u;
-		}
-		else if (is_u != is_v)
-			maximize_stable_set(color, stable_son, n_stable_son);
+			else if (is_u != is_v)
+				maximize_stable_set(color, stable_son, n_stable_son);
 
-		return;	
-	}
+			return;	
+		}
 	
-	else
-		bye ("Undefined branching status");
+		else
+			bye ("Undefined branching status");
 
-#else
-	bye ("Undefined translate_stable_set() for the current branching strategy");
-#endif
+	}
+
+	else
+		bye ("Undefined translate_stable_set() for the current branching strategy");
 
 }
 
@@ -1261,7 +1252,7 @@ BRANCH_STATUS Graph::get_branch_status() {
 	return st;
 }
 
-Graph* Graph::remove_color(int v, int k) {
+Graph* Graph::remove_color(int v, std::set<int> &colors) {
 
 	// Build a new graph
 	Graph *H = new Graph();
@@ -1284,7 +1275,7 @@ Graph* Graph::remove_color(int v, int k) {
 	// Build Vk's
 	H->V.resize(H->K.size());
 	for (int i = 0; i < H->K.size(); ++i) {
-		if (i == k) {
+		if (colors.find(i) != colors.end()) {
 			// Skip v
 			H->V[i].n_list = V[i].n_list - 1;
 			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
@@ -1313,24 +1304,8 @@ Graph* Graph::remove_color(int v, int k) {
 	// Build precoloring cost
 	H->precoloring_value = precoloring_value; 	
 
-	// Set branch information
-	H->st = REMOVE;
-	H->branch_vertex_v = v;
-	H->branch_color_k = k;
-
 #ifdef STABLE_POOL
-	// Build the pools
-	H->global_pool.resize(H->K.size());
-	H->local_pool.resize(H->K.size());
-	// Copy into H->global_pool the stables from global_pool
-	for (int i = 0; i < H->K.size(); ++i) {
-		for (auto &s: global_pool[i]) {
-			nodepnt *stable = NULL;
-			int n_stable = 0;
-			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
-			H->global_pool[i].emplace_back(stable, n_stable);
-		}
-	}
+	bye("Stable pool is not implemented yet when branching on color");
 #endif
 
 	return H;
@@ -1390,24 +1365,8 @@ Graph* Graph::choose_color(int v, int k) {
 	// Build precoloring cost
 	H->precoloring_value = precoloring_value; 	
 
-	// Set branch information
-	H->st = CHOOSE;
-	H->branch_vertex_v = v;
-	H->branch_color_k = k;
-
 #ifdef STABLE_POOL
-	// Build the pools
-	H->global_pool.resize(H->K.size());
-	H->local_pool.resize(H->K.size());
-	// Copy into H->global_pool the stables from global_pool
-	for (int i = 0; i < H->K.size(); ++i) {
-		for (auto &s: global_pool[i]) {
-			nodepnt *stable = NULL;
-			int n_stable = 0;
-			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
-			H->global_pool[i].emplace_back(stable, n_stable);
-		}
-	}
+	bye("Stable pool is not implemented yet when branching on color");
 #endif
 
 	return H;

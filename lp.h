@@ -19,6 +19,10 @@
                                   // 2: stable set covering heuristic
 #endif
 
+#ifndef N_BRANCHS
+#define N_BRANCHS 5
+#endif
+
 enum LP_STATE {INFEASIBLE, INTEGER, FRACTIONAL, TIME_OR_MEM_LIMIT};
 
 typedef struct Column {
