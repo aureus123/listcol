@@ -19,6 +19,18 @@
                                   // 2: stable set covering heuristic
 #endif
 
+#ifndef BRANCHING_STRATEGY
+#define BRANCHING_STRATEGY 0  // 0: Branching on edges
+                              // 1: Branching on colors
+#endif
+
+#ifndef VARIABLE_SELECTION
+#define VARIABLE_SELECTION 0    // 0: (EDG) Trick's strategy
+                                //    (CLR) Greatest neighborhood
+                                // 1: (EDG) Smallest list of colors
+                                //  : (CLR) Smallest list of colors
+#endif
+
 #ifndef N_BRANCHS
 #define N_BRANCHS 5
 #endif

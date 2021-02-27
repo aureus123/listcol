@@ -3,6 +3,9 @@
 #include "io.h"
 #include <cmath>
 
+#include <algorithm>
+
+
 LP::LP(Graph *G, LP *father, double start_t) : 
 
     start_t(start_t),
@@ -101,6 +104,17 @@ void LP::initialize(LP *father) {
         }
         else 
             bye("Undefined branching strategy :(");
+
+        if (VARIABLE_SELECTION == 0 && BRANCHING_STRATEGY == 0)
+            std::cout << "Variable selection: Sewell's strategy\n";
+        else if (VARIABLE_SELECTION == 1 && BRANCHING_STRATEGY == 0)
+            std::cout << "Variable selection: Smallest list of colors\n";
+        else if (VARIABLE_SELECTION == 0 && BRANCHING_STRATEGY == 1)
+            std::cout << "Variable selection: Greatest neighborhood\n";
+        else if (VARIABLE_SELECTION == 1 && BRANCHING_STRATEGY == 1)
+            std::cout << "Variable selection: Smallest list of colors\n";
+        else
+            bye("Undefined variable selection strategy");
 
 #ifdef STABLE_POOL
         if (BRANCHING_STRATEGY == 1)
@@ -527,46 +541,81 @@ void LP::branch(std::vector<LP *> &ret) {
 
 void LP::branch_on_edges(std::vector<LP *> &ret) {
 
-    // ** Variable selection ** 
-
-    // Choose vertices u and v to branch
-    // 1) Find the most fractional stable (S1,k) with |S1| > 1
-    // 2) Find the first vertex u in S1
-    // 3) Find the first active stable set (S2,l) such that u \in S2 [and (S1,k) \neq (S2,l)]
-    // 4) If S2 \neq S1, choose v \in S1 (symmetric difference) S2
-    // 5) Otherwhise, choose the second vertex v \in S1
-
     int u = -1, v = -1;
 
-    // Find the first vertex u in S1
-    if (most_fract_var < 0 || most_fract_var >= Xvars.getSize()) bye("Branching error");
-    for (int i = 0; i < G->get_n_vertices(); ++i)
-        if (vars[most_fract_var].stable[i]) {
-            u = i;
-            break;
-        }
-    if (u < 0) bye("Branching error");
+    // ** Variable selection ** 
 
-    // Find the first active stable set (S2,l) such that u \in S2 [and (S1,k) \neq (S2,l)]
-    for (int i: pos_vars)
-        if (vars[i].stable[u] && most_fract_var != i) {
-            for (int j = 0; j < G->get_n_vertices(); ++j)
-                // If S2 \neq S1, choose v \in S1 (symmetric difference) S2
-                if (vars[i].stable[j] != vars[most_fract_var].stable[j]) {
-                    v = j;
-                    break;
-                }
-            // Otherwhise, choose the second vertex v \in S1
-            if (v < 0) {
-                for (int j = u+1; j < G->get_n_vertices(); ++j)
-                    if (vars[most_fract_var].stable[j]) {
+    if (VARIABLE_SELECTION == 0) {
+
+        // Choose vertices u and v to branch
+        // 1) Find the most fractional stable (S1,k) with |S1| > 1
+        // 2) Find the first vertex u in S1
+        // 3) Find the first active stable set (S2,l) such that u \in S2 [and (S1,k) \neq (S2,l)]
+        // 4) If S2 \neq S1, choose v \in S1 (symmetric difference) S2
+        // 5) Otherwhise, choose the second vertex v \in S1
+
+        // Find the first vertex u in S1
+        if (most_fract_var < 0 || most_fract_var >= Xvars.getSize()) bye("Branching error");
+        for (int i = 0; i < G->get_n_vertices(); ++i)
+            if (vars[most_fract_var].stable[i]) {
+                u = i;
+                break;
+            }
+        if (u < 0) bye("Branching error");
+
+        // Find the first active stable set (S2,l) such that u \in S2 [and (S1,k) \neq (S2,l)]
+        for (int i: pos_vars)
+            if (vars[i].stable[u] && most_fract_var != i) {
+                for (int j = 0; j < G->get_n_vertices(); ++j)
+                    // If S2 \neq S1, choose v \in S1 (symmetric difference) S2
+                    if (vars[i].stable[j] != vars[most_fract_var].stable[j]) {
                         v = j;
                         break;
                     }
-                if (v < 0) bye("Branching error");
+                // Otherwhise, choose the second vertex v \in S1
+                if (v < 0) {
+                    for (int j = u+1; j < G->get_n_vertices(); ++j)
+                        if (vars[most_fract_var].stable[j]) {
+                            v = j;
+                            break;
+                        }
+                    if (v < 0) bye("Branching error");
+                }
+                break;
             }
-            break;
-        }
+
+    }
+
+    else if (VARIABLE_SELECTION == 1) {
+
+        // Choose u and v such that
+        //      there is a fractional variable x(S,k) with u,v \in S
+        //      u and v maximises k(u) + k(v), where k(u) = |L(u) \¢ap K|
+        //      Tie breaking rule: lowest index 
+
+        std::vector<int> W;
+        G->get_W1(W);
+
+        int min = INT_MAX;
+        std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_vertices(), false));
+        for (int x: pos_vars)
+            if (values[x] > EPSILON && values[x] < 1 - EPSILON)
+                for (int i = 0; i < G->get_n_vertices(); ++i)
+                    if (vars[x].stable[i]) 
+                        for (int j = i+1; j < G->get_n_vertices(); ++j)
+                            if (vars[x].stable[j])
+                                if (!repeated[i][j]) {
+                                    repeated[i][j] = true;
+                                    if (W[i] + W[j] < min
+                                    || (W[i] + W[j] == min && i < u)
+                                    || (W[i] + W[j] == min && i == u && j < v)) {
+                                        min = W[i] + W[j];
+                                        u = i;
+                                        v = j;
+                                    }
+                                }
+
+    }
 
     // ** Branching rule ** 
 
@@ -615,64 +664,117 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
 
     // Choose vertex v and color j to branch with k(v) >= 2
 
-    // Choose v and j with:
-    //      there is some fractional variable (S,j) with v \in S
-    //      v maximises |N_{Gj}(v)|
-    //      First tie breaking rule: lowest multiplicity
-    //      Second tie breaking rule: lowest index of color
-    //      Third tie breaking rule: lowest index of vertex
-    // If k(v) = 1 and m(j) = 1
-    //      Report an error
-    // Else if k(v) = 1 and m(j) > 1 (this can only happens when the preprocessor is not activated)
-    //      Preprocess (v,j) and apply again the variable selection strategy
-
     bool done = false;
     while (!done) {
-        std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
-        int d = -1, j = -1, m = -1, v = -1;
-        for (int i: pos_vars) {
-            if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
-                int color = vars[i].color;
-                for (int u = 0; u < G->get_n_vertices(); ++u) {
-                    if (vars[i].stable[u]) { // u is in S
-                        if (!repeated[u][color]) {
 
-                            repeated[u][color] = true;
-                            int delta = G->get_n_neighbours(u, color);
-                            int mult = G->get_n_C(color);
+        int v = -1, j = -1, d = -1, m = -1;
 
-                            if (delta > d) {
-                                d = delta;
-                                j = color;
-                                m = mult;
-                                v = u;
-                            }
-                            else if (delta == d && mult < m) { // First tie breaking rule
-                                j = color;
-                                m = mult;
-                                v = u;                                 
-                            }
-                            else if (delta == d && mult == m && color < j) { // Second tie breaking rule
-                                j = color;
-                                v = u;
-                            }
-                            else if (delta == d && mult == m && color == j && u < v) { // Third tie breaking rule
-                                v = u; 
-                            }
+        std::vector<int> W;
+        G->get_W1(W); // W[v] = k(v) = |L[v] \cap K|
 
+        if (VARIABLE_SELECTION == 0) {
+
+            // Choose v and j with:
+            //      there is some fractional variable (S,j) with v \in S
+            //      v maximises |N_{Gj}(v)|
+            //      First tie breaking rule: lowest multiplicity
+            //      Second tie breaking rule: lowest index of color
+            //      Third tie breaking rule: lowest index of vertex
+            // If k(v) = 1 and m(j) = 1
+            //      Report an error
+            // Else if k(v) = 1 and m(j) > 1 (this can only happens when the preprocessor is not activated)
+            //      Preprocess (v,j) and apply again the variable selection strategy
+    
+            std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
+            for (int i: pos_vars) {
+                if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
+                    int color = vars[i].color;
+                    for (int u = 0; u < G->get_n_vertices(); ++u) {
+                        if (vars[i].stable[u]) { // u is in S
+                            if (!repeated[u][color]) {
+
+                                repeated[u][color] = true;
+                                int delta = G->get_n_neighbours(u, color);
+                                int mult = G->get_n_C(color);
+
+                                if (W[u] == 1 && delta == 0)
+                                    continue;
+
+                                if (delta > d
+                                || (delta == d && mult < m) // First tie breaking rule
+                                || (delta == d && mult == m && color < j) // Second tie breaking rule
+                                || (delta == d && mult == m && color == j && u < v)) { // Third tie breaking rule
+                                    d = delta;
+                                    j = color;
+                                    m = mult;
+                                    v = u;
+                                }
+
+                            }
                         }
                     }
                 }
             }
         }
 
-        std::vector<int> W1;
-        G->get_W1(W1); // W[v] = k(v) = |L[v] \cap K|
+        else if (VARIABLE_SELECTION == 1) {
 
-        if (W1[v] == 1 && d == 0) { // An isolated vertex was selected
+            // Choose v such that:
+            //      there is some fractional variable x(S,j) with v \in S
+            //      minimises k(v)
+            //      Tie breaking rule: lowest index
+            // Choose j such that
+            //      there is some fractional variable x(S,j) with v \in S
+            //      maximises |N_{Gj}(v)|
+            //      First tie breaking rule: lowest multiplicity
+            //      Second tie breaking rule: lowest index of color
+            // If k(v) = 1 and m(j) = 1
+            //      Report an error
+            // Else if k(v) = 1 and m(j) > 1 (this can only happens when the preprocessor is not activated)
+            //      Preprocess (v,j) and apply again the variable selection strategy
+
+            std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
+            int k = INT_MAX;
+            for (int i: pos_vars) {
+                if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
+                    int color = vars[i].color;
+                    for (int u = 0; u < G->get_n_vertices(); ++u) {
+                        if (vars[i].stable[u]) { // u is in S
+                            if (!repeated[u][color]) {
+
+                                repeated[u][color] = true;
+                                int delta = G->get_n_neighbours(u, color);
+                                int mult = G->get_n_C(color);
+                                
+                                if (W[u] == 1 && delta == 0) {
+                                    continue;
+                                }
+
+                                if (W[u] < k
+                                || (W[u] == k && u < v) // Vertex's tie breaking rule
+                                || (W[u] == k && u == v && delta > d)
+                                || (W[u] == k && u == v && delta == d && mult < m) // Color's first tie breaking rule
+                                || (W[u] == k && u == v && delta == d && mult == m && color < j)) { // Color's second tie breaking rule
+                                    v = u;
+                                    j = color;
+                                    k = W[u];
+                                    d = delta;
+                                    m = mult;
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+
+        if (W[v] == 1 && d == 0) { // An isolated vertex was selected
             bye("Branching on color: an isolated vertex was selected");
         }
-        else if (W1[v] == 1 && d > 0) {
+        else if (W[v] == 1 && d > 0) {
 
             if (PREPROCESSING > 0)
                 bye("Branching on color: internal error");

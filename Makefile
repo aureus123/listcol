@@ -18,6 +18,17 @@ CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
 all: vc vcroot st stroot bproot_dum bproot_psc bp_dum bp_psc bp_ccn bp_poo bp_clr bp_ind genclassicinst genrandominst genmuinst gengraph checker
 
+# Example
+
+mybp0: main.o bp.o mylp.o mygraph.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+mylp.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0 -DVARIABLE_SELECTION=1 -DN_BRANCHS=2
+
+mygraph.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0
+
 # Tools made by Daniel
 
 st: listcola.cpp

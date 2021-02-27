@@ -335,6 +335,15 @@ void Graph::get_W1(std::vector<int> &W) {
 			W[V[i].list[j]->name - 1]++;
 }
 
+void Graph::get_S(std::vector<std::set<int>> &S) {
+	S.clear();
+	S.resize(get_n_vertices());
+	for (int i = 0; i < K.size(); ++i)
+		for (int j = 1; j <= V[i].n_list; ++j)
+			S[V[i].list[j]->name - 1].insert(i);
+}
+
+
 bool Graph::is_edge(int u, int v) {
 	return G->adj[u+1][v+1];
 }

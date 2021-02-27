@@ -31,7 +31,6 @@ typedef struct nodepntArray {
 #ifndef BRANCHING_STRATEGY
 #define BRANCHING_STRATEGY 0  // 0: Branching on edges
                               // 1: Branching on colors
-                              // 2: Branching on indistinguishable colors
 #endif
 
 #ifndef PREPROCESSING
@@ -80,6 +79,7 @@ class Graph {
 
   // Get W1 such that W1[v] = |Lv \cap K| for all v
   void get_W1(std::vector<int> &W1);
+  void get_S(std::vector<std::set<int>> &S);
 
   // Are vertices u and v adjacent?
   bool is_edge(int u, int v);
