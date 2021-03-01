@@ -5,6 +5,8 @@
 #include <cfloat>
 #include <cmath>
 
+#define EPSILON_BP 0.001 // For doing ceil(x - EPSILON_BP) during prunning
+
 Node::Node (LP* lp) : lp(lp) {
 }
 
@@ -116,7 +118,7 @@ void BP<Solution>::solve (Node* root) {
     }
 #endif
 
-    if (!L.empty()) root_lower_bound = ceil(root->get_obj_value());
+    if (!L.empty()) root_lower_bound = ceil(root->get_obj_value() - EPSILON_BP);
 
     while (!L.empty()) {
 
@@ -126,7 +128,7 @@ void BP<Solution>::solve (Node* root) {
         pop();
 
         // Re-try to prune by bound, since primal_bound could have been improved
-        if (ceil(node->get_obj_value()) >= primal_bound) {
+        if (ceil(node->get_obj_value() - EPSILON_BP) >= primal_bound) {
             delete node;
             continue;
         }
@@ -214,7 +216,7 @@ void BP<Solution>::push (Node* node) {
 
         case FRACTIONAL:
             obj_value = node->get_obj_value();
-            if (ceil(obj_value) >= primal_bound) {
+            if (ceil(obj_value - EPSILON_BP) >= primal_bound) { 
                 // Prune by bound
                 delete node;
                 return;
