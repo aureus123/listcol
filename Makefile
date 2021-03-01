@@ -16,7 +16,15 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bproot_dum bproot_psc bp_dum bp_psc bp_ccn bp_poo bp_clr bp_ind genclassicinst genrandominst genmuinst gengraph checker
+all: vc vcroot st stroot bproot_dum bproot_psc  \
+     bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2  \
+     bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2  \
+     genclassicinst genrandominst genmuinst gengraph checker
+
+#     bp_clr0N3 bp_clralt0N3 bp_clr1N3 bp_clralt1N3 bp_clr2N3 bp_clralt2N3  \
+#     bp_clr0N4 bp_clralt0N4 bp_clr1N4 bp_clralt1N4 bp_clr2N4 bp_clralt2N4  \
+#     bp_clr0N5 bp_clralt0N5 bp_clr1N5 bp_clralt1N5 bp_clr2N5 bp_clralt2N5  \
+
 
 # Example
 
@@ -29,37 +37,108 @@ mylp.o: lp.cpp lp.h graph.h
 mygraph.o: graph.cpp graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0
 
-# Tools made by Daniel
-
-st: listcola.cpp
-	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-stroot: listcola.cpp
-	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-vc: listcola.cpp
-	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-vcroot: listcola.cpp
-	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-genclassicinst: genclassicinst.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-genrandominst: genrandominst.cpp
-	$(CC) -o $@ $^ $(CCFLAGS)
-
-genmuinst: genmuinst.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
-
-gengraph: gengraph.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) -lm
-
-checker: checker.cpp
-	$(CC) -o $@ $^ $(CCFLAGS) -lm
-
 
 # Code made by Mauro
+
+bp_edg0: main.o bp.o lp_edg0.o graph_edg0.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edg0.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=0 -DVARIABLE_SELECTION=0
+
+graph_edg0.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0 -DPREPROCESSING=0
+
+bp_edgalt0: main.o bp.o lp_edgalt0.o graph_edg0.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edgalt0.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=0 -DVARIABLE_SELECTION=1
+
+
+bp_edg1: main.o bp.o lp_edg1.o graph_edg1.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edg1.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=1 -DVARIABLE_SELECTION=0
+
+graph_edg1.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0 -DPREPROCESSING=1
+
+bp_edgalt1: main.o bp.o lp_edgalt1.o graph_edg1.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edgalt1.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=1 -DVARIABLE_SELECTION=1
+
+
+bp_edg2: main.o bp.o lp_edg2.o graph_edg2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edg2.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=2 -DVARIABLE_SELECTION=0
+
+graph_edg2.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=0 -DPREPROCESSING=2
+
+bp_edgalt2: main.o bp.o lp_edgalt2.o graph_edg2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_edgalt2.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=0 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1
+
+
+bp_clr0: main.o bp.o lp_clr0.o graph_clr0.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr0.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0 -DVARIABLE_SELECTION=0 -DN_BRANCHS=2
+
+graph_clr0.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0
+
+bp_clralt0: main.o bp.o lp_clralt0.o graph_clr0.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt0.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=0 -DVARIABLE_SELECTION=1 -DN_BRANCHS=2
+
+
+bp_clr1: main.o bp.o lp_clr1.o graph_clr1.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr1.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=1 -DVARIABLE_SELECTION=0 -DN_BRANCHS=2
+
+graph_clr1.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1 -DPREPROCESSING=1
+
+bp_clralt1: main.o bp.o lp_clralt1.o graph_clr1.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt1.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=1 -DVARIABLE_SELECTION=1 -DN_BRANCHS=2
+
+
+bp_clr2: main.o bp.o lp_clr2.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr2.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=0 -DN_BRANCHS=2
+
+graph_clr2.o: graph.cpp graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2
+
+bp_clralt2: main.o bp.o lp_clralt2.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt2.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1 -DN_BRANCHS=2
+
+
+
+
+
 
 bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
@@ -143,9 +222,40 @@ sewell:
 	$(MAKE) -C mwis_sewell
 
 
+# Tools made by Daniel
+
+st: listcola.cpp
+	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+stroot: listcola.cpp
+	$(CC) -o $@ $^ -DSTABLEMODEL -DTUNEDPARAMS -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+vc: listcola.cpp
+	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+vcroot: listcola.cpp
+	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+genclassicinst: genclassicinst.cpp
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+genrandominst: genrandominst.cpp
+	$(CC) -o $@ $^ $(CCFLAGS)
+
+genmuinst: genmuinst.cpp
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+gengraph: gengraph.cpp
+	$(CC) -o $@ $^ $(CCFLAGS) -lm
+
+checker: checker.cpp
+	$(CC) -o $@ $^ $(CCFLAGS) -lm
+
+
 .PHONY: clean
 
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-	rm -f vc vcroot st stroot bp bp_clr bp_ind bproot_dum bproot_psc bp_ccn genclassicinst genrandominst genmuinst gengraph checker bp_dum bp_poo bp_psc
+	rm -f vc vcroot st stroot bproot_dum bproot_psc bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2 bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2 bp_clr0N3 bp_clralt0N3 bp_clr1N3 bp_clralt1N3 bp_clr2N3 bp_clralt2N3 bp_clr0N4 bp_clralt0N4 bp_clr1N4 bp_clralt1N4 bp_clr2N4 bp_clralt2N4 bp_clr0N5 bp_clralt0N5 bp_clr1N5 bp_clralt1N5 bp_clr2N5 bp_clralt2N5 genclassicinst genrandominst genmuinst gengraph checker
+
