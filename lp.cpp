@@ -677,15 +677,17 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
             // Choose v and j with:
             //      there is some fractional variable (S,j) with v \in S
             //      v maximises |N_{Gj}(v)|
-            //      First tie breaking rule: lowest multiplicity
-            //      Second tie breaking rule: lowest index of color
-            //      Third tie breaking rule: lowest index of vertex
+            //      First tie breaking rule: lowest k(v)
+            //      Second tie breaking rule: lowest multiplicity
+            //      Third tie breaking rule: lowest index of color
+            //      Fourth tie breaking rule: lowest index of vertex
             // If k(v) = 1 and m(j) = 1
             //      Report an error
             // Else if k(v) = 1 and m(j) > 1 (this can only happens when the preprocessor is not activated)
             //      Preprocess (v,j) and apply again the variable selection strategy
     
             std::vector<std::vector<bool>> repeated (G->get_n_vertices(), std::vector<bool> (G->get_n_colors(), false));
+            int k = INT_MAX;
             for (int i: pos_vars) {
                 if (values[i] > EPSILON && values[i] < 1 - EPSILON) { // x(S,color) is fractional
                     int color = vars[i].color;
@@ -701,10 +703,12 @@ void LP::branch_on_colors(std::vector<LP *> &ret) {
                                     continue;
 
                                 if (delta > d
-                                || (delta == d && mult < m) // First tie breaking rule
-                                || (delta == d && mult == m && color < j) // Second tie breaking rule
-                                || (delta == d && mult == m && color == j && u < v)) { // Third tie breaking rule
+                                || (delta == d && W[u] < k) // First tie breaking rule
+                                || (delta == d && W[u] == k && mult < m) // Second tie breaking rule
+                                || (delta == d && W[u] == k && mult == m && color < j) // Third tie breaking rule
+                                || (delta == d && W[u] == k && mult == m && color == j && u < v)) { // Fourth tie breaking rule
                                     d = delta;
+                                    k = W[u];
                                     j = color;
                                     m = mult;
                                     v = u;
