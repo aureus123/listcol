@@ -135,7 +135,7 @@ void LP::initialize(LP *father) {
     for (int v = 0; v < G->get_n_vertices(); v++) 
         Xrestr.add(IloRange(Xenv, 1.0, IloInfinity));
     for (int k = 0; k < G->get_n_colors(); k++)
-        Xrestr.add(IloRange(Xenv, -1 * G->get_n_C(k), IloInfinity));
+        Xrestr.add(IloRange(Xenv, -1 * std::min(G->get_n_C(k), G->get_n_V(k)), IloInfinity));
     Xmodel.add(Xrestr);
 
     // Initialize objective function
@@ -606,10 +606,11 @@ void LP::branch_on_edges(std::vector<LP *> &ret) {
                             if (vars[x].stable[j])
                                 if (!repeated[i][j]) {
                                     repeated[i][j] = true;
-                                    if (W[i] + W[j] < min
-                                    || (W[i] + W[j] == min && i < u)
-                                    || (W[i] + W[j] == min && i == u && j < v)) {
-                                        min = W[i] + W[j];
+                                    int m = std::min(W[i],W[j]);
+                                    if (m < min
+                                    || (m == min && i < u)
+                                    || (m == min && i == u && j < v)) {
+                                        min = m;
                                         u = i;
                                         v = j;
                                     }
