@@ -19,10 +19,10 @@ CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 all: vc vcroot st stroot bproot_dum bproot_psc  \
      genclassicinst genrandominst genmuinst gengraph checker \
      bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2  \
-     bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2
-#     bp_clr0N3 bp_clralt0N3 bp_clr1N3 bp_clralt1N3 bp_clr2N3 bp_clralt2N3  \
-#     bp_clr0N4 bp_clralt0N4 bp_clr1N4 bp_clralt1N4 bp_clr2N4 bp_clralt2N4  \
-#     bp_clr0N5 bp_clralt0N5 bp_clr1N5 bp_clralt1N5 bp_clr2N5 bp_clralt2N5
+     bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2  \
+     bp_clr2N3 bp_clralt2N3  \
+     bp_clr2N4 bp_clralt2N4  \
+     bp_clr2N5 bp_clralt2N5
 
 
 # Example
@@ -135,8 +135,43 @@ lp_clralt2.o: lp.cpp lp.h graph.h
 	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1 -DN_BRANCHS=2
 
 
+bp_clr2N3: main.o bp.o lp_clr2N3.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr2N3.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=0 -DN_BRANCHS=3
+
+bp_clralt2N3: main.o bp.o lp_clralt2N3.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt2N3.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1 -DN_BRANCHS=3
 
 
+bp_clr2N4: main.o bp.o lp_clr2N4.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr2N4.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=0 -DN_BRANCHS=4
+
+bp_clralt2N4: main.o bp.o lp_clralt2N4.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt2N4.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1 -DN_BRANCHS=4
+
+
+bp_clr2N5: main.o bp.o lp_clr2N5.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clr2N5.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=0 -DN_BRANCHS=5
+
+bp_clralt2N5: main.o bp.o lp_clralt2N5.o graph_clr2.o io.o mwis_sewell/wstable.o
+	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+lp_clralt2N5.o: lp.cpp lp.h graph.h
+	$(CC) -c -o $@ $< $(CCFLAGS) -DINITIAL_COLUMN_STRATEGY=0 -DBRANCHING_STRATEGY=1 -DPREPROCESSING=2 -DVARIABLE_SELECTION=1 -DN_BRANCHS=5
 
 
 bp: main.o bp.o lp.o graph.o io.o mwis_sewell/wstable.o

@@ -93,11 +93,12 @@ int main(int argc, char **argv)
 	}
 	fclose(stream);
 
-	/* the number of colors is set to Delta(G) */
+	/* the number of colors is set to Delta(G) + 1 */
 	int colors = 0;
 	for (int v = 0; v < vertices; v++) {
 		if (degrees[v] > colors) colors = degrees[v];
 	}
+	colors++;
 
 	cout << "Statistics:" << endl;
 	int clique_size = vertices * (vertices - 1) / 2;
