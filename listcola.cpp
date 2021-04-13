@@ -35,7 +35,7 @@ using namespace std;
 #define BIGNUMBER 99999999
 #define MAXTIME 7200.0
 #define VERBOSE
-#define SHOWSTATS
+//#define SHOWSTATS
 //#define SHOWINSTANCE
 //#define SHOWALLSTABLES
 #define SHOWCPLEX
@@ -181,7 +181,7 @@ void read_graph(char *filename)
 
 	/* do not accept graph of less than 4 vertices or stable sets */
 	if (vertices < 4) bye("Number of vertices out range!");
-	if (edges < 1 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
+	if (edges < 0 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
 
 	/* ask for memory */	degrees = new int[vertices];
 	adjacency = new int*[vertices];
@@ -1415,13 +1415,13 @@ int main(int argc, char **argv)
 	}
 #endif
 
-#ifdef SHOWSTATS
 	/* Show some basic statistics */
 	set_color(6);
 	cout << "Statistics:" << endl;
 	int clique_size = vertices * (vertices - 1) / 2;
 	float density = 100.0 * (float)edges / (float)clique_size;
 	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
+#ifdef SHOWSTATS
 	/* Average and standard deviation of size of lists */
 	float prom = 0.0;
 	for (int k = 0; k < vertices; k++) prom += (float)L_size[k];
