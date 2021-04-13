@@ -58,9 +58,9 @@ void Graph::read_graph(char *filename) {
 	int vertices, edges;
 	fscanf(stream, "%d:%d\n", &vertices, &edges);
 
-	// Do not accept graph of less than 4 vertices or stable sets
+	// Do not accept graph of less than 4 vertices
 	if (vertices < 4) bye("Number of vertices out range!");
-	if (edges < 1 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
+	if (edges < 0 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
 
 	// Allocate graph G
 	G = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
