@@ -57,7 +57,7 @@ void read_graph(char *filename)
 
 	/* do not accept graph of less than 4 vertices or stable sets */
 	if (vertices < 4) bye("Number of vertices out range!");
-	if (edges < 1 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
+	if (edges < 0 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
 
 	/* ask for memory */
 	adjacency = new int*[vertices];
