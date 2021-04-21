@@ -17,7 +17,8 @@ LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
 all: vc vcroot st stroot bproot_dum bproot_psc  \
-     genclassicinst gensetcoverinst genrandominst genmuinst gengraph checker \
+     genclassicinst gensetcoverinst gensetcoverrailinst  \
+     genrandominst genmuinst gengraph checker \
      bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2  \
      bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2  \
      bp_clr2N3 bp_clralt2N3  \
@@ -273,6 +274,12 @@ vcroot: listcola.cpp
 genclassicinst: genclassicinst.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
+gensetcoverinst: gensetcoverinst.cpp
+	$(CC) -o $@ $^ $(CCFLAGS)
+
+gensetcoverrailinst: gensetcoverinst.cpp
+	$(CC) -o $@ $^ -DRAIL_INSTANCE $(CCFLAGS)
+
 genrandominst: genrandominst.cpp
 	$(CC) -o $@ $^ $(CCFLAGS)
 
@@ -291,5 +298,5 @@ checker: checker.cpp
 clean:
 	$(MAKE) -C mwis_sewell clean
 	rm -f *.o
-	rm -f vc vcroot st stroot bproot_dum bproot_psc bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2 bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2 bp_clr0N3 bp_clralt0N3 bp_clr1N3 bp_clralt1N3 bp_clr2N3 bp_clralt2N3 bp_clr0N4 bp_clralt0N4 bp_clr1N4 bp_clralt1N4 bp_clr2N4 bp_clralt2N4 bp_clr0N5 bp_clralt0N5 bp_clr1N5 bp_clralt1N5 bp_clr2N5 bp_clralt2N5 genclassicinst genrandominst genmuinst gengraph checker
+	rm -f vc vcroot st stroot bproot_dum bproot_psc bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2 bp_clr0 bp_clralt0 bp_clr1 bp_clralt1 bp_clr2 bp_clralt2 bp_clr0N3 bp_clralt0N3 bp_clr1N3 bp_clralt1N3 bp_clr2N3 bp_clralt2N3 bp_clr0N4 bp_clralt0N4 bp_clr1N4 bp_clralt1N4 bp_clr2N4 bp_clralt2N4 bp_clr0N5 bp_clralt0N5 bp_clr1N5 bp_clralt1N5 bp_clr2N5 bp_clralt2N5 genclassicinst gensetcoverinst gensetcoverrailinst genrandominst genmuinst gengraph checker
 

@@ -1,25 +1,19 @@
 /*
- * GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph
- *   (with a maximum clique previously colored)
- * Made in 2018-2020 by Daniel Severin
- *
- * Requires IBM ILOG CPLEX 12.7
+ * GENSETCOVERINST - Generate an instance for the Set Covering Problem
+ * Made in 2021 by Daniel Severin
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <iostream>
-#include <ilcplex/ilocplex.h>
-#include <ilcplex/cplex.h>
-
-ILOSTLBEGIN
 
 using namespace std;
 
-#define EPSILON 0.00001
-#define MAXTIME 600.0
-//#define COLOR_CLIQUE
+#define MAXVERTPERCOLOR 15
+#define MAXCOLORPERVERT 200
+//#define RAIL_INSTANCE
 
 /* FUNCTIONS */
 
@@ -37,14 +31,11 @@ void bye(char *string)
  */
 int main(int argc, char **argv)
 {
-	cout << "GENCLASSICINST - Generate an instance for the classic Coloring Problem from a graph." << endl;
-#ifdef COLOR_CLIQUE
-	cout << "  (with a maximum clique previously colored)" << endl;
-#endif
+	cout << "GENSETCOVERINST - Generate an instance for the Set Covering Problem." << endl;
 
 	if (argc < 2) {
-		cout << "Usage: genclassicinst file" << endl;
-		cout << "It takes file.graph and generates file.cost and file.list." << endl;
+		cout << "Usage: gensetcoverinst file" << endl;
+		cout << "It takes file.txt and generates file.graph, file.cost and file.list." << endl;
 		bye("Bye!");
 	}
 
@@ -53,161 +44,144 @@ int main(int argc, char **argv)
 	/* open graph file */
 	char filename_extension[210];
 	strncpy(filename_extension, filename, 200);
-	strcat(filename_extension, ".graph");
+	strcat(filename_extension, ".txt");
 	FILE *stream = fopen(filename_extension, "rt");
-	if (!stream) bye("Graph file cannot be opened");
-	int vertices, edges;
-	fscanf(stream, "%d:%d\n", &vertices, &edges);
+	if (!stream) bye("SC file cannot be opened");
+	int vertices, colors;
+	fscanf(stream, "%d %d\n", &vertices, &colors);
 
-	/* do not accept graph of less than 4 vertices or stable sets */
+	/* do not accept graph of less than 4 vertices */
 	if (vertices < 4) bye("Number of vertices out range!");
-	if (edges < 1 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
 
 	/* ask for memory */
-	int *degrees = new int[vertices];
-	bool **adjacency = new bool*[vertices];
-	for (int u = 0; u < vertices; u++) {
-		degrees[u] = 0;
-		adjacency[u] = new bool[vertices];
-		for (int v = 0; v < vertices; v++) adjacency[u][v] = false;
+	int *weight = new int[colors];
+	int *L_size = new int[vertices];
+	for (int v = 0; v < vertices; v++) L_size[v] = 0;
+
+
+#ifndef RAIL_INSTANCE
+	/* read weights */
+	for (int j = 0; j < colors; j++) {
+		int w;
+		fscanf(stream, "%d", &w);
+		if (w < 1 || w > 100) {
+			cout << "Error reading color " << j + 1 << ", weight out of bounds!" << endl;
+			bye("Bye!");
+		}
+		weight[j] = w;
 	}
 
-	/* read edges */
-	for (int e = 0; e < edges; e++) {
-		int u, v;
-		fscanf(stream, "%d,%d\n", &u, &v);
-		if (u < 0 || u >= v || v >= vertices) {
-			cout << "Error reading edge " << e + 1 << "!" << endl;
+	/* read list of colors */
+	bool *col = new bool[colors];
+	int **L_set = new int*[vertices];
+	for (int v = 0; v < vertices; v++) {
+		int size;
+		fscanf(stream, "%d", &size);
+		if (size < 1 || size > MAXCOLORPERVERT ) {
+			cout << "Error reading vertex " << v + 1 << ", size out of bounds!" << endl;
 			bye("Bye!");
 		}
-		if (adjacency[u][v]) {
-			cout << "A repeated edge was found: (" << u << ", " << v << ")" << endl;
+		for (int j = 0; j < colors; j++) col[j] = false;
+		for (int i = 0; i < size; i++) {
+			int j;
+			fscanf(stream, "%d", &j);
+			if (j < 1 || j > colors) {
+				cout << "Error reading vertex " << v + 1 << ", color out of bounds!" << endl;
+				bye("Bye!");
+			}
+			col[j - 1] = true;
+		}
+		L_set[v] = new int[size];
+		L_size[v] = size;
+		int i = 0;
+		for (int j = 0; j < colors; j++) if (col[j]) L_set[v][i++] = j;
+		if (i != size) bye("Internal error reading list of colors!");
+	}
+#else
+	/* read Vk's */
+	int *Vk_size = new int[colors];
+	int **Vk_set = new int*[colors];
+	for (int j = 0; j < colors; j++) {
+		int w, size;
+		fscanf(stream, "%d %d", &w, &size);
+		if (w < 1 || w > 10) {
+			cout << "Error reading color " << j + 1 << ", weight out of bounds!" << endl;
 			bye("Bye!");
 		}
-		else {
-			degrees[u]++;
-			degrees[v]++;
-			adjacency[u][v] = true;
-			adjacency[v][u] = true;
+		if (size < 1 || size > MAXVERTPERCOLOR ) {
+			cout << "Error reading color " << j + 1 << ", size out of bounds!" << endl;
+			bye("Bye!");
+		}
+		weight[j] = w;
+
+		Vk_set[j] = new int[size];
+		Vk_size[j] = size;
+		for (int i = 0; i < size; i++) {
+			int v;
+			fscanf(stream, "%d", &v);
+			if (v < 1 || v > vertices) {
+				cout << "Error reading color " << j + 1 << ", vert out of bounds!" << endl;
+				bye("Bye!");
+			}
+			Vk_set[j][i] = v - 1;
+			L_size[v - 1]++;
 		}
 	}
+#endif
 	fclose(stream);
 
-	/* the number of colors is set to Delta(G) + 1 */
-	int colors = 0;
-	for (int v = 0; v < vertices; v++) {
-		if (degrees[v] > colors) colors = degrees[v];
-	}
-	colors++;
-
 	cout << "Statistics:" << endl;
-	int clique_size = vertices * (vertices - 1) / 2;
-	float density = 100.0 * (float)edges / (float)clique_size;
-	cout << "  |V| = " << vertices << ", |E| = " << edges << " (density = " << density << "%), |C| = " << colors << "." << endl;
-	if (clique_size == edges) bye("The graph is a clique!");
+	cout << "  |V| = " << vertices << ", |E| = 0, |C| = " << colors << "." << endl;
 
-	/* generate costs and write them to file */
+	/* write costs to a file */
 	strncpy(filename_extension, filename, 200);
 	strcat(filename_extension, ".cost");
 	stream = fopen(filename_extension, "wt");
 	if (!stream) bye("Cost file cannot be created");
 	fprintf(stream, "%d\n", colors);
-	for (int k = 0; k < colors; k++) fprintf(stream, "1 ");
+	for (int j = 0; j < colors; j++) fprintf(stream, "%d ", weight[j]);
 	fprintf(stream, "\n");
 	fclose(stream);
 
-	clique_size = 0;
-	int *clique = new int[vertices];
-	for (int v = 0; v < vertices; v++) clique[v] = -1;
-#ifdef COLOR_CLIQUE
-	/* compute the clique Q of maximum size with maximum number of neighbors */
-	IloEnv Xenv;
-	IloNumVarArray Xvars(Xenv);
-	for (int v = 0; v < vertices; v++) Xvars.add(IloNumVar(Xenv, 0.0, 1.0, ILOBOOL));
+	/* write edge-less graph to a file */
+	strncpy(filename_extension, filename, 200);
+	strcat(filename_extension, ".graph");
+	stream = fopen(filename_extension, "wt");
+	if (!stream) bye("Graph file cannot be created");
+	fprintf(stream, "%d:0\n", vertices);
+	fclose(stream);
 
-	/* generate objective function */
-	IloModel Xmodel(Xenv);
-	IloExpr fobj(Xenv, 0);
-	for (int v = 0; v < vertices; v++) fobj += (10000.0 + (float)degrees[v]) * Xvars[v];
-	Xmodel.add(IloMaximize(Xenv, fobj));
-
-	/* generate anti-adjacency constraints */
-	for (int u = 0; u < vertices - 1; u++) {
-		for (int v = u + 1; v < vertices; v++) {
-			if (adjacency[u][v] == false) Xmodel.add(Xvars[u] + Xvars[v] <= 1);
-		}
-	}
-
-	IloCplex cplex(Xmodel);
-	cplex.setDefaults();
-	cplex.setParam(IloCplex::NumParam::TiLim, MAXTIME);
-	cplex.setParam(IloCplex::NumParam::EpGap, 0.0);
-	cplex.setParam(IloCplex::NumParam::EpAGap, 0.0);
-	cplex.setParam(IloCplex::NumParam::EpInt, EPSILON);
-	cplex.setParam(IloCplex::IntParam::Threads, 1);
-	cplex.setParam(IloCplex::IntParam::RandomSeed, 1);
-
-	cplex.extract(Xmodel);
-	//cplex.exportModel("form.lp");
-
-	/* solve it! */
-	cplex.solve();
-	IloCplex::CplexStatus status = cplex.getCplexStatus();
-	if (status != IloCplex::Optimal) {
-		switch (status) {
-		case IloCplex::InfOrUnbd:
-		case IloCplex::Infeasible: bye("Infeasible :(");
-		case IloCplex::AbortTimeLim: bye("Time limit reached :(");
-		default: bye("Unexpected error :(");
-		}
-	}
-
-	/* save optimal solution: if clique[v]=-1 then v is not part of Q, if clique[v]=j>=0 then v is painted with j */
-	cout << "Max Clique = {";
-	for (int v = 0; v < vertices; v++) {
-		if (cplex.getValue(Xvars[v]) > 0.5) {
-			cout << " " << v;
-			clique[v] = clique_size;
-			clique_size++;
-		}
-	}
-	cout << " }, size = " << clique_size << endl;
-#endif
-
-	/* write list files: consider that each vertex v of the clique is painted with color v */
+	/* write list of vertices to a file */
 	strncpy(filename_extension, filename, 200);
 	strcat(filename_extension, ".list");
 	stream = fopen(filename_extension, "wt");
 	if (!stream) bye("List file cannot be created");
 	fprintf(stream, "%d:%d\n", vertices, colors);
-	bool *L_set = new bool[colors];
-	for (int u = 0; u < vertices; u++) {
-		if (clique[u] >= 0) {
-			/* the list of a vertex u from Q is {clique[u]} */
-			fprintf(stream, "1  %d\n", clique[u]);
-		}
-		else {
-			/* the list from the remaining vertices is {1...Delta} / colors_used_by_neighbors_from_Q */
-			int L_size = colors;
-			for (int k = 0; k < colors; k++) L_set[k] = true;
-			for (int v = 0; v < vertices; v++) {
-				if (u != v && adjacency[u][v] && clique[v] >= 0) {
-					L_set[clique[v]] = false;
-					L_size--;
-				}
+	
+	for (int v = 0; v < vertices; v++) {
+		fprintf(stream, "%d  ", L_size[v]);
+#ifndef RAIL_INSTANCE
+		for (int i = 0; i < L_size[v]; i++) fprintf(stream, "%d ", L_set[v][i]);
+#else
+		for (int j = 0; j < colors; j++) {
+			for (int i = 0; i < Vk_size[j]; i++) {
+				if (v == Vk_set[j][i]) fprintf(stream, "%d ", j);
 			}
-			fprintf(stream, "%d  ", L_size);
-			for (int k = 0; k < colors; k++) if (L_set[k]) fprintf(stream, "%d ", k);
-			fprintf(stream, "\n");
 		}
+#endif
+		fprintf(stream, "\n");
 	}
 	fclose(stream);
 
 	/* free memory */
-	delete[] L_set;
-	delete[] clique;
-	for (int v = 0; v < vertices; v++) delete[] adjacency[v];
-	delete[] adjacency;
-	delete[] degrees;
+#ifndef RAIL_INSTANCE
+	for (int v = 0; v < vertices; v++) delete[] L_set[v];
+	delete[] col;
+#else
+	for (int j = 0; j < colors; j++) delete[] Vk_set[j];
+	delete[] Vk_size;
+#endif
+	delete[] L_size;
+	delete[] weight;
 	return 0;
 }
