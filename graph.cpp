@@ -1,47 +1,42 @@
 #include "graph.h"
 #include "io.h"
+#include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <algorithm>
-#include <set>
 #include <queue>
+#include <set>
 
 // Constructor
 
 Graph::Graph() {}
 
 Graph::Graph(char *filename_graph, char *filename_costs, char *filename_lists) {
-	read_graph(filename_graph);
-	read_costs(filename_costs);
-	read_lists(filename_lists);
+  read_graph(filename_graph);
+  read_costs(filename_costs);
+  read_lists(filename_lists);
 }
-
 
 Graph::~Graph() {
-	if (BRANCHING_STRATEGY == 0) {
-		free_graph(G);
-		free(G);
-	}	
-	for (int i = 0; i < K.size(); ++i) 
-		delete[] V[i].list;
+  free_graph(G);
+  free(G);
+  for (int i = 0; i < K.size(); ++i)
+    delete[] V[i].list;
 
 #ifdef STABLE_POOL
-	for (int i = 0; i < K.size(); ++i) {
-		for (auto &s: global_pool[i]) 
-			free(s.list);
-		for (auto &s: local_pool[i]) 
-			free(s.list);
-	}
+  for (int i = 0; i < K.size(); ++i) {
+    for (auto &s : global_pool[i])
+      free(s.list);
+    for (auto &s : local_pool[i])
+      free(s.list);
+  }
 #endif
-
 }
 
-
 // read_graph - read a graph in the following format:
-//   in the first line, the number of vertices and edges separated by a colon ":"
-//   then, for each line, the endpoints of an edge (u,v) where u < v
-//   note that vertices starts from 0, i.e. 0 < v < |V|-1
-//   example for a diamond graph:
+//   in the first line, the number of vertices and edges separated by a colon
+//   ":" then, for each line, the endpoints of an edge (u,v) where u < v note
+//   that vertices starts from 0, i.e. 0 < v < |V|-1 example for a diamond
+//   graph:
 //     4:5
 //     0,1
 //     0,2
@@ -50,62 +45,65 @@ Graph::~Graph() {
 //     1,3
 void Graph::read_graph(char *filename) {
 
-	// Open file 
-	FILE *stream = fopen(filename, "rt");
-	if (!stream) bye("Graph file cannot be opened");
+  // Open file
+  FILE *stream = fopen(filename, "rt");
+  if (!stream)
+    bye("Graph file cannot be opened");
 
-	// Read number of vertices and edges
-	int vertices, edges;
-	fscanf(stream, "%d:%d\n", &vertices, &edges);
+  // Read number of vertices and edges
+  int vertices, edges;
+  fscanf(stream, "%d:%d\n", &vertices, &edges);
 
-	// Do not accept graph of less than 4 vertices
-	if (vertices < 4) bye("Number of vertices out range!");
-	if (edges < 0 || edges > vertices*(vertices - 1) / 2) bye("Number of edges out of range!");
+  // Do not accept graph of less than 4 vertices
+  if (vertices < 4)
+    bye("Number of vertices out range!");
+  if (edges < 0 || edges > vertices * (vertices - 1) / 2)
+    bye("Number of edges out of range!");
 
-	// Allocate graph G
-	G = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
-	allocate_graph(G, vertices);
-	for(int i = 0; i <= G->n_nodes; i++) {
-		for(int j = 0; j <= G->n_nodes; j++) {
-			G->adj[i][j] = 0;
-		}
-	}
+  // Allocate graph G
+  G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(G, vertices);
+  for (int i = 0; i <= G->n_nodes; i++) {
+    for (int j = 0; j <= G->n_nodes; j++) {
+      G->adj[i][j] = 0;
+    }
+  }
 
-	// Read edges
-	for (int e = 0; e < edges; e++) {
-		int u, v;
-		fscanf(stream, "%d,%d\n", &u, &v);
-		if (u < 0 || u >= v || v >= vertices) bye("Error while reading edges");
-		G->adj[u+1][v+1] = 1;
-		G->adj[v+1][u+1] = 1;
-	}
+  // Read edges
+  for (int e = 0; e < edges; e++) {
+    int u, v;
+    fscanf(stream, "%d,%d\n", &u, &v);
+    if (u < 0 || u >= v || v >= vertices)
+      bye("Error while reading edges");
+    G->adj[u + 1][v + 1] = 1;
+    G->adj[v + 1][u + 1] = 1;
+  }
 
-	fclose(stream);
+  fclose(stream);
 
-	// Build G
-	build_graph(G);
+  // Build G
+  build_graph(G);
 
-	// Set some information necessary to solve the MWSSP
-	for(int i = 1; i <= G->n_nodes; i++) {
-		MWIS_MALLOC(G->node_list[i].adj_last, G->n_nodes+1, nodepnt*);
-		G->node_list[i].adj_last[0] = G->adj_last[i];
-		G->node_list[i].adj2 = G->adj_last[i];
-	}
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= G->n_nodes; i++) {
+    MWIS_MALLOC(G->node_list[i].adj_last, G->n_nodes + 1, nodepnt *);
+    G->node_list[i].adj_last[0] = G->adj_last[i];
+    G->node_list[i].adj2 = G->adj_last[i];
+  }
 
-	// Set preprocessing information
+  // Set preprocessing information
 
-	vertex_mapping.resize(get_n_vertices() + 1);
-	for (int i = 1; i <= get_n_vertices(); ++i)
-		vertex_mapping[i] = i;
-	
-	precoloring.resize(get_n_vertices() + 1);
-	for (int i = 1; i <= get_n_vertices(); ++i)
-		precoloring[i] = -1;
-	
-	precoloring_value = 0.0;
+  vertex_mapping.resize(get_n_vertices() + 1);
+  for (int i = 1; i <= get_n_vertices(); ++i)
+    vertex_mapping[i] = i;
 
-    return;
+  precoloring.resize(get_n_vertices() + 1);
+  for (int i = 1; i <= get_n_vertices(); ++i)
+    precoloring[i] = -1;
 
+  precoloring_value = 0.0;
+
+  return;
 }
 
 // read_cost - read costs of colors in the following format:
@@ -116,1268 +114,1264 @@ void Graph::read_graph(char *filename) {
 //     5 2 8
 void Graph::read_costs(char *filename) {
 
-	// Open file
-	FILE *stream = fopen(filename, "rt");
-	if (!stream) bye("Cost file cannot be opened");
-	int colors;
-	fscanf(stream, "%d\n", &colors);
+  // Open file
+  FILE *stream = fopen(filename, "rt");
+  if (!stream)
+    bye("Cost file cannot be opened");
+  int colors;
+  fscanf(stream, "%d\n", &colors);
 
-	// Do not accept less than 2 colors
-	if (colors < 2) bye("Number of colors out range!");
+  // Do not accept less than 2 colors
+  if (colors < 2)
+    bye("Number of colors out range!");
 
-	w.resize(colors);
+  w.resize(colors);
 
-	// Read costs
-	for (int k = 0; k < colors; k++) {
-		int ck;
-		fscanf(stream, "%d", &ck);
-		if (ck < 0) bye("Color cost must be non negative!");
-		w[k] = ck;
-	}
-	fclose(stream);
+  // Read costs
+  for (int k = 0; k < colors; k++) {
+    int ck;
+    fscanf(stream, "%d", &ck);
+    if (ck < 0)
+      bye("Color cost must be non negative!");
+    w[k] = ck;
+  }
+  fclose(stream);
 
-    return;
-
+  return;
 }
 
-
 // read_list - read list of colors per vertex in the following format:
-//   in the first line, the number of vertices and colors separated by a colon ":"
-//   then, for each line, the cardinal of L(v) followed by the elements of L(v) in increasing order
-//   example for |V| = 3, |C| = 5 and L(0) = {1, 2}, L(1) = {0, 2, 3}, L(2) = {0, 1, 4}:
+//   in the first line, the number of vertices and colors separated by a colon
+//   ":" then, for each line, the cardinal of L(v) followed by the elements of
+//   L(v) in increasing order example for |V| = 3, |C| = 5 and L(0) = {1, 2},
+//   L(1) = {0, 2, 3}, L(2) = {0, 1, 4}:
 //     3:5
 //     2  1 2
 //     3  0 2 3
 //     3  0 1 4
 void Graph::read_lists(char *filename) {
 
-	// Open file
-	FILE *stream = fopen(filename, "rt");
-	if (!stream) bye("Cost file cannot be opened");
+  // Open file
+  FILE *stream = fopen(filename, "rt");
+  if (!stream)
+    bye("Cost file cannot be opened");
 
-	// Read number of vertices and colors
-	int vertices, colors;
-	fscanf(stream, "%d:%d\n", &vertices, &colors);
-	if (G->n_nodes != vertices) bye("Number of vertices mismatch!");
-	if (w.size() != colors) bye("Number of colors mismatch!");
+  // Read number of vertices and colors
+  int vertices, colors;
+  fscanf(stream, "%d:%d\n", &vertices, &colors);
+  if (G->n_nodes != vertices)
+    bye("Number of vertices mismatch!");
+  if (w.size() != colors)
+    bye("Number of colors mismatch!");
 
-	// Read lists
-	std::vector<std::vector<int>> L (vertices);
-	for (int v = 0; v < vertices; v++) {
+  // Read lists
+  std::vector<std::vector<int>> L(vertices);
+  for (int v = 0; v < vertices; v++) {
 
-		int list_size;
-		fscanf(stream, "%d", &list_size);
-		if (list_size < 1 || list_size > colors) bye("Error reading lists!");
-		L[v].resize(list_size);
+    int list_size;
+    fscanf(stream, "%d", &list_size);
+    if (list_size < 1 || list_size > colors)
+      bye("Error reading lists!");
+    L[v].resize(list_size);
 
-		int last_read = -1;
-		for (int s = 0; s < list_size; s++) {
-			int element;
-			fscanf(stream, "%d", &element);
-			if (element <= last_read || element >= colors) bye("Error reading lists!");
-			last_read = element;
-			L[v][s] = element;
-        }
+    int last_read = -1;
+    for (int s = 0; s < list_size; s++) {
+      int element;
+      fscanf(stream, "%d", &element);
+      if (element <= last_read || element >= colors)
+        bye("Error reading lists!");
+      last_read = element;
+      L[v][s] = element;
+    }
+  }
+  fclose(stream);
 
-	}
-	fclose(stream);
+  // Build subgraphs
+  std::vector<std::set<int>> total_V(colors); // V[k] for each 0 <= k < colors
+  for (int k = 0; k < colors; k++) {
+    // find vertices v such that k in L(v)
+    for (int v = 0; v < vertices; v++)
+      if (find(L[v].begin(), L[v].end(), k) != L[v].end())
+        total_V[k].insert(v + 1);
+    if (total_V[k].size() == 0)
+      warning("Warning color " + std::to_string(k) +
+              " does not belong to any list.");
+  }
 
-	// Build subgraphs
-	std::vector<std::set<int>> total_V (colors); // V[k] for each 0 <= k < colors
-	for (int k = 0; k < colors; k++) {
-		// find vertices v such that k in L(v)
-		for (int v = 0; v < vertices; v++)
-			if (find(L[v].begin(), L[v].end(), k) != L[v].end())
-				total_V[k].insert(v+1);
-		if (total_V[k].size() == 0) warning("Warning color " + std::to_string(k) + " does not belong to any list.");
-	}
+  // Build partition
+  // The structure of the partition consists of an array and a linked-list. The
+  // linked-list is formed with header_part (points to the first) and next_part
+  // (points to the next).
+  int *header_part =
+      new int[colors]; // is the first color (representative) of a given color
+  int *next_part =
+      new int[colors]; // is the next color in the set containing the given
+                       // color, -1 if the given color is the last
+  int *part_set = new int[colors];  // array with the first color of each set in
+                                    // the partition
+  int *part_card = new int[colors]; // array with the cardinal of each set
+  int part_size = 0;                // size of the array
 
+  for (int k = 0; k < colors; k++) {
+    bool new_color = true;
+    int prev_index; // index to the set of the partition in case color k is not
+                    // new
+    if (k > 0) {
+      /* check if the color k is the same as a previous color of the partition
+       */
+      for (int i = 0; i < part_size; i++) {
+        prev_index = i;
+        int prev = part_set[i];
+        if (w[k] == w[prev] && total_V[k] == total_V[prev])
+          new_color = false;
+        if (new_color == false)
+          break;
+      }
+    }
+    if (new_color) {
+      // a new color k is added to the partition
+      header_part[k] = k;
+      next_part[k] = -1;
+      part_set[part_size] = k;
+      part_card[part_size] = 1;
+      part_size++;
+    } else {
+      /* colors k and part_set[prev_index] are indistinguishable from each other
+       */
+      int prev = part_set[prev_index];
+      part_card[prev_index]++;
+      header_part[k] = prev;
+      next_part[k] = -1;
+      /* travel the set until reach the last element and append k */
+      int r = prev;
+      int s;
+      do {
+        s = r;
+        r = next_part[s];
+      } while (r != -1);
+      next_part[s] = k;
+    }
+  }
 
-	// Build partition
-	// The structure of the partition consists of an array and a linked-list. The linked-list is formed with
-	// header_part (points to the first) and next_part (points to the next).
-	int *header_part = new int[colors]; 	// is the first color (representative) of a given color
-	int *next_part = new int[colors];   	// is the next color in the set containing the given color, -1 if the given color is the last
-	int *part_set = new int[colors]; 		// array with the first color of each set in the partition
-	int *part_card = new int[colors]; 		// array with the cardinal of each set
-	int part_size = 0;  		// size of the array
+  // Save partition
 
-	for (int k = 0; k < colors; k++) {
-		bool new_color = true;
-		int prev_index; // index to the set of the partition in case color k is not new
-		if (k > 0) {
-			/* check if the color k is the same as a previous color of the partition */
-			for (int i = 0; i < part_size; i++) {
-				prev_index = i;
-				int prev = part_set[i];
-				if (w[k] == w[prev] && total_V[k] == total_V[prev])
-					new_color = false;
-				if (new_color == false) break;
-			}
-		}
-		if (new_color) {
-			// a new color k is added to the partition
-			header_part[k] = k;
-			next_part[k] = -1;
-			part_set[part_size] = k;
-			part_card[part_size] = 1;
-			part_size++;
-		}
-		else {
-			/* colors k and part_set[prev_index] are indistinguishable from each other  */
-			int prev = part_set[prev_index];
-			part_card[prev_index]++;
-			header_part[k] = prev;
-			next_part[k] = -1;
-			/* travel the set until reach the last element and append k */
-			int r = prev;
-			int s;
-			do { s = r; r = next_part[s]; } while (r != -1);
-			next_part[s] = k;
-		}
-	}
+  K.resize(part_size);
+  for (int i = 0; i < part_size; ++i)
+    K[i] = part_set[i];
 
-	// Save partition
+  C.resize(K.size());
+  for (int i = 0; i < K.size(); ++i) {
+    C[i].resize(part_card[i]);
+    int counter = 0;
+    for (int j = part_set[i]; j != -1; j = next_part[j])
+      C[i][counter++] = j;
+  }
 
-	K.resize(part_size);
-	for (int i = 0; i < part_size; ++i)
-		K[i] = part_set[i];
-
-	C.resize(K.size());
-	for (int i = 0; i < K.size(); ++i) {
-		C[i].resize(part_card[i]);
-		int counter = 0;
-		for (int j = part_set[i]; j != -1; j = next_part[j])
-			C[i][counter++] = j;
-	}
-
-	V.resize(K.size());
-	for (int i = 0; i < K.size(); ++i) {
-		V[i].n_list = total_V[K[i]].size();
-		V[i].list = new nodepnt[V[i].n_list + 1];
-		int counter = 1;
-		for (int v: total_V[K[i]])
-			V[i].list[counter++] = G->node_list + v;
-	}
+  V.resize(K.size());
+  for (int i = 0; i < K.size(); ++i) {
+    V[i].n_list = total_V[K[i]].size();
+    V[i].list = new nodepnt[V[i].n_list + 1];
+    int counter = 1;
+    for (int v : total_V[K[i]])
+      V[i].list[counter++] = G->node_list + v;
+  }
 
 #ifdef STABLE_POOL
-	global_pool.resize(K.size());
-	local_pool.resize(K.size());
+  global_pool.resize(K.size());
+  local_pool.resize(K.size());
 #endif
 
-	delete[] part_card;
-	delete[] part_set;
-	delete[] next_part;
-	delete[] header_part;
-	return;
-
+  delete[] part_card;
+  delete[] part_set;
+  delete[] next_part;
+  delete[] header_part;
+  return;
 }
 
+int Graph::get_n_vertices() { return G->n_nodes; }
 
-int Graph::get_n_vertices() {
-    return G->n_nodes;
-}
+int Graph::get_n_colors() { return K.size(); }
 
+int Graph::get_n_V(int i) { return V[i].n_list; }
 
-int Graph::get_n_colors() {
-    return K.size();
-}
+int Graph::get_C(int i, int j) { return C[i][j]; }
 
-int Graph::get_n_V(int i) {
-	return V[i].n_list;
-}
+int Graph::get_n_C(int i) { return C[i].size(); }
 
-int Graph::get_C(int i, int j) {
-	return C[i][j];
-}
-
-int Graph::get_n_C(int i) {
-    return C[i].size();
-}
-
-int Graph::get_color_cost(int i) {
-	return w[K[i]];
-}
+int Graph::get_color_cost(int i) { return w[K[i]]; }
 
 int Graph::get_m(int v) {
-	int max = -1;
-	for (int i = 0; i < K.size(); ++i) {
-		bool belongs = false;
-		for (int j = 1; j <= V[i].n_list; ++j)
-			if (v+1 == V[i].list[j]->name) {
-				belongs = true;
-				break;
-			}
-		if (belongs) {
-			int cost = get_color_cost(i);
-			if (cost > max)
-				max = cost;
-		}
-	}
-	return max;
+  int max = -1;
+  for (int i = 0; i < K.size(); ++i) {
+    bool belongs = false;
+    for (int j = 1; j <= V[i].n_list; ++j)
+      if (v + 1 == V[i].list[j]->name) {
+        belongs = true;
+        break;
+      }
+    if (belongs) {
+      int cost = get_color_cost(i);
+      if (cost > max)
+        max = cost;
+    }
+  }
+  return max;
 }
 
 int Graph::get_n_neighbours(int v, int k) {
-	int ret = 0;
-	for (int i = 1; i <= V[k].n_list; ++i) {
-		int u = V[k].list[i]->name;
-		if (u != v+1 && G->adj[u][v+1])
-			ret++;
-	}
-	return ret;
+  int ret = 0;
+  for (int i = 1; i <= V[k].n_list; ++i) {
+    int u = V[k].list[i]->name;
+    if (u != v + 1 && G->adj[u][v + 1])
+      ret++;
+  }
+  return ret;
 }
 
 void Graph::get_W1(std::vector<int> &W) {
-	W.clear();
-	W.resize(get_n_vertices(), 0);
-	for (int i = 0; i < K.size(); ++i)
-		for (int j = 1; j <= V[i].n_list; ++j)
-			W[V[i].list[j]->name - 1]++;
+  W.clear();
+  W.resize(get_n_vertices(), 0);
+  for (int i = 0; i < K.size(); ++i)
+    for (int j = 1; j <= V[i].n_list; ++j)
+      W[V[i].list[j]->name - 1]++;
 }
 
 void Graph::get_S(std::vector<std::set<int>> &S) {
-	S.clear();
-	S.resize(get_n_vertices());
-	for (int i = 0; i < K.size(); ++i)
-		for (int j = 1; j <= V[i].n_list; ++j)
-			S[V[i].list[j]->name - 1].insert(i);
+  S.clear();
+  S.resize(get_n_vertices());
+  for (int i = 0; i < K.size(); ++i)
+    for (int j = 1; j <= V[i].n_list; ++j)
+      S[V[i].list[j]->name - 1].insert(i);
 }
 
-
-bool Graph::is_edge(int u, int v) {
-	return G->adj[u+1][v+1];
-}
+bool Graph::is_edge(int u, int v) { return G->adj[u + 1][v + 1]; }
 
 void Graph::set_vertex_weight(int v, double y) {
-	G->weight[v+1] = (y <= 0 ? 0 : (int) (INTFACTOR * y));
-	return;
+  G->weight[v + 1] = (y <= 0 ? 0 : (int)(INTFACTOR * y));
+  return;
 }
 
 void Graph::print_graph() {
 #ifdef VERBOSE
-	
-	// Print Graph
-	std::cout << "Graph:" << std::endl;
-	std::cout << "\tVertices: " << G->n_nodes << std::endl;
-	std::cout << "\tEdges: " << G->n_edges << std::endl;
-	std::cout << "\tAdjacency list: " << std::endl;
-	for(int i = 1; i <= G->n_nodes; i++) {
-		printf("%5d:",i);
-		int cnt = 0;
-		nodepnt *pnt = G->node_list[i].adj;
-		while(*pnt != NULL) {
-			cnt++;
-			nodepnt pnt2 = *pnt;
-			printf("%5d%s",pnt2->name, (*(++pnt) != NULL) && (cnt % 14) == 0 ? "\n          ":"");
-		}
-		printf("\n");
-	}
-	std::cout << std::endl;
 
-	// Print costs
-	std::cout << "Costs:" << std::endl;
-	for (int i = 0; i < w.size(); ++i)
-		std::cout << "\t" << i << ":\t" << w[i] << std::endl;
-	std::cout << std::endl;
+  // Print Graph
+  std::cout << "Graph:" << std::endl;
+  std::cout << "\tVertices: " << G->n_nodes << std::endl;
+  std::cout << "\tEdges: " << G->n_edges << std::endl;
+  std::cout << "\tAdjacency list: " << std::endl;
+  for (int i = 1; i <= G->n_nodes; i++) {
+    printf("%5d:", i);
+    int cnt = 0;
+    nodepnt *pnt = G->node_list[i].adj;
+    while (*pnt != NULL) {
+      cnt++;
+      nodepnt pnt2 = *pnt;
+      printf("%5d%s", pnt2->name,
+             (*(++pnt) != NULL) && (cnt % 14) == 0 ? "\n          " : "");
+    }
+    printf("\n");
+  }
+  std::cout << std::endl;
 
-	// Print colors up to indistinguishability
-	std::cout << "Colors:" << std::endl;
-	for (int i = 0; i < K.size(); ++i)
-		std::cout << "\t" << K[i] << std::endl;
-	std::cout << std::endl;
+  // Print costs
+  std::cout << "Costs:" << std::endl;
+  for (int i = 0; i < w.size(); ++i)
+    std::cout << "\t" << i << ":\t" << w[i] << std::endl;
+  std::cout << std::endl;
 
-	// Classes of equivalence
-	std::cout << "Classes of equivalence:" << std::endl;
-	for (int i = 0; i < K.size(); ++i) {
-		std::cout << "\t" << K[i] << ":\t";
-		for (int k: C[i])
-			std::cout << k << "\t";
-		std::cout << std::endl;
-	}
-	std::cout << std::endl;
+  // Print colors up to indistinguishability
+  std::cout << "Colors:" << std::endl;
+  for (int i = 0; i < K.size(); ++i)
+    std::cout << "\t" << K[i] << std::endl;
+  std::cout << std::endl;
 
-	// Subgraphs
-	std::cout << "Subgraphs:" << std::endl;
-	for (int i = 0; i < K.size(); ++i) {
-		std::cout << "\t" << K[i] << ":";
-		for (int j = 1; j <= V[i].n_list; j++) {
-			printf("%5d%s", V[i].list[j]->name, (j % 16) == 0 ? "\n":"");
-		}
-		printf("\n");
-	}
-	std::cout << std::endl;
+  // Classes of equivalence
+  std::cout << "Classes of equivalence:" << std::endl;
+  for (int i = 0; i < K.size(); ++i) {
+    std::cout << "\t" << K[i] << ":\t";
+    for (int k : C[i])
+      std::cout << k << "\t";
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+
+  // Subgraphs
+  std::cout << "Subgraphs:" << std::endl;
+  for (int i = 0; i < K.size(); ++i) {
+    std::cout << "\t" << K[i] << ":";
+    for (int j = 1; j <= V[i].n_list; j++) {
+      printf("%5d%s", V[i].list[j]->name, (j % 16) == 0 ? "\n" : "");
+    }
+    printf("\n");
+  }
+  std::cout << std::endl;
 
 #ifdef STABLE_POOL
-	std::cout << "Pool:" << std::endl;
-	// Print stable set's global pool
-	for (int i = 0; i < K.size(); ++i)
-		for (auto &s: global_pool[i]) {
-			std::cout << "\t" << K[i] << ":";
-			for (int j = 1; j <= s.n_list; j++) {
-				printf("%5d%s", s.list[j]->name, (j % 16) == 0 ? "\n":"");
-			}
-			printf("\n");
-		}
+  std::cout << "Pool:" << std::endl;
+  // Print stable set's global pool
+  for (int i = 0; i < K.size(); ++i)
+    for (auto &s : global_pool[i]) {
+      std::cout << "\t" << K[i] << ":";
+      for (int j = 1; j <= s.n_list; j++) {
+        printf("%5d%s", s.list[j]->name, (j % 16) == 0 ? "\n" : "");
+      }
+      printf("\n");
+    }
 #endif
 
 #endif
-	return;
+  return;
 }
 
 // preprocess_instance - preprocess the instance
 void Graph::preprocess_instance() {
 
-	if (PREPROCESSING == 0)
-		return;
+  if (PREPROCESSING == 0)
+    return;
 
-	// Define L[v] = {j \in K: v \in V_j}
-	std::vector<std::list<int>> L(get_n_vertices() + 1);
-	for (int j = 0; j < K.size(); ++j)
-		for (int v = 1; v <= V[j].n_list; ++v)
-			L[V[j].list[v]->name].push_back(j);
+  // Define L[v] = {j \in K: v \in V_j}
+  std::vector<std::list<int>> L(get_n_vertices() + 1);
+  for (int j = 0; j < K.size(); ++j)
+    for (int v = 1; v <= V[j].n_list; ++v)
+      L[V[j].list[v]->name].push_back(j);
 
-	// Define the priority queue q1 with (n,v) such that L[v] = {j}, m(j) = 1 and n = N_{V_j}(v) > 0
-	// Define the priority queue q2 with (n,v) such that L[v] = {j}, m(j) > 1 and n = N_{V_j}(v) > 0
-	std::priority_queue<std::pair<int,int>> q1, q2;
-	for (int v = 1; v <= get_n_vertices(); ++v) {
-		if (L[v].size() == 1) { // if k(v) = 1
-			int k = L[v].front();
-			int n = get_n_neighbours(v-1,k);
-			if (n > 0) { // if v is not an isolated vertex
-				if (get_n_C(k) == 1)
-					q1.push(std::make_pair(n,v));
-				else 
-					q2.push(std::make_pair(n,v));
-			}
-		}
-	}
+  // Define the priority queue q1 with (n,v) such that L[v] = {j}, m(j) = 1 and
+  // n = N_{V_j}(v) > 0 Define the priority queue q2 with (n,v) such that L[v] =
+  // {j}, m(j) > 1 and n = N_{V_j}(v) > 0
+  std::priority_queue<std::pair<int, int>> q1, q2;
+  for (int v = 1; v <= get_n_vertices(); ++v) {
+    if (L[v].size() == 1) { // if k(v) = 1
+      int k = L[v].front();
+      int n = get_n_neighbours(v - 1, k);
+      if (n > 0) { // if v is not an isolated vertex
+        if (get_n_C(k) == 1)
+          q1.push(std::make_pair(n, v));
+        else
+          q2.push(std::make_pair(n, v));
+      }
+    }
+  }
 
-	while (!q1.empty() || !q2.empty()) {
+  while (!q1.empty() || !q2.empty()) {
 
-		if (!q1.empty()) {
+    if (!q1.empty()) {
 
-			std::pair<int,int> p = q1.top();
-			q1.pop();
-			int v = p.second;
-			int j = L[v].front();
+      std::pair<int, int> p = q1.top();
+      q1.pop();
+      int v = p.second;
+      int j = L[v].front();
 
-			for (int i = 1; i <= V[j].n_list; ++i) {
-				int w = V[j].list[i]->name;
-				if (w != v && G->adj[w][v]) { // w is a neighbour of v
-					L[w].remove(j); // Update L[w]
-					if (L[w].size() == 0) {
-						warning("The preprocessor detected that the node is infeasible");
-						return;
-					}
-					else if (L[w].size() == 1) {
-						if (get_n_C(L[w].front()) == 1)
-							q1.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
-						else
-							q2.push(std::make_pair(get_n_neighbours(w-1,L[w].front()), w));
-					}
-				}
-			}
+      for (int i = 1; i <= V[j].n_list; ++i) {
+        int w = V[j].list[i]->name;
+        if (w != v && G->adj[w][v]) { // w is a neighbour of v
+          L[w].remove(j);             // Update L[w]
+          if (L[w].size() == 0) {
+            warning("The preprocessor detected that the node is infeasible");
+            return;
+          } else if (L[w].size() == 1) {
+            if (get_n_C(L[w].front()) == 1)
+              q1.push(std::make_pair(get_n_neighbours(w - 1, L[w].front()), w));
+            else
+              q2.push(std::make_pair(get_n_neighbours(w - 1, L[w].front()), w));
+          }
+        }
+      }
 
-			preprocess_set_color(v,j);
-			continue;
+      preprocess_set_color(v, j);
+      continue;
+    }
 
-		}
+    if (!q2.empty()) {
 
-		if (!q2.empty()) {
+      std::pair<int, int> p = q2.top();
+      q2.pop();
+      int v = p.second;
+      int j = L[v].front();
 
-			std::pair<int,int> p = q2.top();
-			q2.pop();
-			int v = p.second;
-			int j = L[v].front();
+      if (L[v].size() > 1) // Note: beware if v should not be in q2 nor in q1
+        continue;
 
-			if (L[v].size() > 1) // Note: beware if v should not be in q2 nor in q1
-				continue;
+      if (get_n_C(j) == 1) { // Note: beware if v should be in q1 instead of q2
+        q1.push(std::make_pair(get_n_neighbours(v - 1, j), v));
+        continue;
+      } else {
+        for (int i = 1; i <= V[j].n_list; ++i) {
+          int w = V[j].list[i]->name;
+          if (w != v && !G->adj[w][v]) {
+            L[w].push_back(C.size()); // The new color is the last color
+          }
+        }
+      }
 
-			if (get_n_C(j) == 1) { // Note: beware if v should be in q1 instead of q2
-				q1.push(std::make_pair(get_n_neighbours(v-1,j), v));
-				continue;
-			}
-			else { 	
-				for (int i = 1; i <= V[j].n_list; ++i) {
-					int w = V[j].list[i]->name;
-					if (w != v && !G->adj[w][v] ) {
-						L[w].push_back(C.size()); // The new color is the last color
-					}
-				}
-			}
+      // Update L[v]
+      L[v].remove(j);
+      L[v].push_back(C.size());
 
-			// Update L[v]
-			L[v].remove(j);
-			L[v].push_back(C.size());
+      preprocess_set_color(v, j); // Assign the new color to v
+    }
+  }
 
-			preprocess_set_color(v, j); // Assign the new color to v
+  if (PREPROCESSING == 2) {
 
-		}
+    // Remove vertices with L[v] = {j} and m(j) = 1
+    int count = 0; // count the number of removed verteces to correctly
+                   // reference the remaining vertices
+    for (int v = 1; v < L.size();
+         ++v) { // Use L.size() since the number of vertices will change
+      if (L[v].size() == 1) {
+        int j = L[v].front();
+        if (get_n_C(j) == 1) {
+          preprocess_remove_vertex(v - count, j);
+          count++;
+        }
+      }
+    }
+  }
 
-	}
-
-	if (PREPROCESSING == 2) {
-
-		// Remove vertices with L[v] = {j} and m(j) = 1
-		int count = 0; // count the number of removed verteces to correctly reference the remaining vertices
-		for (int v = 1; v < L.size(); ++v) { // Use L.size() since the number of vertices will change
-			if (L[v].size() == 1) {
-				int j = L[v].front();
-				if (get_n_C(j) == 1) {
-					preprocess_remove_vertex(v - count, j);
-					count++;
-				}
-			}
-		}
-	}
-	
-	return;
-
+  return;
 }
 
 void Graph::preprocess_instance(int v, int j) {
-	preprocess_set_color(v+1,j);
-	return;
+  preprocess_set_color(v + 1, j);
+  return;
 }
 
 // preprocess_set_color:
-// Let G=(V,E), a family {V_k : k \in K} of subsets of V, and two vectors m,w defining an instance I of the WLCP.  
-// Let v \in V such that k(v) = 1 and v \in V_j, with j \in K . 
-// Then, to solve the instance I is equivalent to solve the instance I' defined on G, by:
-// If m(j) = 1
-// 		V'_k = V_k, w'(k) = w(k), and m'(k) = m(k), for all k \in K\{j}
-// 		V'_j = V_j \ N_{G_j}(v), w'(j)=w(j)
-// Else if m(j) > 1. Let j' \in C_j\{j}
-// 		K' = K \cup {j'}
-// 		V'_k = V_k, w'(k) = w(k), and m'(k) = m(k), for all k \in K\{j}
-// 		V'_j = V_j \ N_{G_j}(v), w'(j) = w(j), and m'(j) = 1
-// 		V_{j'} = V_j\{v}, w(j') = w(j), and m(j') = m(j)-1 
+// Let G=(V,E), a family {V_k : k \in K} of subsets of V, and two vectors m,w
+// defining an instance I of the WLCP. Let v \in V such that k(v) = 1 and v \in
+// V_j, with j \in K . Then, to solve the instance I is equivalent to solve the
+// instance I' defined on G, by: If m(j) = 1 		V'_k = V_k, w'(k) =
+// w(k), and m'(k) = m(k), for all k \in K\{j} 		V'_j = V_j \ N_{G_j}(v),
+// w'(j)=w(j) Else if m(j) > 1. Let j' \in C_j\{j} 		K' = K \cup {j'}
+// V'_k = V_k, w'(k) = w(k), and m'(k)
+// = m(k), for all k \in K\{j} 		V'_j = V_j \ N_{G_j}(v), w'(j) = w(j),
+// and m'(j) = 1 		V_{j'} = V_j\{v}, w(j') = w(j), and m(j') =
+// m(j)-1
 void Graph::preprocess_set_color(int v, int j) {
 
-	if (get_n_C(j) == 1) {
+  if (get_n_C(j) == 1) {
 
-		// Update V[j]
-		int n = get_n_neighbours(v-1,j);
-		nodepnt *V1 = new nodepnt[V[j].n_list - n + 1];
-		int index = 1;
-		for (int i = 1; i <= V[j].n_list; ++i) {
-			int u = V[j].list[i]->name;
-			if (u == v || (u != v && !G->adj[u][v])) {
-				V1[index++] = V[j].list[i];
-			}
-		}
-		V[j].n_list = V[j].n_list - n;
-		delete[] V[j].list;
-		V[j].list = V1;
+    // Update V[j]
+    int n = get_n_neighbours(v - 1, j);
+    nodepnt *V1 = new nodepnt[V[j].n_list - n + 1];
+    int index = 1;
+    for (int i = 1; i <= V[j].n_list; ++i) {
+      int u = V[j].list[i]->name;
+      if (u == v || (u != v && !G->adj[u][v])) {
+        V1[index++] = V[j].list[i];
+      }
+    }
+    V[j].n_list = V[j].n_list - n;
+    delete[] V[j].list;
+    V[j].list = V1;
 
-//		std::cout << "Preprocessor colored vertex " << v << " with color " << j << " (case 1)" << std::endl; 
+    //		std::cout << "Preprocessor colored vertex " << v << " with color
+    //"
+    //<< j << " (case 1)" << std::endl;
 
-	}
+  }
 
-	else {
+  else {
 
-		// Build vector of indistinguishable colors
-		K.resize(K.size() + 1);
-		K[j] = C[j][1];
-		K[K.size()-1] = C[j][0];
+    // Build vector of indistinguishable colors
+    K.resize(K.size() + 1);
+    K[j] = C[j][1];
+    K[K.size() - 1] = C[j][0];
 
-		// Build the partition into indistinguishable colors
-		C.resize(C.size() + 1);
-		C[C.size()-1].push_back(C[j][0]);
-		C[j].assign(C[j].begin() + 1, C[j].end());
+    // Build the partition into indistinguishable colors
+    C.resize(C.size() + 1);
+    C[C.size() - 1].push_back(C[j][0]);
+    C[j].assign(C[j].begin() + 1, C[j].end());
 
-		// Update V_k's
-		V.resize(V.size() + 1);
-		nodepnt *V1 = new nodepnt[V[j].n_list];
-		int index = 1;
-		for (int i = 1; i <= V[j].n_list; ++i) {
-			int u = V[j].list[i]->name;
-			if (u != v)
-				V1[index++] = V[j].list[i];
-		}
-		int n = get_n_neighbours(v-1,j);
-		nodepnt *V2 = new nodepnt[V[j].n_list - n + 1];
-		index = 1;
-		for (int i = 1; i <= V[j].n_list; ++i) {
-			int u = V[j].list[i]->name;
-			if (u == v || (u != v && !G->adj[u][v]))
-				V2[index++] = V[j].list[i];
-		}
-		V[V.size() - 1].list = V2;
-		V[V.size() - 1].n_list = V[j].n_list - n;
-		delete[] V[j].list;
-		V[j].list = V1;
-		V[j].n_list--;
+    // Update V_k's
+    V.resize(V.size() + 1);
+    nodepnt *V1 = new nodepnt[V[j].n_list];
+    int index = 1;
+    for (int i = 1; i <= V[j].n_list; ++i) {
+      int u = V[j].list[i]->name;
+      if (u != v)
+        V1[index++] = V[j].list[i];
+    }
+    int n = get_n_neighbours(v - 1, j);
+    nodepnt *V2 = new nodepnt[V[j].n_list - n + 1];
+    index = 1;
+    for (int i = 1; i <= V[j].n_list; ++i) {
+      int u = V[j].list[i]->name;
+      if (u == v || (u != v && !G->adj[u][v]))
+        V2[index++] = V[j].list[i];
+    }
+    V[V.size() - 1].list = V2;
+    V[V.size() - 1].n_list = V[j].n_list - n;
+    delete[] V[j].list;
+    V[j].list = V1;
+    V[j].n_list--;
 
-//		std::cout << "Preprocessor colored vertex " << v << " with color " << C.size()-1 << " (case 2)" << std::endl; 
+    //		std::cout << "Preprocessor colored vertex " << v << " with color
+    //"
+    //<< C.size()-1 << " (case 2)" << std::endl;
+  }
 
-	}
-
-	return;
-
+  return;
 }
 
-
 // preprocess_remove_vertex
-// Lemma : Let (G,L,w) be an instance of WLCP such that L(u) = \{j\} for some $u \in V(G)$ and $j \in C$.
-//         Solving (G,L,w) is equivalent to solve WLCP for the instance (G-u, L', w') where
-//         L'(z) = L(z)\{j} 	if z \in N(u)
-//               = L(z) 		if z \in V(G)\N[u] 
+// Lemma : Let (G,L,w) be an instance of WLCP such that L(u) = \{j\} for some $u
+// \in V(G)$ and $j \in C$.
+//         Solving (G,L,w) is equivalent to solve WLCP for the instance (G-u,
+//         L', w') where L'(z) = L(z)\{j} 	if z \in N(u)
+//               = L(z) 		if z \in V(G)\N[u]
 //         w'_k = w_k 			if k != j
 //	            = 0				if k = j
 void Graph::preprocess_remove_vertex(int v, int j) {
 
-	// Build a new Sewell's graph
-	MWSSgraphpnt H = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
-	allocate_graph(H, get_n_vertices() - 1); // We have one less vertex
-	for(int i = 0; i <= H->n_nodes; i++)
-		for(int j = 0; j <= H->n_nodes; j++)
-			H->adj[i][j] = G->adj[i >= v ? i+1 : i][j >= v ? j+1 : j]; // Ignore the entry of v
-	build_graph(H);
-	// Set some information necessary to solve the MWSSP
-	for(int i = 1; i <= H->n_nodes; i++) {
-		MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes+1, nodepnt*);
-		H->node_list[i].adj_last[0] = H->adj_last[i];
-		H->node_list[i].adj2 = H->adj_last[i];
-	}
+  // Build a new Sewell's graph
+  MWSSgraphpnt H = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(H, get_n_vertices() - 1); // We have one less vertex
+  for (int i = 0; i <= H->n_nodes; i++)
+    for (int j = 0; j <= H->n_nodes; j++)
+      H->adj[i][j] = G->adj[i >= v ? i + 1 : i]
+                           [j >= v ? j + 1 : j]; // Ignore the entry of v
+  build_graph(H);
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= H->n_nodes; i++) {
+    MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes + 1, nodepnt *);
+    H->node_list[i].adj_last[0] = H->adj_last[i];
+    H->node_list[i].adj2 = H->adj_last[i];
+  }
 
-	// Update every Vk
-	for (int k = 0; k < K.size(); ++k) {
-		nodepnt *V1;
-		if (k == j) {
-			V1 = new nodepnt[V[j].n_list];
-			int index = 1;
-			for (int i = 1; i <= V[j].n_list; ++i) {
-				int u = V[j].list[i]->name;
-				if (u != v)
-					V1[index++] = H->node_list + (u < v ? u : u-1);
-			}
-			V[j].n_list = V[j].n_list - 1;
-			delete[] V[j].list;
-			V[j].list = V1;
-		}
-		else {
-			V1 = new nodepnt[V[k].n_list + 1];
-			int index = 1;
-			for (int i = 1; i <= V[k].n_list; ++i) {
-				int u = V[k].list[i]->name;
-				V1[index++] = H->node_list + (u < v ? u : u-1);
-			}
-			delete[] V[k].list;
-			V[k].list = V1;			
-		}
-	}
+  // Update every Vk
+  for (int k = 0; k < K.size(); ++k) {
+    nodepnt *V1;
+    if (k == j) {
+      V1 = new nodepnt[V[j].n_list];
+      int index = 1;
+      for (int i = 1; i <= V[j].n_list; ++i) {
+        int u = V[j].list[i]->name;
+        if (u != v)
+          V1[index++] = H->node_list + (u < v ? u : u - 1);
+      }
+      V[j].n_list = V[j].n_list - 1;
+      delete[] V[j].list;
+      V[j].list = V1;
+    } else {
+      V1 = new nodepnt[V[k].n_list + 1];
+      int index = 1;
+      for (int i = 1; i <= V[k].n_list; ++i) {
+        int u = V[k].list[i]->name;
+        V1[index++] = H->node_list + (u < v ? u : u - 1);
+      }
+      delete[] V[k].list;
+      V[k].list = V1;
+    }
+  }
 
-	// Update vertex mapping and precoloring
-	for (int i = 1; i < vertex_mapping.size(); ++i) {
-		if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
-			continue;
-		else if (vertex_mapping[i] == v) {
-			vertex_mapping[i] = -1;
-			precoloring[i] = K[j];
-		}
-		else
-			vertex_mapping[i] = vertex_mapping[i] - 1;
-	}
-		
-	// Update precoloring value
-	precoloring_value += w[K[j]];
-	
-	// Update Sewell graph
-	if (BRANCHING_STRATEGY == 0) {
-		free_graph(G);
-		free(G);
-	}
-	G = H;
+  // Update vertex mapping and precoloring
+  for (int i = 1; i < vertex_mapping.size(); ++i) {
+    if (vertex_mapping[i] == -1 || vertex_mapping[i] < v)
+      continue;
+    else if (vertex_mapping[i] == v) {
+      vertex_mapping[i] = -1;
+      precoloring[i] = K[j];
+    } else
+      vertex_mapping[i] = vertex_mapping[i] - 1;
+  }
 
-	// Update w
-	w[K[j]] = 0;
+  // Update precoloring value
+  precoloring_value += w[K[j]];
 
-//	std::cout << "Preprocessor removed vertex " << v << " " << j << std::endl; 
+  // Update Sewell graph
+  free_graph(G);
+  free(G);
+  G = H;
 
-	return;
+  // Update w
+  w[K[j]] = 0;
 
+  //	std::cout << "Preprocessor removed vertex " << v << " " << j <<
+  // std::endl;
+
+  return;
 }
 
+bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable,
+                        int *n_best_stable) {
 
-bool Graph::solve_MWSSP(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
-
-	// First, we perform a quick check to determine if the answer is negative
-	// 	Does the total weight of the vertices of V[i] is lower or equal than the goal?
-	int total_weight = 0;
-	for (int j = 1; j <= V[i].n_list; ++j)
-		total_weight += G->weight[V[i].list[j]->name];
-	if (total_weight <= (int) INTFACTOR * goal)
-		return false;
+  // First, we perform a quick check to determine if the answer is negative
+  // 	Does the total weight of the vertices of V[i] is lower or equal than the
+  // goal?
+  int total_weight = 0;
+  for (int j = 1; j <= V[i].n_list; ++j)
+    total_weight += G->weight[V[i].list[j]->name];
+  if (total_weight <= (int)INTFACTOR * goal)
+    return false;
 
 #ifdef STABLE_POOL
-	// We try to solve the MWSSP heuristically
-	if (solve_MWSSP_heuristic(i, goal, best_stable, n_best_stable)) {
-		local_pool[i].emplace_back(*best_stable, *n_best_stable);
-		return true;
-	}
-	// Otherwise, proceed with the exact algorithm
-	else if (solve_MWSSP_exact(i, goal, best_stable, n_best_stable)) {
-		maximize_stable_set(i, best_stable, n_best_stable);	
-		local_pool[i].emplace_back(*best_stable, *n_best_stable);
-		return true;
-	}
-	else
-		return false;
+  // We try to solve the MWSSP heuristically
+  if (solve_MWSSP_heuristic(i, goal, best_stable, n_best_stable)) {
+    local_pool[i].emplace_back(*best_stable, *n_best_stable);
+    return true;
+  }
+  // Otherwise, proceed with the exact algorithm
+  else if (solve_MWSSP_exact(i, goal, best_stable, n_best_stable)) {
+    maximize_stable_set(i, best_stable, n_best_stable);
+    local_pool[i].emplace_back(*best_stable, *n_best_stable);
+    return true;
+  } else
+    return false;
 #else
-	// Apply the the exact algorithm
-	if (solve_MWSSP_exact(i, goal, best_stable, n_best_stable)) {
-		maximize_stable_set(i, best_stable, n_best_stable);
-//		if (!check_stable(i, *best_stable, *n_best_stable))
-//		 	bye ("Te devolvi algo que no es un estable");
-		return true;
-	}
-	else {
-		return false;
-	}
+  // Apply the the exact algorithm
+  if (solve_MWSSP_exact(i, goal, best_stable, n_best_stable)) {
+    maximize_stable_set(i, best_stable, n_best_stable);
+    //		if (!check_stable(i, *best_stable, *n_best_stable))
+    //		 	bye ("Te devolvi algo que no es un estable");
+    return true;
+  } else {
+    return false;
+  }
 #endif
-
 }
 
+bool Graph::solve_MWSSP_heuristic(int i, double goal, nodepnt **best_stable,
+                                  int *n_best_stable) {
 
-bool Graph::solve_MWSSP_heuristic(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
-
-	// Try to find an stable set in the global pool with a total weight greater than goal
-	for (auto it = global_pool[i].begin(); it != global_pool[i].end(); ++it) {
-		int total_weight = 0;
-		for (int j = 1; j <= it->n_list; ++j)
-			total_weight += G->weight[it->list[j]->name];
-		if (total_weight > (int) INTFACTOR * goal) {
-			*best_stable = it->list;
-			*n_best_stable = it->n_list;
-			it = global_pool[i].erase(it);
-			return true;
-		}
-	}
-
-	return false;
-
-}
-
-
-bool Graph::solve_MWSSP_exact(int i, double goal, nodepnt **best_stable, int *n_best_stable) {
-
-	int rval = 0;
-	int status;
-	MWISNW z_best;
-
-	// Initialize info
-	wstable_info info;
-	info.n_calls = 0;
-	info.cpu = 0;
-	info.clique_cover_cpu = 0;
-	MWIS_MALLOC(info.n_sub_depth, G->n_nodes + 1, int);
-
-	// Initialize data
-	MWSSdata data;
-	rval = allocate_data(&data, G->n_nodes);
-
-	MWIS_MALLOC(*best_stable, V[i].n_list + 1, nodepnt); // Reserve as much space as |V[i]| + 1
-
-	// Initialize best_stable
-	// Initialize parameters
-	wstable_parameters parms;
-	default_parameters(&parms);
-	parms.cpu_limit = MAXTIME_MWIS;
-
-	// Find MWSSP
-	rval = max_wstable(G, &data, *best_stable, n_best_stable, &z_best, &info,
-						&parms, V[i].list, V[i].n_list, 0, (int) INTFACTOR * (goal + THRESHOLD), &status);
-
-	// Handle time exceeded error
-	if (parms.cpu_limit >= 0 && info.cpu > parms.cpu_limit) bye("Error: Time exceeded in MWSSP");	
-
-	// Free info and data
-	free_data(&data);
-	free_wstable_info(&info);
-
-	// Return
-	if (z_best > (int) INTFACTOR * goal) {
-		return true;
-	}
-	else {
-		free(*best_stable);
-		return false;
-	}
-}
-
-
-void Graph::maximize_stable_set(int i, nodepnt **best_stable, int *n_best_stable) {
-
-	for (int j = 1; j <= V[i].n_list; ++j) {
-		int v = V[i].list[j]->name;
-		bool is_neighbour = false;
-		for (int k = 1; k <= *n_best_stable; ++k) {
-			int u = (*best_stable)[k]->name;
-			if (u == v || G->adj[u][v]) {
-				is_neighbour = true;
-				break;
-			}
-		}
-		if (!is_neighbour) {
-			(*n_best_stable)++;
-			(*best_stable)[*n_best_stable] = V[i].list[j];
-		}
-	}
-
-}
-
-
-void Graph::coloring_heuristic(std::vector<std::list<nodepntArray>>& stable_sets) {
-
-	stable_sets.resize(get_n_colors());
-
-	// Mark the vertices already colored
-    std::vector<bool> colored (get_n_vertices(), false);
-	int n_colored = 0;
-
-	// Sort the colors by weight
-	std::vector<int> sorted_colors (get_n_colors());
-	for (int i = 0; i < get_n_colors(); ++i)
-		sorted_colors[i] = i;
-	std::sort(sorted_colors.begin(), sorted_colors.end(), [this](int x, int y) {return (get_color_cost(x) < get_color_cost(y));} );
-
-    for (int color_counter = 0; color_counter < get_n_colors(); ++color_counter) {
-		int i = sorted_colors[color_counter];
-		for (int multiplicity = 0; multiplicity < get_n_C(i); ++multiplicity) {
-			nodepnt *stable;
-			int n_stable = 0;
-			MWIS_MALLOC(stable, V[i].n_list + 1, nodepnt);
-			for (int j = 1; j <= V[i].n_list; ++j) {
-				int v = V[i].list[j]->name;
-                if (colored[v]) continue;
-
-                // Try to add v to the stable
-                bool ok = true;
-				for (int k = 1; k <= n_stable; ++k){
-					int u = stable[k]->name;
-					if (u == v || G->adj[u][v]) {
-						ok = false;
-						break;
-					}
-				}
-                if (ok) {
-                    stable[++n_stable] = V[i].list[j];
-                    colored[v] = true;
-                    n_colored++;
-					if (n_colored == get_n_vertices()) break;
-                }
-
-			}
-
-            if (n_stable > 0) {
-                maximize_stable_set(i, &stable, &n_stable);
-                stable_sets[i].emplace_back(stable, n_stable);
-            }
-			else {
-				free(stable);
-			}
-
-			if (n_colored == get_n_vertices())
-				return;
-
-		}
-
+  // Try to find an stable set in the global pool with a total weight greater
+  // than goal
+  for (auto it = global_pool[i].begin(); it != global_pool[i].end(); ++it) {
+    int total_weight = 0;
+    for (int j = 1; j <= it->n_list; ++j)
+      total_weight += G->weight[it->list[j]->name];
+    if (total_weight > (int)INTFACTOR * goal) {
+      *best_stable = it->list;
+      *n_best_stable = it->n_list;
+      it = global_pool[i].erase(it);
+      return true;
     }
+  }
 
-    return;
-
+  return false;
 }
 
+bool Graph::solve_MWSSP_exact(int i, double goal, nodepnt **best_stable,
+                              int *n_best_stable) {
+
+  int rval = 0;
+  int status;
+  MWISNW z_best;
+
+  // Initialize info
+  wstable_info info;
+  info.n_calls = 0;
+  info.cpu = 0;
+  info.clique_cover_cpu = 0;
+  MWIS_MALLOC(info.n_sub_depth, G->n_nodes + 1, int);
+
+  // Initialize data
+  MWSSdata data;
+  rval = allocate_data(&data, G->n_nodes);
+
+  MWIS_MALLOC(*best_stable, V[i].n_list + 1,
+              nodepnt); // Reserve as much space as |V[i]| + 1
+
+  // Initialize best_stable
+  // Initialize parameters
+  wstable_parameters parms;
+  default_parameters(&parms);
+  parms.cpu_limit = MAXTIME_MWIS;
+
+  // Find MWSSP
+  rval = max_wstable(G, &data, *best_stable, n_best_stable, &z_best, &info,
+                     &parms, V[i].list, V[i].n_list, 0,
+                     (int)INTFACTOR * (goal + THRESHOLD), &status);
+
+  // Handle time exceeded error
+  if (parms.cpu_limit >= 0 && info.cpu > parms.cpu_limit)
+    bye("Error: Time exceeded in MWSSP");
+
+  // Free info and data
+  free_data(&data);
+  free_wstable_info(&info);
+
+  // Return
+  if (z_best > (int)INTFACTOR * goal) {
+    return true;
+  } else {
+    free(*best_stable);
+    return false;
+  }
+}
+
+void Graph::maximize_stable_set(int i, nodepnt **best_stable,
+                                int *n_best_stable) {
+
+  for (int j = 1; j <= V[i].n_list; ++j) {
+    int v = V[i].list[j]->name;
+    bool is_neighbour = false;
+    for (int k = 1; k <= *n_best_stable; ++k) {
+      int u = (*best_stable)[k]->name;
+      if (u == v || G->adj[u][v]) {
+        is_neighbour = true;
+        break;
+      }
+    }
+    if (!is_neighbour) {
+      (*n_best_stable)++;
+      (*best_stable)[*n_best_stable] = V[i].list[j];
+    }
+  }
+}
+
+void Graph::coloring_heuristic(
+    std::vector<std::list<nodepntArray>> &stable_sets) {
+
+  stable_sets.resize(get_n_colors());
+
+  // Mark the vertices already colored
+  std::vector<bool> colored(get_n_vertices(), false);
+  int n_colored = 0;
+
+  // Sort the colors by weight
+  std::vector<int> sorted_colors(get_n_colors());
+  for (int i = 0; i < get_n_colors(); ++i)
+    sorted_colors[i] = i;
+  std::sort(sorted_colors.begin(), sorted_colors.end(), [this](int x, int y) {
+    return (get_color_cost(x) < get_color_cost(y));
+  });
+
+  for (int color_counter = 0; color_counter < get_n_colors(); ++color_counter) {
+    int i = sorted_colors[color_counter];
+    for (int multiplicity = 0; multiplicity < get_n_C(i); ++multiplicity) {
+      nodepnt *stable;
+      int n_stable = 0;
+      MWIS_MALLOC(stable, V[i].n_list + 1, nodepnt);
+      for (int j = 1; j <= V[i].n_list; ++j) {
+        int v = V[i].list[j]->name;
+        if (colored[v])
+          continue;
+
+        // Try to add v to the stable
+        bool ok = true;
+        for (int k = 1; k <= n_stable; ++k) {
+          int u = stable[k]->name;
+          if (u == v || G->adj[u][v]) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) {
+          stable[++n_stable] = V[i].list[j];
+          colored[v] = true;
+          n_colored++;
+          if (n_colored == get_n_vertices())
+            break;
+        }
+      }
+
+      if (n_stable > 0) {
+        maximize_stable_set(i, &stable, &n_stable);
+        stable_sets[i].emplace_back(stable, n_stable);
+      } else {
+        free(stable);
+      }
+
+      if (n_colored == get_n_vertices())
+        return;
+    }
+  }
+
+  return;
+}
 
 bool Graph::check_stable(int color, nodepnt *stable, int n_stable) {
 
-	for (int i = 1; i <= n_stable; ++i) {
-		bool belongs = false;
-		for (int j = 1; j <= V[color].n_list; ++j)
-			if (V[color].list[j]->name == stable[i]->name) {
-				belongs = true;
-				break;
-			}
-		if (!belongs)
-			return false;
-	}
+  for (int i = 1; i <= n_stable; ++i) {
+    bool belongs = false;
+    for (int j = 1; j <= V[color].n_list; ++j)
+      if (V[color].list[j]->name == stable[i]->name) {
+        belongs = true;
+        break;
+      }
+    if (!belongs)
+      return false;
+  }
 
-	for (int i = 1; i <= n_stable-1; ++i)
-		for (int j = i+1; j <= n_stable; ++j) {
-			int u = stable[i]->name;
-			int v = stable[j]->name;
-			if (G->adj[u][v] || G->adj[v][u])
-				return false;
-		}
-	
-	return true;
+  for (int i = 1; i <= n_stable - 1; ++i)
+    for (int j = i + 1; j <= n_stable; ++j) {
+      int u = stable[i]->name;
+      int v = stable[j]->name;
+      if (G->adj[u][v] || G->adj[v][u])
+        return false;
+    }
+
+  return true;
 }
-
 
 bool Graph::check_coloring(std::vector<int> &) {
-	// TODO
-	return true;
+  // TODO
+  return true;
 }
-
 
 void Graph::update_pool() {
-	for (int i = 0; i < K.size(); ++i) {
-		// Delete the current global_pool
-		for (auto &s: global_pool[i]) 
-			free(s.list);
-		global_pool[i].clear();
-		// Copy the local pool to the global pool
-		for (auto it = local_pool[i].begin(); it != local_pool[i].end();) {
-			global_pool[i].emplace_back(it->list, it->n_list);
-			it = local_pool[i].erase(it);
-		}
-	}
+  for (int i = 0; i < K.size(); ++i) {
+    // Delete the current global_pool
+    for (auto &s : global_pool[i])
+      free(s.list);
+    global_pool[i].clear();
+    // Copy the local pool to the global pool
+    for (auto it = local_pool[i].begin(); it != local_pool[i].end();) {
+      global_pool[i].emplace_back(it->list, it->n_list);
+      it = local_pool[i].erase(it);
+    }
+  }
 }
 
-void Graph::column_to_stable (bool *column, int size, nodepnt **stable) {
-	MWIS_MALLOC(*stable, size + 1, nodepnt);
-	int index = 1;
-	for (int j = 0; j < get_n_vertices(); ++j)
-		if (column[j])
-			(*stable)[index++] = G->node_list + (j+1);
-	return;
+void Graph::column_to_stable(bool *column, int size, nodepnt **stable) {
+  MWIS_MALLOC(*stable, size + 1, nodepnt);
+  int index = 1;
+  for (int j = 0; j < get_n_vertices(); ++j)
+    if (column[j])
+      (*stable)[index++] = G->node_list + (j + 1);
+  return;
 }
 
-void Graph::stable_to_column (nodepnt *stable, int size, bool **column) {
-	*column = new bool[get_n_vertices()];
-	for (int j = 0; j < get_n_vertices(); ++j)
-		(*column)[j] = false;
-	for (int j = 1; j <= size; ++j)
-		(*column)[stable[j]->name - 1] = true;
-	return;
+void Graph::stable_to_column(nodepnt *stable, int size, bool **column) {
+  *column = new bool[get_n_vertices()];
+  for (int j = 0; j < get_n_vertices(); ++j)
+    (*column)[j] = false;
+  for (int j = 1; j <= size; ++j)
+    (*column)[stable[j]->name - 1] = true;
+  return;
 }
 
+void Graph::translate_stable_set(int color, nodepnt *stable_father,
+                                 int n_stable_father, nodepnt **stable_son,
+                                 int *n_stable_son) {
 
-void Graph::translate_stable_set (int color, nodepnt *stable_father, int n_stable_father, nodepnt **stable_son, int *n_stable_son) {
+  if (BRANCHING_STRATEGY == 0) {
 
-	if (BRANCHING_STRATEGY == 0) {
+    // Allocate memory for the son's stable set
+    MWIS_MALLOC(*stable_son, V[color].n_list + 1, nodepnt);
+    *n_stable_son = 0;
 
-		// Allocate memory for the son's stable set
-		MWIS_MALLOC(*stable_son, V[color].n_list + 1, nodepnt);
-		*n_stable_son = 0;
+    if (st == JOIN) {
+      bool is_u = false, is_v = false;
+      for (int j = 1; j <= n_stable_father; ++j) {
+        int w = stable_father[j]->name;
+        if (w == branch_vertex_u) {
+          is_u = true;
+          if (is_v)
+            continue;
+        } else if (w == branch_vertex_v) {
+          is_v = true;
+          if (is_u)
+            continue;
+        }
+        (*n_stable_son)++;
+        (*stable_son)[*n_stable_son] = G->node_list + w;
+      }
+      if (is_u && is_v)
+        maximize_stable_set(color, stable_son, n_stable_son);
 
-		if (st == JOIN) {
-			bool is_u = false, is_v = false;
-			for (int j = 1; j <= n_stable_father; ++j) {
-				int w = stable_father[j]->name;
-				if (w == branch_vertex_u) {
-					is_u = true;
-					if (is_v) continue;
-				}
-				else if (w == branch_vertex_v) {
-					is_v = true;
-					if (is_u) continue;
-				}
-				(*n_stable_son)++;
-				(*stable_son)[*n_stable_son] = G->node_list + w;
-			}
-			if (is_u && is_v)
-				maximize_stable_set(color, stable_son, n_stable_son);
+      return;
+    }
 
-			return;	
-		}
+    else if (st == COLLAPSE) {
+      bool is_u = false, is_v = false;
+      for (int j = 1; j <= n_stable_father; ++j) {
+        int w = stable_father[j]->name;
+        if (w < branch_vertex_u) {
+          (*n_stable_son)++;
+          (*stable_son)[*n_stable_son] = G->node_list + w;
+        } else if (w == branch_vertex_u) {
+          is_u = true;
+          continue;
+        } else if (w < branch_vertex_v) {
+          (*n_stable_son)++;
+          (*stable_son)[*n_stable_son] = G->node_list + w;
+        } else if (w == branch_vertex_v) {
+          is_v = true;
+          continue;
+        } else {
+          (*n_stable_son)++;
+          (*stable_son)[*n_stable_son] = G->node_list + (w - 1);
+        }
+      }
+      if (is_u && is_v) {
+        (*n_stable_son)++;
+        (*stable_son)[*n_stable_son] = G->node_list + branch_vertex_u;
+      } else if (is_u != is_v)
+        maximize_stable_set(color, stable_son, n_stable_son);
 
-		else if (st == COLLAPSE) {
-			bool is_u = false, is_v = false;
-			for (int j = 1; j <= n_stable_father; ++j) {
-				int w = stable_father[j]->name;
-				if (w < branch_vertex_u) {
-					(*n_stable_son)++;
-					(*stable_son)[*n_stable_son] = G->node_list + w;				
-				}
-				else if (w == branch_vertex_u) {
-					is_u = true;
-					continue;
-				}
-				else if (w < branch_vertex_v) {
-					(*n_stable_son)++;
-					(*stable_son)[*n_stable_son] = G->node_list + w;
-				}
-				else if (w == branch_vertex_v) {
-					is_v = true;
-					continue;
-				}
-				else {
-					(*n_stable_son)++;
-					(*stable_son)[*n_stable_son] = G->node_list + (w-1);
-				}
-			}
-			if (is_u && is_v) {
-				(*n_stable_son)++;
-				(*stable_son)[*n_stable_son] = G->node_list + branch_vertex_u;
-			}
-			else if (is_u != is_v)
-				maximize_stable_set(color, stable_son, n_stable_son);
+      return;
+    }
 
-			return;	
-		}
-	
-		else
-			bye ("Undefined branching status");
+    else
+      bye("Undefined branching status");
 
-	}
+  }
 
-	else
-		bye ("Undefined translate_stable_set() for the current branching strategy");
-
+  else
+    bye("Undefined translate_stable_set() for the current branching strategy");
 }
 
 Graph *Graph::join_vertices(int u, int v) {
 
-	// Build a new graph
-	Graph *H = new Graph();
+  // Build a new graph
+  Graph *H = new Graph();
 
-	// Vertices start at 1
-	u = u+1;
-	v = v+1;
+  // Vertices start at 1
+  u = u + 1;
+  v = v + 1;
 
-	// Build Sewell's graph
-	H->G = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
-	allocate_graph(H->G, get_n_vertices());
-	for(int i = 0; i <= H->G->n_nodes; i++)
-		for(int j = 0; j <= H->G->n_nodes; j++)
-			H->G->adj[i][j] = G->adj[i][j];
-	H->G->adj[u][v] = 1;
-	H->G->adj[v][u] = 1;
+  // Build Sewell's graph
+  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(H->G, get_n_vertices());
+  for (int i = 0; i <= H->G->n_nodes; i++)
+    for (int j = 0; j <= H->G->n_nodes; j++)
+      H->G->adj[i][j] = G->adj[i][j];
+  H->G->adj[u][v] = 1;
+  H->G->adj[v][u] = 1;
 
-	build_graph(H->G);
+  build_graph(H->G);
 
-	// Set some information necessary to solve the MWSSP
-	for(int i = 1; i <= H->G->n_nodes; i++) {
-		MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes+1, nodepnt*);
-		H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
-		H->G->node_list[i].adj2 = H->G->adj_last[i];
-	}
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= H->G->n_nodes; i++) {
+    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+    H->G->node_list[i].adj2 = H->G->adj_last[i];
+  }
 
-	// Build vector of costs
-	H->w.assign(w.begin(), w.end());
+  // Build vector of costs
+  H->w.assign(w.begin(), w.end());
 
-	// Build vector of indistinguishable colors
-	H->K.assign(K.begin(), K.end());
+  // Build vector of indistinguishable colors
+  H->K.assign(K.begin(), K.end());
 
-	// Build the partition into indistinguishable colors
-	H->C.assign(C.begin(), C.end());
+  // Build the partition into indistinguishable colors
+  H->C.assign(C.begin(), C.end());
 
-	// Build Vk's
-	H->V.resize(H->K.size());
-	for (int i = 0; i < H->K.size(); ++i) {
-		H->V[i].n_list = V[i].n_list;
-		H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-		for (int j = 1; j <= H->V[i].n_list; ++j)
-			H->V[i].list[j] = H->G->node_list + V[i].list[j]->name;
-	}
+  // Build Vk's
+  H->V.resize(H->K.size());
+  for (int i = 0; i < H->K.size(); ++i) {
+    H->V[i].n_list = V[i].n_list;
+    H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+    for (int j = 1; j <= H->V[i].n_list; ++j)
+      H->V[i].list[j] = H->G->node_list + V[i].list[j]->name;
+  }
 
-	// Set branch information
-	H->st = JOIN;
-	H->branch_vertex_u = u;
-	H->branch_vertex_v = v;
+  // Set branch information
+  H->st = JOIN;
+  H->branch_vertex_u = u;
+  H->branch_vertex_v = v;
 
-	// Build vertex mapping
-	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+  // Build vertex mapping
+  H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
 
-	// Build precoloring
-	H->precoloring.assign(precoloring.begin(),precoloring.end());
-	
-	// Build precoloring cost
-	H->precoloring_value = precoloring_value; 	
-	
+  // Build precoloring
+  H->precoloring.assign(precoloring.begin(), precoloring.end());
+
+  // Build precoloring cost
+  H->precoloring_value = precoloring_value;
+
 #ifdef STABLE_POOL
-	// Build the pools
-	H->global_pool.resize(H->K.size());
-	H->local_pool.resize(H->K.size());
-	// Copy into H->global_pool the stables from global_pool
-	for (int i = 0; i < H->K.size(); ++i) {
-		for (auto &s: global_pool[i]) {
-			nodepnt *stable = NULL;
-			int n_stable = 0;
-			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
-			H->global_pool[i].emplace_back(stable, n_stable);
-		}
-	}
+  // Build the pools
+  H->global_pool.resize(H->K.size());
+  H->local_pool.resize(H->K.size());
+  // Copy into H->global_pool the stables from global_pool
+  for (int i = 0; i < H->K.size(); ++i) {
+    for (auto &s : global_pool[i]) {
+      nodepnt *stable = NULL;
+      int n_stable = 0;
+      H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
+      H->global_pool[i].emplace_back(stable, n_stable);
+    }
+  }
 #endif
 
-	return H;
-
+  return H;
 }
 
 Graph *Graph::collapse_vertices(int u, int v) {
 
-	// Build a new graph
-	Graph *H = new Graph();
+  // Build a new graph
+  Graph *H = new Graph();
 
-	// Vertices start at 1
-	u = u+1;
-	v = v+1;
-	if (u > v) { // Swap to ensure u < v
-		int t = u;
-		u = v;
-		v = t;
-	}
+  // Vertices start at 1
+  u = u + 1;
+  v = v + 1;
+  if (u > v) { // Swap to ensure u < v
+    int t = u;
+    u = v;
+    v = t;
+  }
 
-	// Build Sewell's graph
-	H->G = (MWSSgraphpnt) malloc(sizeof(MWSSgraph));
-	allocate_graph(H->G, get_n_vertices() - 1); // We have one less vertex
-	for(int i = 0; i <= H->G->n_nodes; i++)
-		for(int j = 0; j <= H->G->n_nodes; j++)
-			H->G->adj[i][j] = G->adj[i >= v ? i+1 : i][j >= v ? j+1 : j]; // Ignore the entry of v
-	// Add the neighbours of v to the entry of u
-	for (int j = 1; j < v; ++j) {
-		if (G->adj[v][j]) {
-			H->G->adj[u][j] = 1;
-			H->G->adj[j][u] = 1;		
-		}
-	}
-	for (int j = v+1; j <= get_n_vertices(); ++j) {
-		if (G->adj[v][j]) {
-			H->G->adj[u][j-1] = 1;
-			H->G->adj[j-1][u] = 1;
-		}
-	}
+  // Build Sewell's graph
+  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(H->G, get_n_vertices() - 1); // We have one less vertex
+  for (int i = 0; i <= H->G->n_nodes; i++)
+    for (int j = 0; j <= H->G->n_nodes; j++)
+      H->G->adj[i][j] = G->adj[i >= v ? i + 1 : i]
+                              [j >= v ? j + 1 : j]; // Ignore the entry of v
+  // Add the neighbours of v to the entry of u
+  for (int j = 1; j < v; ++j) {
+    if (G->adj[v][j]) {
+      H->G->adj[u][j] = 1;
+      H->G->adj[j][u] = 1;
+    }
+  }
+  for (int j = v + 1; j <= get_n_vertices(); ++j) {
+    if (G->adj[v][j]) {
+      H->G->adj[u][j - 1] = 1;
+      H->G->adj[j - 1][u] = 1;
+    }
+  }
 
-	build_graph(H->G);
+  build_graph(H->G);
 
-	// Set some information necessary to solve the MWSSP
-	for(int i = 1; i <= H->G->n_nodes; i++) {
-		MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes+1, nodepnt*);
-		H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
-		H->G->node_list[i].adj2 = H->G->adj_last[i];
-	}	
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= H->G->n_nodes; i++) {
+    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+    H->G->node_list[i].adj2 = H->G->adj_last[i];
+  }
 
-	// Build vector of costs
-	H->w.assign(w.begin(), w.end());
+  // Build vector of costs
+  H->w.assign(w.begin(), w.end());
 
-	// Build vector of indistinguishable colors
-	H->K.assign(K.begin(), K.end());
+  // Build vector of indistinguishable colors
+  H->K.assign(K.begin(), K.end());
 
-	// Build the partition into indistinguishable colors
-	H->C.assign(C.begin(), C.end());
+  // Build the partition into indistinguishable colors
+  H->C.assign(C.begin(), C.end());
 
-	// Build Vk's
-	H->V.resize(H->K.size());
-	for (int i = 0; i < H->K.size(); ++i) {
-		H->V[i].list = new nodepnt[V[i].n_list + 1]; // At most as many vertices as V[i]
-		H->V[i].n_list = 0;
-		bool is_u = false;
-		bool is_v = false;
-		for (int j = 1; j <= V[i].n_list; ++j) {
-			int w = V[i].list[j]->name; 
-			if (w < u) {
-				H->V[i].n_list++;
-				H->V[i].list[H->V[i].n_list] = H->G->node_list + w;
-			}
-			else if (w == u) is_u = true;
-			else if (w < v) {
-				H->V[i].n_list++;
-				H->V[i].list[H->V[i].n_list] = H->G->node_list + w;
-			}
-			else if (w == v) is_v = true;
-			else {
-				H->V[i].n_list++;
-				H->V[i].list[H->V[i].n_list] = H->G->node_list + (w-1);
-			}
-		}
-		if (is_u && is_v) {
-			H->V[i].n_list++;
-			H->V[i].list[H->V[i].n_list] = H->G->node_list + u;
-		}
-	}
+  // Build Vk's
+  H->V.resize(H->K.size());
+  for (int i = 0; i < H->K.size(); ++i) {
+    H->V[i].list =
+        new nodepnt[V[i].n_list + 1]; // At most as many vertices as V[i]
+    H->V[i].n_list = 0;
+    bool is_u = false;
+    bool is_v = false;
+    for (int j = 1; j <= V[i].n_list; ++j) {
+      int w = V[i].list[j]->name;
+      if (w < u) {
+        H->V[i].n_list++;
+        H->V[i].list[H->V[i].n_list] = H->G->node_list + w;
+      } else if (w == u)
+        is_u = true;
+      else if (w < v) {
+        H->V[i].n_list++;
+        H->V[i].list[H->V[i].n_list] = H->G->node_list + w;
+      } else if (w == v)
+        is_v = true;
+      else {
+        H->V[i].n_list++;
+        H->V[i].list[H->V[i].n_list] = H->G->node_list + (w - 1);
+      }
+    }
+    if (is_u && is_v) {
+      H->V[i].n_list++;
+      H->V[i].list[H->V[i].n_list] = H->G->node_list + u;
+    }
+  }
 
-	// Set branch information
-	H->st = COLLAPSE;
-	H->branch_vertex_u = u;
-	H->branch_vertex_v = v;
+  // Set branch information
+  H->st = COLLAPSE;
+  H->branch_vertex_u = u;
+  H->branch_vertex_v = v;
 
-	// Build vertex mapping
-	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
-	for (int i = 1; i < H->vertex_mapping.size(); ++i) {
-		if (H->vertex_mapping[i] < v)
-			continue;
-		else if (H->vertex_mapping[i] == v)
-			H->vertex_mapping[i] = u;
-		else
-			H->vertex_mapping[i] = H->vertex_mapping[i] - 1;
-	}
-	
-	// Build precoloring
-	H->precoloring.assign(precoloring.begin(),precoloring.end());
-	
-	// Build precoloring cost
-	H->precoloring_value = precoloring_value; 
-	
+  // Build vertex mapping
+  H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+  for (int i = 1; i < H->vertex_mapping.size(); ++i) {
+    if (H->vertex_mapping[i] < v)
+      continue;
+    else if (H->vertex_mapping[i] == v)
+      H->vertex_mapping[i] = u;
+    else
+      H->vertex_mapping[i] = H->vertex_mapping[i] - 1;
+  }
+
+  // Build precoloring
+  H->precoloring.assign(precoloring.begin(), precoloring.end());
+
+  // Build precoloring cost
+  H->precoloring_value = precoloring_value;
+
 #ifdef STABLE_POOL
-	// Build the pools
-	H->global_pool.resize(H->K.size());
-	H->local_pool.resize(H->K.size());
-	// Copy into H->global_pool the stables from global_pool
-	for (int i = 0; i < H->K.size(); ++i) {
-		for (auto &s: global_pool[i]) {
-			nodepnt *stable = NULL;
-			int n_stable = 0;
-			H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
-			H->global_pool[i].emplace_back(stable, n_stable);
-		}
-	}
+  // Build the pools
+  H->global_pool.resize(H->K.size());
+  H->local_pool.resize(H->K.size());
+  // Copy into H->global_pool the stables from global_pool
+  for (int i = 0; i < H->K.size(); ++i) {
+    for (auto &s : global_pool[i]) {
+      nodepnt *stable = NULL;
+      int n_stable = 0;
+      H->translate_stable_set(i, s.list, s.n_list, &stable, &n_stable);
+      H->global_pool[i].emplace_back(stable, n_stable);
+    }
+  }
 #endif
 
-	return H;
-
+  return H;
 }
 
-int Graph::get_vertex_u() {
-	return branch_vertex_u - 1;
-}
+int Graph::get_vertex_u() { return branch_vertex_u - 1; }
 
-int Graph::get_vertex_v() {
-	return branch_vertex_v - 1;
-}
+int Graph::get_vertex_v() { return branch_vertex_v - 1; }
 
-int Graph::get_n_total_vertices() {
-	return vertex_mapping.size() - 1;
-}
+int Graph::get_n_total_vertices() { return vertex_mapping.size() - 1; }
 
 int Graph::get_current_vertex(int v) {
-	int cv = vertex_mapping[v+1];
-	if (cv == -1)
-		return -1;
-	else
-		return cv-1;
+  int cv = vertex_mapping[v + 1];
+  if (cv == -1)
+    return -1;
+  else
+    return cv - 1;
 }
 
-int Graph::get_precoloring(int i) {
-	return precoloring[i+1];
-}
+int Graph::get_precoloring(int i) { return precoloring[i + 1]; }
 
-double Graph::get_precoloring_value() {
-	return precoloring_value;
-}
+double Graph::get_precoloring_value() { return precoloring_value; }
 
-BRANCH_STATUS Graph::get_branch_status() {
-	return st;
-}
+BRANCH_STATUS Graph::get_branch_status() { return st; }
 
-Graph* Graph::remove_color(int v, std::set<int> &colors) {
+Graph *Graph::remove_color(int v, std::set<int> &colors) {
 
-	// Build a new graph
-	Graph *H = new Graph();
+  // Build a new graph
+  Graph *H = new Graph();
 
-	// Vertices start at 1
-	v = v+1;
+  // Vertices start at 1
+  v = v + 1;
 
-	// Reuse Sewell's graph
-	H->G = G;
+  // Build Sewell's graph
+  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(H->G, get_n_vertices());
+  for (int i = 0; i <= H->G->n_nodes; i++)
+    for (int j = 0; j <= H->G->n_nodes; j++)
+      H->G->adj[i][j] = G->adj[i][j];
 
-	// Build vector of costs
-	H->w.assign(w.begin(), w.end());
+  build_graph(H->G);
 
-	// Build vector of indistinguishable colors
-	H->K.assign(K.begin(), K.end());
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= H->G->n_nodes; i++) {
+    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+    H->G->node_list[i].adj2 = H->G->adj_last[i];
+  }
 
-	// Build the partition into indistinguishable colors
-	H->C.assign(C.begin(), C.end());
+  // Build vector of costs
+  H->w.assign(w.begin(), w.end());
 
-	// Build Vk's
-	H->V.resize(H->K.size());
-	for (int i = 0; i < H->K.size(); ++i) {
-		if (colors.find(i) != colors.end()) {
-			// Skip v
-			H->V[i].n_list = V[i].n_list - 1;
-			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-			int index = 1;
-			for (int j = 1; j <= V[i].n_list; ++j) {
-				int u = V[i].list[j]->name; 
-				if (u != v)
-					H->V[i].list[index++] = H->G->node_list + u;
-			}
+  // Build vector of indistinguishable colors
+  H->K.assign(K.begin(), K.end());
 
-		}
-		else {
-			H->V[i].n_list = V[i].n_list;
-			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-			for (int j = 1; j <= H->V[i].n_list; ++j)
-				H->V[i].list[j] = H->G->node_list + V[i].list[j]->name;
-		}
-	}
+  // Build the partition into indistinguishable colors
+  H->C.assign(C.begin(), C.end());
 
-	// Build vertex mapping
-	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+  // Build Vk's
+  H->V.resize(H->K.size());
+  for (int i = 0; i < H->K.size(); ++i) {
+    if (colors.find(i) != colors.end()) {
+      // Skip v
+      H->V[i].n_list = V[i].n_list - 1;
+      H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+      int index = 1;
+      for (int j = 1; j <= V[i].n_list; ++j) {
+        int u = V[i].list[j]->name;
+        if (u != v)
+          H->V[i].list[index++] = H->G->node_list + u;
+      }
 
-	// Build precoloring
-	H->precoloring.assign(precoloring.begin(),precoloring.end());
-	
-	// Build precoloring cost
-	H->precoloring_value = precoloring_value; 	
+    } else {
+      H->V[i].n_list = V[i].n_list;
+      H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+      for (int j = 1; j <= H->V[i].n_list; ++j)
+        H->V[i].list[j] = H->G->node_list + V[i].list[j]->name;
+    }
+  }
+
+  // Build vertex mapping
+  H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+
+  // Build precoloring
+  H->precoloring.assign(precoloring.begin(), precoloring.end());
+
+  // Build precoloring cost
+  H->precoloring_value = precoloring_value;
 
 #ifdef STABLE_POOL
-	bye("Stable pool is not implemented yet when branching on color");
+  bye("Stable pool is not implemented yet when branching on color");
 #endif
 
-	return H;
-
+  return H;
 }
 
+Graph *Graph::choose_color(int v, int k) {
 
-Graph* Graph::choose_color(int v, int k) {
+  // Build a new graph
+  Graph *H = new Graph();
 
-	// Build a new graph
-	Graph *H = new Graph();
+  // Vertices start at 1
+  v = v + 1;
 
-	// Vertices start at 1
-	v = v+1;
+  // Build Sewell's graph
+  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+  allocate_graph(H->G, get_n_vertices());
+  for (int i = 0; i <= H->G->n_nodes; i++)
+    for (int j = 0; j <= H->G->n_nodes; j++)
+      H->G->adj[i][j] = G->adj[i][j];
 
-	// Reuse Sewell's graph
-	H->G = G;
+  build_graph(H->G);
 
-	// Build vector of costs
-	H->w.assign(w.begin(), w.end());
+  // Set some information necessary to solve the MWSSP
+  for (int i = 1; i <= H->G->n_nodes; i++) {
+    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+    H->G->node_list[i].adj2 = H->G->adj_last[i];
+  }
 
-	// Build vector of indistinguishable colors
-	H->K.assign(K.begin(), K.end());
+  // Build vector of costs
+  H->w.assign(w.begin(), w.end());
 
-	// Build the partition into indistinguishable colors
-	H->C.assign(C.begin(), C.end());
+  // Build vector of indistinguishable colors
+  H->K.assign(K.begin(), K.end());
 
-	// Build Vk's
-	H->V.resize(H->K.size());
-	for (int i = 0; i < H->K.size(); ++i) {
-		if (i == k) {
-			// Copy Vk
-			H->V[i].n_list = V[i].n_list;
-			H->V[i].list = new nodepnt[H->V[i].n_list + 1];
-			for (int j = 1; j <= V[i].n_list; ++j) {
-				int u = V[i].list[j]->name;
-				H->V[i].list[j] = H->G->node_list + u;
-			}
-		}
-		else {
-			H->V[i].list = new nodepnt[V[i].n_list + 1];
-			H->V[i].n_list = 0;
-			for (int j = 1; j <= V[i].n_list; ++j) {
-				int u = V[i].list[j]->name;
-				if (u != v)
-					H->V[i].list[++(H->V[i].n_list)] = H->G->node_list + u;
-			}
-		}
-	}
+  // Build the partition into indistinguishable colors
+  H->C.assign(C.begin(), C.end());
 
-	// Build vertex mapping
-	H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+  // Build Vk's
+  H->V.resize(H->K.size());
+  for (int i = 0; i < H->K.size(); ++i) {
+    if (i == k) {
+      // Copy Vk
+      H->V[i].n_list = V[i].n_list;
+      H->V[i].list = new nodepnt[H->V[i].n_list + 1];
+      for (int j = 1; j <= V[i].n_list; ++j) {
+        int u = V[i].list[j]->name;
+        H->V[i].list[j] = H->G->node_list + u;
+      }
+    } else {
+      H->V[i].list = new nodepnt[V[i].n_list + 1];
+      H->V[i].n_list = 0;
+      for (int j = 1; j <= V[i].n_list; ++j) {
+        int u = V[i].list[j]->name;
+        if (u != v)
+          H->V[i].list[++(H->V[i].n_list)] = H->G->node_list + u;
+      }
+    }
+  }
 
-	// Build precoloring
-	H->precoloring.assign(precoloring.begin(),precoloring.end());
-	
-	// Build precoloring cost
-	H->precoloring_value = precoloring_value; 	
+  // Build vertex mapping
+  H->vertex_mapping.assign(vertex_mapping.begin(), vertex_mapping.end());
+
+  // Build precoloring
+  H->precoloring.assign(precoloring.begin(), precoloring.end());
+
+  // Build precoloring cost
+  H->precoloring_value = precoloring_value;
 
 #ifdef STABLE_POOL
-	bye("Stable pool is not implemented yet when branching on color");
+  bye("Stable pool is not implemented yet when branching on color");
 #endif
 
-	return H;
-
+  return H;
 }
