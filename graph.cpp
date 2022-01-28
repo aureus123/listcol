@@ -17,8 +17,12 @@ Graph::Graph(char *filename_graph, char *filename_costs, char *filename_lists) {
 }
 
 Graph::~Graph() {
-  free_graph(G);
-  free(G);
+
+  if (BRANCHING_STRATEGY == 0 ||
+      (BRANCHING_STRATEGY == 1 && PREPROCESSING == 2)) {
+    free_graph(G);
+    free(G);
+  }
   for (int i = 0; i < K.size(); ++i)
     delete[] V[i].list;
 
@@ -632,6 +636,7 @@ void Graph::preprocess_remove_vertex(int v, int j) {
       H->adj[i][j] = G->adj[i >= v ? i + 1 : i]
                            [j >= v ? j + 1 : j]; // Ignore the entry of v
   build_graph(H);
+
   // Set some information necessary to solve the MWSSP
   for (int i = 1; i <= H->n_nodes; i++) {
     MWIS_MALLOC(H->node_list[i].adj_last, H->n_nodes + 1, nodepnt *);
@@ -1243,19 +1248,23 @@ Graph *Graph::remove_color(int v, std::set<int> &colors) {
   v = v + 1;
 
   // Build Sewell's graph
-  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
-  allocate_graph(H->G, get_n_vertices());
-  for (int i = 0; i <= H->G->n_nodes; i++)
-    for (int j = 0; j <= H->G->n_nodes; j++)
-      H->G->adj[i][j] = G->adj[i][j];
+  if (PREPROCESSING != 2) {
+    H->G = G;
+  } else {
+    H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+    allocate_graph(H->G, get_n_vertices());
+    for (int i = 0; i <= H->G->n_nodes; i++)
+      for (int j = 0; j <= H->G->n_nodes; j++)
+        H->G->adj[i][j] = G->adj[i][j];
 
-  build_graph(H->G);
+    build_graph(H->G);
 
-  // Set some information necessary to solve the MWSSP
-  for (int i = 1; i <= H->G->n_nodes; i++) {
-    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
-    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
-    H->G->node_list[i].adj2 = H->G->adj_last[i];
+    // Set some information necessary to solve the MWSSP
+    for (int i = 1; i <= H->G->n_nodes; i++) {
+      MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+      H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+      H->G->node_list[i].adj2 = H->G->adj_last[i];
+    }
   }
 
   // Build vector of costs
@@ -1314,19 +1323,23 @@ Graph *Graph::choose_color(int v, int k) {
   v = v + 1;
 
   // Build Sewell's graph
-  H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
-  allocate_graph(H->G, get_n_vertices());
-  for (int i = 0; i <= H->G->n_nodes; i++)
-    for (int j = 0; j <= H->G->n_nodes; j++)
-      H->G->adj[i][j] = G->adj[i][j];
+  if (PREPROCESSING != 2)
+    H->G = G;
+  else {
+    H->G = (MWSSgraphpnt)malloc(sizeof(MWSSgraph));
+    allocate_graph(H->G, get_n_vertices());
+    for (int i = 0; i <= H->G->n_nodes; i++)
+      for (int j = 0; j <= H->G->n_nodes; j++)
+        H->G->adj[i][j] = G->adj[i][j];
 
-  build_graph(H->G);
+    build_graph(H->G);
 
-  // Set some information necessary to solve the MWSSP
-  for (int i = 1; i <= H->G->n_nodes; i++) {
-    MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
-    H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
-    H->G->node_list[i].adj2 = H->G->adj_last[i];
+    // Set some information necessary to solve the MWSSP
+    for (int i = 1; i <= H->G->n_nodes; i++) {
+      MWIS_MALLOC(H->G->node_list[i].adj_last, H->G->n_nodes + 1, nodepnt *);
+      H->G->node_list[i].adj_last[0] = H->G->adj_last[i];
+      H->G->node_list[i].adj2 = H->G->adj_last[i];
+    }
   }
 
   // Build vector of costs
