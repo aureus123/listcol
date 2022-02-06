@@ -16,7 +16,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 LIBS = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
 CCLNFLAGS = -lm -lconcert -lilocplex -lcplex -pthread
 
-all: vc vcroot st stroot bproot_dum bproot_psc  \
+all: vc vc_noprimal vcroot st stroot bproot_dum bproot_psc  \
      genclassicinst gensetcoverinst gensetcoverrailinst  \
      genrandominst genmuinst gengraph checker \
      bp_edg0 bp_edgalt0 bp_edg1 bp_edgalt1 bp_edg2 bp_edgalt2  \
@@ -270,6 +270,9 @@ vc: listcola.cpp
 
 vcroot: listcola.cpp
 	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DONLYRELAXATION $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
+
+vc_noprimal: listcola.cpp
+	$(CC) -o $@ $^ -DSYMMETRYRESTR1 -DSYMMETRYRESTR3 -DNO_PRIMAL $(CCFLAGS) $(LIBS) $(CCLNFLAGS)
 
 genclassicinst: genclassicinst.cpp
 	$(CC) -o $@ $^ $(CCFLAGS) $(LIBS) $(CCLNFLAGS)

@@ -57,6 +57,7 @@ using namespace std;
 //#define SYMMETRYRESTR1
 //#define SYMMETRYRESTR2
 //#define SYMMETRYRESTR3
+//#define NO_PRIMAL
 
 /* GLOBAL VARIABLES */
 
@@ -1211,6 +1212,14 @@ skip_k:;
 
 	cplex.setParam(IloCplex::Param::MIP::Strategy::HeuristicFreq, 100);
 	cplex.setParam(IloCplex::Param::MIP::Strategy::Backtrack, 0.1);
+#endif
+
+#ifdef NO_PRIMAL
+	cplex.setParam(IloCplex::Param::MIP::Strategy::HeuristicFreq, -1);
+	cplex.setParam(IloCplex::Param::MIP::Strategy::Probe, -1);
+	cplex.setParam(IloCplex::Param::MIP::Strategy::FPHeur, -1);
+	cplex.setParam(IloCplex::Param::MIP::Strategy::RINSHeur, -1);
+	cplex.setParam(IloCplex::Param::MIP::Strategy::LBHeur, CPX_OFF);
 #endif
 
 	cplex.extract(Xmodel);
